@@ -1,0 +1,34 @@
+[
+  {
+    "sop_id": "SOP-AIML-001",
+    "title": "Model Development Lifecycle",
+    "business_unit": "AI/ML Engineering",
+    "regulation": "EU AI Act",
+    "compliance_level": "gap",
+    "weaknesses": [
+      "No provisions for AI system registration in the EU database per Article 49",
+      "Human oversight mechanisms entirely absent despite high-risk classification",
+      "No post-market monitoring plan as required by Article 72"
+    ]
+  },
+  {
+    "sop_id": "SOP-AIML-001",
+    "title": "Model Development Lifecycle",
+    "business_unit": "AI/ML Engineering",
+    "regulation": "NIST AI RMF",
+    "compliance_level": "compliant",
+    "weaknesses": []
+  },
+  {
+    "sop_id": "SOP-AIML-001",
+    "title": "Model Development Lifecycle",
+    "business_unit": "AI/ML Engineering",
+    "regulation": "SR 11-7",
+    "compliance_level": "gap",
+    "weaknesses": [
+      "Independent model validation entirely absent",
+      "No model performance monitoring or back-testing procedures",
+      "Missing model documentation standards \u2014 no model cards or technical specs"
+    ]
+  }
+]
