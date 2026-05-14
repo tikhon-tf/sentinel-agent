@@ -2,10 +2,10 @@
 sop_id: "SOP-HR-008"
 title: "Mandatory Compliance Training"
 business_unit: "Human Resources"
-version: "5.8"
-effective_date: "2024-05-01"
-last_reviewed: "2025-05-03"
-next_review: "2025-11-19"
+version: "3.2"
+effective_date: "2025-11-26"
+last_reviewed: "2026-12-15"
+next_review: "2027-06-06"
 owner: "Jennifer Walsh, Chief Human Resources Officer"
 approver: "Dr. Sarah Chen, CEO"
 classification: "Internal"
@@ -19,233 +19,308 @@ status: "Active"
 
 # Standard Operating Procedure: Mandatory Compliance Training
 
-**SOP ID:** SOP-HR-008
-**Version:** 5.8
-**Effective Date:** 2024-05-01
-**Owner:** Jennifer Walsh, Chief Human Resources Officer
-**Approver:** Dr. Sarah Chen, CEO
+**SOP-HR-008 | Version 3.2**
+**Effective Date: 2025-11-26**
+**Owner: Jennifer Walsh, Chief Human Resources Officer**
+**Business Unit: Human Resources**
 
 ---
 
 ## 1. Purpose and Scope
 
 ### 1.1 Purpose
-This Standard Operating Procedure (SOP) establishes the enterprise-wide framework for the design, assignment, delivery, tracking, and enforcement of mandatory compliance training at Meridian Health Technologies, Inc. The program is designed to ensure that all personnel understand their legal, regulatory, and ethical obligations, thereby mitigating organizational risk and fostering a culture of compliance. This SOP operationalizes the Board-level commitment to maintain a workforce that is demonstrably proficient in handling Protected Health Information (PHI), personal data subject to global privacy regulations, and high-risk Artificial Intelligence (AI) systems.
+
+This Standard Operating Procedure (SOP) establishes the framework, requirements, and operational processes for the Mandatory Compliance Training Program at Meridian Health Technologies, Inc. The program is designed to ensure that all personnel—employees, contractors, temporary staff, and third-party vendors with system access—possess and maintain the knowledge, skills, and awareness necessary to fulfill their regulatory obligations, protect sensitive data, and uphold the company's ethical and legal commitments across all jurisdictions in which Meridian operates.
+
+This SOP provides the mechanism through which Meridian demonstrates to auditors, regulators, and clients the systematic delivery and tracking of compliance education as a critical internal control, specifically supporting the requirements of SOC 2 Common Criteria (CC) series and the EU AI Act. The program operationalizes the principle that compliance is a continuous state of readiness, not a periodic event.
 
 ### 1.2 Scope
-This SOP applies to all Meridian Health Technologies, Inc. entities globally, including subsidiaries in London, Berlin, Singapore, and Toronto. The scope encompasses:
 
-- **All Personnel:** Full-time employees, part-time employees, independent contractors, temporary workers, interns, and consultants who access Meridian systems, networks, or data.
-- **All Business Units:** Clinical AI Platform, HealthPay Financial Services, MedInsight Analytics, Meridian SaaS Platform, and all corporate functions (Human Resources, Finance, Legal, IT, etc.).
-- **All Regulatory Domains:** Mandatory training requirements related to HIPAA, SOC 2, GDPR, the EU AI Act, NIST AI RMF, SR 11-7, and other relevant frameworks as defined in the Meridian Regulatory Obligations Register.
+This SOP applies to all Meridian Health Technologies, Inc. business units, subsidiaries, and global offices (Boston, London, Berlin, Singapore, Toronto). It governs the assignment, delivery, completion, and remediation of all compliance-related training modules.
 
-This SOP does **not** cover technical product-specific training or general professional development, which are managed by respective business unit leads, except where such training is explicitly mandated by a compliance control or regulation referenced herein.
+**In-Scope Personnel:**
+- All full-time and part-time employees of Meridian Health Technologies, Inc.
+- All independent contractors, consultants, and temporary staff who have been granted access to any Meridian information system, network, or facility.
+- All third-party vendor personnel whose roles require access to Meridian client data, PHI, or Meridian SaaS Platform infrastructure, as contractually obligated.
+- Members of the Board of Directors who interact with sensitive corporate information.
+
+**In-Scope Systems:**
+- Meridian’s Learning Management System (LMS): Workday Learning.
+- The Meridian SaaS Platform (AWS us-east-1, eu-west-1).
+- All endpoints used to access compliance training content.
+
+**Out of Scope:**
+- Clinical skills competency assessments managed by Clinical Operations (see SOP-CLIN-021).
+- Technical product training specific to software development lifecycles, unless directly linked to a regulatory mandate.
 
 ---
 
 ## 2. Definitions and Acronyms
 
-| Term / Acronym        | Definition                                                                                                                                                              |
-| :-------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI Literacy**       | The skills, knowledge, and understanding that allow personnel to make informed use of AI systems, as mandated by Article 4 of the EU AI Act.                            |
-| **Annual Training Period** | The defined window, from June 1 to September 30, during which all annual mandatory compliance training must be completed.                                           |
-| **CCO**               | Chief Compliance Officer, Thomas Anderson.                                                                                                                              |
-| **CHRO**              | Chief Human Resources Officer, Jennifer Walsh.                                                                                                                          |
-| **CMS**               | Compliance Management System, the platform provided by LogicGate, used for hosting, assigning, and tracking all compliance training modules.                            |
-| **CPO/DPO**           | Chief Privacy Officer / Data Protection Officer, Dr. Klaus Weber.                                                                                                      |
-| **EU AI Act**         | Regulation (EU) 2024/1689 laying down harmonized rules on artificial intelligence.                                                                                      |
-| **HIPAA**             | Health Insurance Portability and Accountability Act of 1996.                                                                                                           |
-| **HRIS**              | Human Resources Information System, Workday. This remains the system of record for employment data and drives role-based training assignments.                          |
-| **LMS**               | Learning Management System, a sub-module within the CMS (LogicGate) used for content delivery, SCORM package hosting, and quiz administration.                         |
-| **NIST AI RMF**       | National Institute of Standards and Technology Artificial Intelligence Risk Management Framework 1.0, adopted voluntarily on 2024-02-15.                               |
-| **PHI**               | Protected Health Information, as defined by HIPAA.                                                                                                                      |
-| **Role-Based Training** | Specific training curricula automatically assigned based on an individual's job function and access privileges, as mapped in the HRIS.                               |
-| **SOC 2**             | Service Organization Control 2, governed by the Trust Services Criteria (TSC) established by the AICPA.                                                                 |
-| **SR 11-7**           | Federal Reserve SR Letter 11-7 / OCC Bulletin 2011-12, "Model Risk Management," applicable to HealthPay Financial Services' model development.                         |
-| **Triggering Event**  | An event, such as a security incident, identified process gap, or a new hire's start date, that creates a non-standard training demand.                                |
+| Term / Acronym | Definition |
+| :--- | :--- |
+| **AI Literacy** | As defined by EU AI Act Article 4(b), the skills, knowledge, and understanding that allow providers, deployers, and affected persons to make informed decisions regarding AI systems. |
+| **Annual Compliance Window** | The mandatory 45-day period from September 1 to October 15 during which all personnel must complete assigned annual refresher training. |
+| **Assignment Profile** | A dynamically generated set of required training modules mapped to a specific role’s risk, data access, and regulatory exposure. |
+| **CC** | SOC 2 Common Criteria (Security, Availability, Processing Integrity, Confidentiality, Privacy). |
+| **CHRO** | Chief Human Resources Officer. |
+| **CISO** | Chief Information Security Officer. |
+| **CPO/DPO** | Chief Privacy Officer / Data Protection Officer. |
+| **High-Risk AI System** | An AI system classified under Annex III of the EU AI Act, including Meridian’s Clinical AI Platform. |
+| **LMS** | Learning Management System (Workday Learning). |
+| **New Hire Onboarding** | The initial 10-business-day period following an employee’s start date. |
+| **PHI** | Protected Health Information, as defined by HIPAA. |
+| **Remediation Period** | A 7-calendar-day window following a missed deadline during which an individual must complete overdue training before disciplinary action is initiated. |
 
 ---
 
 ## 3. Roles and Responsibilities
 
-| Role                                 | Responsibility                                                                                                                                                                                                                                  | Assigned Person / System       |
-| :----------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------- |
-| **Executive Sponsor (CEO)**          | Provide executive-level support; approve significant policy changes and resource allocation for the compliance training program.                                                                                                                | Dr. Sarah Chen                 |
-| **Process Owner (CHRO)**             | Own the performance of the overall training program; approve curriculum architecture, SLA modifications, and escalation procedures. Ensure the HRIS feeds accurate personnel data to the CMS.                                                   | Jennifer Walsh                 |
-| **Program Manager (Head of LMS)**   | Design, maintain, and publish the Annual Training Catalog; manage the CMS configuration; generate monthly compliance dashboards; escalate non-compliance to business unit directors.                                                              | Head of LMS, HR Operations     |
-| **Content Approvers**                | Review and approve the technical and regulatory accuracy of all training content within their domain prior to publication.                                                                                                                      | CCO (HIPAA/SOC 2), CPO/DPO (GDPR), Chief AI Officer (EU AI Act) |
-| **Business Unit Directors**          | Accountable for ensuring 100% of their personnel complete assigned training by the deadlines; receive and act on non-compliance notifications from the Program Manager; approve exception requests and remedial training plans.                | Respective VPs and Directors   |
-| **Personnel (All)**                  | Complete all assigned mandatory training by the specified deadlines; attest to understanding the content; apply the knowledge to daily job functions.                                                                                           | All Meridian Personnel         |
-| **Systems (HRIS & CMS)**            | **HRIS (Workday):** System of record for employment status, job codes, department, and management hierarchy. **CMS (LogicGate):** System for training assignment, delivery, assessment, and record-keeping; stores completion records and attestations. | Automated Systems              |
+| Role | Responsibility (RACI) | Position Holder |
+| :--- | :--- | :--- |
+| **Program Owner** | **Accountable** for the overall program, policy approval, and resource allocation. Final escalation point for non-compliance. | Jennifer Walsh, CHRO |
+| **Program Manager** | **Responsible** for the day-to-day management of the LMS, training catalog maintenance, assignment rule updates, and reporting. | Director of Learning & Development, HR |
+| **Content Owners** | **Responsible** for the accuracy, regulatory alignment, and annual review of all training content within their domain. | CISO, CPO/DPO, Chief AI Officer, Chief Compliance Officer |
+| **People Managers** | **Responsible** for ensuring their direct reports complete training on time and for initiating disciplinary procedures for non-compliance. | All people managers at every level |
+| **Internal Audit** | **Consulted** on course content to ensure alignment with audit control objectives. Verifies training completion rates as part of SOC 2 and ISO 27001 audits. | Thomas Anderson, Chief Compliance Officer |
+| **All Personnel** | **Responsible** for completing all assigned training by the specified due dates. | 100% of in-scope individuals |
+| **VP of IT Operations** | **Responsible & Accountable** for the technical availability, integration, and single sign-on (SSO) functionality of the LMS platform. | Samantha Torres |
+| **Vendor Management Office** | **Responsible** for including mandatory training clauses in all third-party contracts and validating completion evidence from vendors. | Director of Procurement |
 
 ---
 
 ## 4. Policy Statements
 
-Meridian Health Technologies is committed to the following mandatory compliance training policies:
+Meridian Health Technologies, Inc. commits to the following principles:
 
-- **Zero-Tolerance for Non-Compliance:** All Personnel are required to complete assigned compliance training by the specified due dates. Failure to comply will result in progressive disciplinary action, up to and including termination of employment or contract, as detailed in Section 7.4.
-- **Role-Based Assignment:** No "one-size-fits-all" approach is permitted. Training is assigned based on a comprehensive matrix mapping job roles to regulatory obligations and system access levels.
-- **Annual Re-Certification:** A foundational set of mandatory training must be completed by all Personnel annually. Additional role-based modules must also be completed annually.
-- **Triggering Event Training:** New hires must complete foundational and role-based training prior to being provisioned with production system credentials. Personnel transferring to new roles that trigger new training requirements must complete that training within 14 calendar days of the transfer date.
-- **Content Integrity and Currency:** All training modules are reviewed at least semi-annually by the Program Manager and designated Content Approvers to ensure continued regulatory accuracy and alignment with Meridian’s evolving products, controls, and threat landscape. The CPO/DPO is responsible for ensuring GDPR training content accurately reflects our data handling procedures, including the existence of privacy notices. The Chief AI Officer is responsible for ensuring EU AI Act content reflects the current risk classification and conformity assessments for our High-Risk AI Systems.
+1.  **Universal Mandate:** No individual with access to Meridian information systems is exempt from compliance training. This includes the CEO and Board of Directors.
+2.  **Role-Based Precision:** Training is not one-size-fits-all. Assignment Profiles are calibrated to the specific regulatory, data privacy, and security risks inherent in each role.
+3.  **Zero Tolerance for Non-Completion:** Failure to complete mandatory training constitutes a violation of the Code of Conduct (SOP-LEG-001), resulting in progressive disciplinary action up to and including termination of employment or contract.
+4.  **Continuous Improvement:** The training catalog undergoes a formal annual review cycle synchronized with changes in the regulatory landscape, audit findings, and identified security incidents.
+5.  **Auditability:** All training records are immutable within the LMS, retained for a minimum of seven years, and available for immediate retrieval by Internal Audit and external assessors.
+6.  **AI Literacy by Default:** In accordance with the EU AI Act, all staff involved in the development, deployment, or oversight of the Clinical AI Platform and MedInsight Analytics shall possess a verified level of AI literacy.
 
 ---
 
 ## 5. Detailed Procedures
 
-### 5.1 Annual Training Catalog Management and Publishing
+### 5.1 Training Catalog Management
 
-The Head of LMS shall maintain the "Meridian Mandatory Compliance Training Catalog" within the CMS. This catalog is the single source of truth for all available compliance training modules, their descriptions, target audiences, and regulatory mappings.
+The Meridian Compliance Training Catalog is a controlled library of courses managed within Workday Learning. The catalog is structured by domain and tier.
 
-**Procedure:**
-1.  **Inventory Review (Bi-Annually):** On the first Monday of March and the first Monday of September, the Head of LMS shall convene a meeting with all Content Approvers (CCO, CPO/DPO, Chief AI Officer, CISO) to review the current catalog. The agenda must cover:
-    - Any new or materially changed regulatory requirements (e.g., new EU AI Act delegated acts, updated SOC 2 TSC points of focus, GDPR procedural changes).
-    - Feedback from monitoring activities (Section 7.3) on module effectiveness.
-    - Requests from Business Unit Directors for new or modified training.
-2.  **Catalog Update:** Based on the review, the Head of LMS updates module descriptions, creates new course shells in the CMS, and retires obsolete training.
-3.  **Content Development/Revision:** For each required update, the Head of LMS commissions the respective Content Approver or an authorized designee to author or revise the SCORM-compliant content package.
-4.  **Quality Assurance (QA):** The revised content package is deployed to a sandbox environment in the CMS. A designated test group comprising one representative from each relevant business unit must complete the module and provide explicit sign-off on technical accuracy and usability. The QA sign-off form must be completed and archived in LogicGate.
-5.  **Content Approval:** The finalized content package is presented to the Content Approvers for formal sign-off within the CMS workflow. This approval locks the content and generates an auditable digital signature.
-6.  **Catalog Publication:** The Head of LMS activates the new/revised modules in the live CMS, updating the "Published Version" date in the catalog. A notification is sent to all Business Unit Directors, signaling the start of the 90-day Annual Training Period for existing personnel.
+#### 5.1.1 Catalog Domains
 
-### 5.2 Role-Based Training Curriculum Assignment
+| Domain ID | Domain Name | Primary Content Owner |
+| :--- | :--- | :--- |
+| SEC | Information Security & Cybersecurity Awareness | Rachel Kim, CISO |
+| PRIV | Data Privacy & Protection | Dr. Klaus Weber, CPO/DPO |
+| AI | AI Ethics, Governance & EU AI Act | Dr. Marcus Rivera, Chief AI Officer |
+| FIN | Financial Services Compliance & Model Risk | Robert Liu, VP of Financial Services |
+| LEGAL | Code of Conduct, Anti-Bribery & Corruption | Maria Gonzalez, General Counsel |
+| OPS | Operational Resilience & Incident Reporting | Samantha Torres, VP of IT Operations |
 
-Personnel are assigned training based on their "Compliance Role," a calculated attribute generated daily in Workday and pushed to LogicGate via API. The Compliance Role algorithm considers 15 distinct factors including job family, department code, AWS IAM permission sets, and Finance-System access flags.
+#### 5.1.2 Training Tiers
 
-**Curriculum Mapping Matrix (Excerpt):**
+Training is stratified into three tiers to balance operational burden with risk depth.
 
-| Compliance Role Code | Role Description                                        | Foundational Modules (All)       | Domain-Specific Modules                                                                 |
-| :------------------- | :------------------------------------------------------ | :------------------------------- | :-------------------------------------------------------------------------------------- |
-| **ALL-001**          | All Personnel                                           | HIP-101, GDPR-AWARE, SOC2-AWARE, AI-AWARE | *None*                                                                                  |
-| **CLINICIAN-010**    | Clinical personnel accessing PHI directly via MedInsight Analytics | *All from ALL-001*               | **PHI-201** (Handling PHI), **CLIN-ETHICS-501** (Patient Data Ethics)                   |
-| **AI-ENG-020**       | Engineers developing/deploying Clinical AI Platform models        | *All from ALL-001*               | **EU-AI-301** (Art. 9 & 61), **NIST-AI-RMF-401** (Risk Frameworks), **AI-BIAS-502**     |
-| **FINANCE-030**      | Personnel processing HealthPay Financial Services transactions    | *All from ALL-001*               | **SR-11-7-601** (Model Risk for Operators), **PCI-DSS-701**                             |
-| **DATA-ENG-040**     | Data Engineers managing MedInsight or SaaS Platform data pipelines | *All from ALL-001*               | **HIP-301**, **EU-DATA-302** (Data Minimization & Purpose Limitation), **SOC2-CM-801** (Change Management) |
-| **EXEC-050**         | VP and above                                             | *All from ALL-001*               | **EXEC-COMPLIANCE-901** (Oversight & Liability)                                         |
+- **Tier 1: Foundational (All Personnel)**
+    - Core modules required for every individual with an active Meridian account.
+    - Modules: `SEC-101: Cybersecurity Essentials`, `PRIV-101: Privacy at Meridian`, `LEGAL-101: Our Code of Conduct`.
 
-**Assignment Procedure:**
-1.  **Nightly Sync:** Each night, Workday calculates the `ComplianceRoleCode` for all active personnel. The HRIS integration agent pushes a flat file containing `PersonnelID`, `ComplianceRoleCode`, `ManagerID`, and `DepartmentCode` to the CMS via a secure SFTP drop.
-2.  **Rule Engine Trigger:** Upon file ingestion, the CMS (LogicGate) rule engine executes the `TrainingRuleSet_v5.8`. For each `PersonnelID`, the engine evaluates the `ComplianceRoleCode` against the published Curriculum Mapping Matrix. If the required module set for the current year does not match the assigned module set, the CMS automatically creates new training assignments or revokes obsolete ones.
-3.  **Exception Queue:** If a `ComplianceRoleCode` cannot be mapped or is missing, the record is moved to a "Role Error" queue. The Head of LMS reviews this queue daily and works with the HRIS team to resolve data source issues.
+- **Tier 2: Functional (Role-Based)**
+    - Modules automatically assigned based on job family, data access levels (e.g., Snowflake roles, Epic access), and geographic location.
+    - Examples: `SEC-201: Secure Coding` for engineers, `PRIV-202: GDPR for Data Processors` for staff in Berlin, `FIN-201: SR 11-7 Model Risk Management` for HealthPay analytics staff.
 
-### 5.3 New Hire and Triggering Event Procedure
-1.  **New Hires:** On the date of hire, as recorded in Workday, the HRIS triggers a "New Hire" event to the CMS. The foundational training (`ALL-001`) is assigned immediately. Access to any system containing PHI, sensitive financial data, or administrative AI interfaces (provisioned via SOP-SEC-002) remains gated. The IAM provisioning system queries the CMS API; unless a "Compliant" status for `ALL-001` and all assigned role-based modules is returned, credentials are not created.
-2.  **Role Transfers:** When a personnel's profile changes in Workday (e.g., promotion to a Director role, transfer to the AI Platform team), the nightly sync (Step 5.2.1) triggers the rule engine. If the new role requires training beyond what was previously completed, the new assignments are created with a due date of 14 calendar days from the event date. Access tied to the *new* role is automatically gated until training is complete, but existing access for the *former* role is not altered during the transition period.
+- **Tier 3: Specialized (High-Risk)**
+    - Modules for personnel directly engaged in high-risk AI development, senior leadership, or roles with elevated administrative privileges.
+    - Modules: `AI-301: EU AI Act Compliance for High-Risk Systems`, `AI-302: Bias Detection and Human Oversight Standards`.
 
-### 5.4 Training Completion and Attestation
-1.  **Module Launch:** Personnel access modules directly via an SSO portal in Okta that directs them to LogicGate.
-2.  **SCORM Interaction:** The CMS tracks progress via the SCORM 2004 (3rd Edition) standard. Module completion is defined as viewing 100% of the slides and passing the embedded knowledge check quiz with a score of ≥ 80%. Personnel have unlimited attempts to pass the quiz.
-3.  **Attestation:** Upon successful quiz completion, the CMS presents a mandatory, standalone attestation statement:
-    > *"I, [Name], acknowledge that I have completed the [Module Name] training. I comprehend my obligations as presented in this training and commit to applying these policies and procedures in my daily work at Meridian Health Technologies. I understand that my failure to uphold these standards may result in disciplinary action, up to and including termination."*
-4.  **Audit Record:** The attestation is digitally signed, capturing the user's unique session ID, a timestamp, and the content version. This record is immutable and immutably stored in the CMS audit trail log. A "Completed" status and digital badge are posted to the personnel's CMS profile immediately.
+### 5.2 Role-Based Assignment Profile Configuration
 
-### 6.5 Remedial Training Procedure
-Remedial training is enforced when a personnel is found to be the root cause or a contributing factor in a validated incident, as determined by a post-incident review (see SOP-SEC-004, Security Incident Response).
-1.  **Incident Post-Mortem:** The incident review board determines that a compliance-policy violation occurred due to an apparent gap in the individual's understanding.
-2.  **Remedial Assignment Request:** The CCO or CISO formally submits a "Remedial Training Request" in LogicGate, linking to the open incident ticket in Jira Service Management. The request details the specific policy violated and the module(s) to be retaken, plus any new, supplemental micro-training.
-3.  **Assignment:** The CCO approves the request. The Head of LMS assigns the module(s) through the CMS, setting a deadline of 7 calendar days from assignment.
-4.  **Completion and Post-Training Interview:** The personnel must complete the module(s). Upon completion, their direct manager is mandated to conduct a 30-minute, documented interview using the Meridian "Compliance Interview Guide" to verify understanding of the remediation. The signed guide is uploaded to the CMS record.
-5.  **Failure to Remediate:** Failure to complete remedial training by the deadline immediately escalates per Section 8.
+The Program Manager, in collaboration with HRIS and Content Owners, maintains an automated rules engine in Workday. This engine generates each user's Assignment Profile based on a matrix of attributes. Manual assignment is prohibited except via the exception process defined in Section 8.
 
-### 6.2 EU AI Act Specific Controls
-Per the requirements for providers of High-Risk AI Systems, the following specific training controls are enforced:
-- **AI Literacy (Art. 4):** Module **EU-AI-AWARE** is mandatory for all Personnel, per curriculum `ALL-001`. The training content, designed and approved by the Chief AI Officer, covers: (1) the technical principles of how our Clinical AI Platform models work (layperson's terms); (2) the concepts of input data bias and output interpretation; and (3) the specific use cases in a clinical workflow context.
-- **Human Oversight (Art. 14):** Personnel assigned to `CLINICIAN-010` and `AI-OPS-022` roles must complete module **EU-AI-HUMAN-302**. This module provides scenario-based training on interpreting the user-in-the-loop interface outputs, correctly identifying anomalies, and understanding the authority to override algorithmic decisions. Competency is measured via a simulated clinical decision exercise with a mandatory 100% pass mark on the override safety procedure.
-- **Automatic Logging (Art. 12):** The CMS, as a supporting tool, automatically logs all training assignments and completions for personnel directly involved in the development and operation of the High-Risk AI System. These logs are retained for a period of ten years, in accordance with the monitoring plan specified in our EU AI Act Technical Documentation (SOP-AI-DOC-001).
+#### 5.2.1 Assignment Matrix Logic
 
-### 6.3 SOC 2 Specific Controls
-In alignment with our SOC 2 Type II examination scope, this SOP implements specific controls mapped to the 2023 Trust Services Criteria:
-- **Control CC2.1 — Communication of Commitments:** The zero-tolerance policy, role-based matrix, and annual cycle detailed in Section 4 are the primary mechanisms for communicating Meridian’s commitment to security, availability, and confidentiality to all internal personnel. The attestation in Step 5.4.3 serves as an auditable check on the receipt and acknowledgment of these commitments.
-- **Control CC2.2 — Communication of Roles and Responsibilities:** Section 3 of this SOP delineates responsibilities. The automated nightly feed from Workday to LogicGate (Step 5.2.1) ensures that a current, authoritative system of record dictates personnel roles, directly driving the specific communication of risk-mitigation responsibilities.
-- **Control PI1.4 — Processing of Personal Information:** The role-based training defined in this SOP, specifically for `DATA-ENG-040` and `PRIVACY-045` roles, provides explicit instruction on how personal information must be processed in accordance with our privacy commitments to our employees and clients. Compliance with this training is monitored via a monthly KPI dashboard (KP-MCT-01-REV) reviewed by the CCO.
-- **Control CC4.2 — Monitoring Activities:** The KPI structure and reporting cadence defined in Section 7.3 constitutes our primary management-level monitoring activity for the training compliance control. Management of the "Exception Queue" in Step 5.2.3 is the associated operational-level monitoring activity.
+| Attribute | Condition | Assigned Modules (Example) |
+| :--- | :--- | :--- |
+| **All Active Users** | Account Status = Active | `SEC-101`, `PRIV-101`, `LEGAL-101` |
+| **Location = Germany** | EU Data Subject Access | `PRIV-202`, `AI-201` |
+| **Department = Engineering** | HRIS Dept Code = ENG | `SEC-201`, `AI-201` |
+| **Data Access = PHI** | HRIS Access Group = PHI_YES | `PRIV-301: PHI Handling` |
+| **Sub-Unit = Clinical AI** | Business Unit = ClinAI | `AI-301`, `AI-302`, `SEC-201` |
+| **VP+ Level** | Grade >= 30 | `LEGAL-301: Insider Trading & Ethics for Leaders` |
+
+#### 5.2.2 New Hire Assignment Trigger
+
+Upon completion of Workday's "Hire Business Process," the LMS automatically generates the new hire's Assignment Profile. The trigger date is Day 0 (start date). New hires receive a "Welcome to Compliance" notification within one hour of account provisioning.
+
+### 5.3 Annual Compliance Window Procedure
+
+The formal annual retraining cycle is rigidly scheduled to ensure predictability for operations and audit planning.
+
+1.  **August 15:** Program Manager ensures all updated Tier 1 and Tier 2 course content is published in the production LMS sandbox. Content Owners have completed their sign-off using Form HR-008-A (Annual Content Attestation).
+2.  **August 25:** Program Manager pushes a final preview of all Assignment Profiles to People Managers via a Workday dashboard. Managers have 5 business days to request changes to their team members' profiles via an HR ServiceNow ticket. Requests for changes must include a documented justification.
+3.  **September 1 (00:01 UTC):** LMS automatically publishes assignments to all in-scope personnel. A notification is sent via email and Slack (channel #compliance-alerts).
+4.  **September 1 – October 15:** Personnel complete their assigned modules. The LMS displays a progress tracker on the employee's Workday home page.
+5.  **October 16 (08:00 UTC):** The first non-completion report is generated and circulated and the Remediation Period begins (see 5.5).
+
+### 5.4 Training Content Requirements for EU AI Act
+
+This section operationalizes Articles 9, 14, and 29 of the EU AI Act for Meridian’s Clinical AI Platform and MedInsight Analytics.
+
+#### 5.4.1 AI Literacy Training (Article 4)
+
+All personnel in Clinical AI, MedInsight, and Quality Assurance teams must complete `AI-301` and `AI-302`. The curriculum, maintained by the Chief AI Officer, includes:
+- Understanding of AI system limitations and potential biases.
+- Interpretation of model output (probability scores, confidence intervals).
+- Operationalization of Human Oversight measures as logged in the AI Traceability System (LangSmith).
+- Scenario-based training on when to override an AI-generated clinical recommendation.
+
+#### 5.4.2 Technical Documentation Competency (Article 9)
+
+Personnel developing or maintaining the Clinical AI Platform must complete `AI-303: Technical Documentation for High-Risk AI`. This module covers the process of maintaining the required technical documentation package in Meridian’s controlled document repository (Confluence, space "AI-RMF"), including:
+- The intended purpose and design specifications.
+- The datasets used for training, validation, and testing.
+- The log of risk management activities as per NIST AI RMF.
+
+#### 5.4.3 Human Oversight Verification
+
+Completion of `AI-302` is not solely based on quiz score. It requires the learner to complete a simulated adverse event scenario in a sandboxed instance of the Clinical AI Platform. The system logs the user's decision pathway (override/no override) which is reviewed by the VP of Clinical AI Products, Dr. Aisha Okafor, quarterly. This log serves as auditable evidence of human oversight capability.
+
+### 5.5 Completion Tracking, Notifications, and Escalation
+
+The LMS automatically records all compliance training data. The following SLA-backed notification cadence is strictly enforced:
+
+| Stage | Timeline | Action | Owner |
+| :--- | :--- | :--- | :--- |
+| **Activation** | Day 0 | Assignment Profile published; "New Hire Onboarding" or "Annual Window" notice sent. | LMS (Automated) |
+| **Reminder 1** | Due Date - 14 days | "Your compliance training is due in 14 days" email sent to users with incomplete status. | LMS (Automated) |
+| **Reminder 2** | Due Date - 3 days | Final reminder notification sent to users and CC'd to their direct manager. | LMS (Automated) |
+| **Overdue** | Due Date + 1 day | Status changes to "Overdue" in Workday. Manager receives an automated direct communication. | LMS / Program Manager |
+| **Remediation** | Due Date + 4 days | People Manager holds a documented 1:1 conversation with the individual. | People Manager |
+| **Show Cause** | Remediation End Date (Due Date + 7 days) | If still non-compliant, an automated "Show Cause" notification is sent to the individual and their skip-level manager. A disciplinary case is created in Workday HR by the People Manager, coordinated with HR Business Partner. | People Manager / HRBP |
+| **Final Escalation** | Due Date + 11 days | Individual's system access (Okta, Google Workspace, VPN) is automatically suspended by an integrated script connecting the LMS to Okta. | IAM Workflow (Automated) |
+
+### 5.6 Remedial Training
+
+A "Re-Training" path is distinct from new assignment. It is triggered under specific conditions:
+
+- **Phishing Simulation Failure:** A user who clicks a simulated phishing link is automatically enrolled in `SEC-102: Phishing Remediation` with a 24-hour deadline. Access to financial systems is temporarily read-only until completion.
+- **Incident Root Cause:** Post-incident reviews by the CISO (see SOP-SEC-011) may mandate remedial or targeted training for individuals or teams. The CISO defines the curriculum, which the Program Manager assigns in the LMS within 24 hours of the mandate.
+- **Audit Finding:** Any audit finding related to individual competency triggers an immediate remedial assignment. Internal Audit verifies completion.
 
 ---
 
 ## 6. Controls and Safeguards
 
-### 6.1 Preventative Controls
-- **Access Gating via API:** A zero-trust middleware agent (Okta Access Gateway) intercepts all requests for production system credentials. The agent makes a real-time API call to LogicGate to verify that the requesting user's `PersonnelID` has a status of `Compliant` for all mandatory modules associated with the privileges being requested. This safeguard ensures no untrained user can access sensitive systems, databases (AWS RDS), or administrative consoles.
-- **Data Segregation:** Training records, which may contain performance data on quizzes, are logically separated from core HR records within LogicGate by a strict access control policy. Only members of the LMS Administration Group can view granular quiz results.
+The following controls are implemented to ensure the integrity, confidentiality, and availability of the training program and its supporting data, in alignment with SOC 2 CC7.1 (Control Activities) and SOC 2 A1.2.
 
-### 6.2 Detective Controls
-- **Monthly Configuration Audit:** On the first business day of each month, the Head of LMS shall execute a pre-built audit report (`TR-AUDIT-001`) within LogicGate. This report compares the "currently assigned" curriculum for a randomized, 10% sample of active Personnel against the approved "expected" curriculum from the master catalog for their specific `ComplianceRoleCode`. All mismatches are logged and resolved as Priority 2 tickets.
-- **Ghost User Check:** A quarterly detective check executed by the CISO’s team to identify completed training records in LogicGate associated with a `PersonnelID` that has been subsequently disabled in Workday, indicating a potential access de-provisioning failure. Any discrepancy triggers a P1 ticket per the Incident Response SOP.
+### 6.1 Technical Controls
+
+| Control ID | Control Description | SOC 2 Alignment |
+| :--- | :--- | :--- |
+| **TAC-001** | **Single Sign-On (SSO) Enforcement:** LMS access requires Okta MFA challenge. No local LMS accounts exist. | CC6.1 |
+| **TAC-002** | **Automated Access Suspension:** Non-compliance at Final Escalation triggers a SCIM-based deactivation of the user’s Okta account. Reactivation requires documented proof of training completion and VP-level approval. | CC6.6 |
+| **TAC-003** | **Immutable Audit Log:** All training completions, quiz scores, and acknowledgments are written to a write-once, read-many (WORM) compliant log in Sumo Logic. Tampering alerts are routed to the CISO. | CC7.2 |
+| **TAC-004** | **AI Sandbox Isolation:** The AI literacy practical test environment is logically isolated from production clinical systems to prevent impact to patient data during training. | CC7.1 |
+
+### 6.2 Data Privacy Controls for Training Records
+
+| Control ID | Control Description |
+| :--- | :--- |
+| **DPC-001** | **Retention Enforcement:** Training records are maintained for 7 years from the date of completion. At Year + 7 years + 30 days, records are automatically purged from the LMS hot storage via an automated batch job. Cold backups from the data warehouse are not purged to maintain SOC data integrity. |
+| **DPC-002** | **Anonymization for Analysis:** When aggregate training data is shared for diversity or workforce analysis, PII (name, email) is removed. Only Job Family, Department, and Completion Status are retained. |
+
+### 6.3 Content Integrity Control
+
+No training module is published to the production LMS without:
+1.  **Technical Review:** The Content Owner signs Form HR-008-A, attesting to regulatory alignment.
+2.  **Learning Review:** The Director of Learning & Development signs Form HR-008-B, attesting to instructional design validity and accessibility standards (WCAG 2.1 AA).
+3.  **Sandbox Validation:** The module is tested by a group of 5-8 power users selected by the relevant Business Unit head to validate technical accuracy and operational relevance.
 
 ---
 
 ## 7. Monitoring, Metrics, and Reporting
 
+The effectiveness of the Mandatory Compliance Training program is continuously monitored through a dedicated dashboard ("Compliance Command Center") built in Tableau, drawing real-time data from Workday Learning.
+
 ### 7.1 Key Performance Indicators (KPIs)
-| KPI ID                | Metric Description                                                     | Target                               | Calculation                                                                                  |
-| :-------------------- | :--------------------------------------------------------------------- | :----------------------------------- | :------------------------------------------------------------------------------------------- |
-| **KP-TRN-001**        | **Overall Completion Rate (Annual)**                                   | **100%** completion by Sep 30       | `(Total Personnel Assigned Training — Total Personnel *Not* Compliant) / Total Personnel`      |
-| **KP-TRN-002**        | **New Hire On-Time Completion**                                        | **≥ 98%** completion within 30 days  | `(New Hires in Month completing all modules within 30 days) / (Total Active New Hires)`        |
-| **KP-TRN-003**        | **Remedial Training Efficacy**                                         | **≥ 95%** no repeat incident in 6mo | `(Remedial Assignments from Incidents — Repeat Incidents from Same Person in 6mo) / Remedial Assignments` |
-| **KP-TRN-004-EU-AI**  | **AI Operations Staff Competency (Art. 14)**                           | **100%** pass first attempt          | `(Total AI-OPS Personnel passing *all* EU AI modules on first try) / (Total AI-OPS Personnel)`  |
 
-### 7.2 Compliance Dashboards
-The Head of LMS shall publish a real-time, read-only "Compliance Training Dashboard" (built in Tableau, sourcing data from the LogicGate CMS) to all VP-level stakeholders. This dashboard will display:
-- Overall company compliance percentage against target (KP-TRN-001).
-- Compliance rate, broken down by Business Unit and by Department.
-- A red-highlighted "Non-Compliance List" showing all personnel past due on any module.
-- Completion rate trend line over the fiscal year, with annotations for key triggering events (e.g., release of revised EU AI Act module).
+| KPI ID | Metric | Target | Reporting Frequency |
+| :--- | :--- | :--- | :--- |
+| **KPI-01** | Overall Enterprise Completion Rate (On-Time) | 98% | Real-time, reviewed weekly by CHRO |
+| **KPI-02** | Remediation Period Resolution Rate | 100% of overdue individuals completed during Remediation | End of Remediation Period |
+| **KPI-03** | Phishing Remediation Timeliness | 100% within 24 hours | Weekly by CISO |
+| **KPI-04** | AI-302 Practical Scenario Completion Rate | 100% of Clinical AI & QA staff | Quarterly by Dr. Aisha Okafor |
+| **KPI-05** | Average Manager Response Time to Overdue Notification | <1 business day | Quarterly |
 
-### 7.3 Reporting Cadence
-- **Monthly Reporting:** On the 5th business day of each month, the Head of LMS generates a "Monthly Training Compliance Report." This report includes the dashboard snapshot, a summary of all exception approvals, and a detailed, granular KPI analysis. The report is reviewed in the monthly Compliance Steering Committee meeting chaired by the CCO.
-- **Audit Reporting:** For the SOC 2 Type II examination, the control matrix and corresponding evidence (KPI dashboards, exception logs, system configuration reports) are provided to external auditors as part of the evidence request process managed by the CISO and CCO.
+### 7.2 Reporting Cadence
 
-### 7.4 Escalation for Non-Compliance
-A graduated escalation process is strictly enforced. All actions, including formal warnings, will be documented in Workday by the CHRO’s delegate.
-1.  **5 Business Days Past Due:** The CMS sends an automated final reminder to the Personnel, with a visible cc: to their direct manager.
-2.  **10 Business Days Past Due:** The CMS escalates the non-compliance record to the Business Unit Director, who is required to submit a written plan for achieving compliance within 48 hours.
-3.  **15 Business Days Past Due & No Remediation Plan:** The CCO, in coordination with the CHRO, will issue a formal written warning to the Personnel, and all access to Meridian systems will be temporarily suspended until training is complete. The suspension period is unpaid for hourly contractors.
-4.  **30 Business Days Past Due:** The Personnel’s non-compliance is considered a material breach of employment terms and a voluntary resignation, subject to termination proceedings managed by HR.
+| Report Name | Recipients | Content | Frequency |
+| :--- | :--- | :--- | :--- |
+| **Compliance Pulse** | All People Leaders (Self-Service Dashboard) | Team-level completion status, overdue individuals, trended completion rates. | Real-Time |
+| **BU Compliance Scorecard** | Business Unit Heads (Direct reports to CEO) | Aggregated, de-duplicated completion rate, benchmarking against other BUs. | Monthly |
+| **Executive Risk Brief** | CEO, CHRO, CISO, CPO, General Counsel | High-risk overdue report (VP+ and privileged users), regulatory alignment status, remediation outcomes, systemic training gaps identified. | Quarterly |
+| **S2 Audit Readiness Report** | Internal & External Auditors | Frozen point-in-time snapshot of 100% completion, accompanied by the System Description and control matrix evidence package. | Bi-Annually (Pre-Audit) |
 
 ---
 
 ## 8. Exception Handling and Escalation
 
-### 8.1 Exception Request Policy
-Meridian recognizes that in rare, legitimate circumstances, a Personnel may be unable to complete training by the deadline (e.g., approved extended medical leave, active military deployment). Failure to complete training is not an exception; only the *deadline for completion* can be excepted. No exceptions are granted for the content itself.
+### 8.1 General Procedure for Exceptions
 
-### 8.2 Exception Request Procedure
-1.  **Request Submission:** The Personnel’s direct manager must submit a formal "Compliance Training Exception Request" form in LogicGate **no less than 14 calendar days prior to the training deadline**. The form must clearly state:
-    - The specific business justification for the extended deadline.
-    - The proposed new completion date (not to exceed the original due date + 30 days).
-    - A risk acknowledgment affirming the manager accepts the operational risk of the Personnel performing duties without up-to-date training for the exception period.
-2.  **Risk Assessment:** The CCO reviews the request and appends a formal "Risk Acceptance Memo" evaluating the regulatory and operational risk impact of the exception based on the Personnel's role. For any roles mapping to `AI-ENG-020` or `CLINICIAN-010`, the Chief AI Officer must co-approve.
-3.  **Approval/Denial:** The CCO or CHRO approves or denies the request. An approval is logged in the CMS and attached to the Personnel’s record, and the due date is temporarily adjusted. All approvals are reported as a material risk metric to the Board’s Risk and Compliance Committee on a quarterly basis. A denial follows the standard non-compliance escalation in Section 7.4.
+An exception to the training policy (e.g., a request for an alternative deadline, exemption from a role-based module) must be formally documented and approved **prior** to the training deadline. Retroactive exceptions are not permitted except for verified catastrophic technical failures (e.g., documented Okta-wide outage lasting >4 hours on the due date).
+
+**Exception Workflow:**
+1.  **Initiation:** The individual’s People Manager submits a "Compliance Training Exception" ticket in ServiceNow. The ticket must articulate the legitimate business justification (e.g., "Employee on paid medical leave from Date X to Date Y with documented Return-to-Work date Z").
+2.  **Impact Assessment:** The Program Manager assesses the risk of the exception against audit timelines.
+3.  **Approval Matrix:**
+    - **Deadline Extension (<15 calendar days):** Approved by the Program Manager.
+    - **Deadline Extension (>15 calendar days):** Requires approval from the Chief Compliance Officer (Thomas Anderson) and the relevant Content Owner (e.g., CISO for SEC modules).
+    - **Module Exemption:** Requires approval from the Content Owner and the CHRO. A compensating control must be documented (e.g., a restricted-read-only Okta scope for the exemption period).
+
+### 8.2 Escalation of Non-Compliance
+
+If an individual fails to complete training after the Final Escalation (system suspension), the following occurs:
+1.  **Technical Suspension:** Okta account disabled. SSO to all corporate apps (AWS Console, Workday, Snowflake, Slack) is revoked immediately.
+2.  **Payroll Impact:** After a 24-hour grace period for reactivation, if the suspension remains, the individual is placed on unpaid leave until compliance is achieved, in accordance with local employment law. HR Business Partners coordinate with Payroll.
+3.  **Termination:** If suspension lasts 10 business days without a fully approved exception, it constitutes a voluntary resignation (or "abandonment of contract" for contractors).
 
 ---
 
-## 9. Training Requirements
+## 9. Training Requirements for SOP-HR-008 Owners
 
-All Personnel responsible for the administration of this SOP (i.e., members of the HR Operations, LMS Administration, and Compliance teams) must undergo "Train-the-Trainer" certification on this specific procedure, SOP-HR-008. This certification is conducted annually by the CHRO, using the current version of this document itself as the primary training material. A competency quiz requiring a score of 100% must be passed. Failure to maintain this internal certification disqualifies the individual from operating the CMS or approving exception requests, constituting a triggering event for the purposes of their own compliance.
+The individuals responsible for executing this policy must undergo a deeper level of training:
+
+1.  **Program Manager Certification:** The Director of L&D must complete Workday Learning Administrator Pro certification annually.
+2.  **Content Creator Workshop:** All Content Owners must attend a 4-hour workshop annually, facilitated by the Legal team, on "Writing Audit-Ready Training Content." This covers updates on evolving regulatory guidance (e.g., EDPB guidelines, AICPA TSC updates).
+3.  **Auditor Feedback Loop:** Within 30 days of any SOC 2 or ISO audit report issuance, the CHRO and CISO hold a mandatory review session to dissect training-related exceptions or findings.
 
 ---
 
 ## 10. Related Policies and References
 
-| Reference ID       | Document Name                                               | Relationship to SOP-HR-008                                                                 |
-| :----------------- | :---------------------------------------------------------- | :--------------------------------------------------------------------------------------- |
-| **SOP-HR-001**     | Code of Conduct and Ethics Training                         | Foundational module delivered through this SOP's CMS framework.                          |
-| **SOP-SEC-002**    | User Access Management                                      | Details the technical provisioning gating controlled by training status in Section 5.3.   |
-| **SOP-SEC-004**    | Security Incident Response                                  | Procedure for post-incident review that may trigger remedial training as in Section 5.5. |
-| **SOP-AI-DOC-001** | EU AI Act Technical Documentation                           | Contains the monitoring log retention policies referenced in Section 6.2.               |
-| **SOP-DP-005**     | Data Subject Rights and Privacy Request Handling            | GDPR-specific operational procedure informed by the training herein.                     |
-| **POL-RISK-001**   | Enterprise Risk Management Policy                           | Defines the risk acceptance hierarchy used for exception handling in Section 8.2.         |
+### 10.1 Internal Meridian SOPs
+- **SOP-LEG-001:** Code of Conduct and Business Ethics
+- **SOP-SEC-011:** Security Incident and Breach Response Plan
+- **SOP-PRIV-005:** Data Subject Access Request (DSAR) Handling
+- **SOP-AI-002:** Risk Management System for Clinical AI Platform (aligned with NIST AI RMF 1.0)
+- **SOP-VEND-003:** Third-Party Vendor Risk Management & Onboarding
+- **SOP-CISO-001:** Access Control and Identity Management
+
+### 10.2 External Standards and Regulatory References
+- **AICPA SOC 2:** Trust Services Criteria (TSC) 2017 Revision, specifically CC1.2 (Risk Assessment), CC5.2 (Control Activities), and CC7.2 (System Operations, Monitoring).
+- **EU AI Act:** Regulation (EU) 2024/1689, Articles 4 (AI Literacy), 9 (Risk Management), 14 (Human Oversight), and 29 (Deployer Obligations).
+- **ISO/IEC 27001:2022:** Information Security, Cybersecurity and Privacy Protection.
 
 ---
 
 ## 11. Revision History
 
-| Version | Revision Date | Author / Owner           | Summary of Changes                                                                                                    |
-| :------ | :------------ | :----------------------- | :-------------------------------------------------------------------------------------------------------------------- |
-| 3.2     | 2022-01-15    | J. Miller, Dir. HR Ops   | Initial integration of SOC 2 controls into curriculum; added gated access procedure for new hires.                   |
-| 4.0     | 2022-11-01    | A. Thompson, Legal       | Major rewrite to incorporate GDPR principles post-acquisition. Added Role "ALL-001" for all-staff foundational module. |
-| 4.5     | 2023-06-10    | J. Walsh, CHRO           | Transitioned LMS from Saba to LogicGate; updated all procedures to new CMS tooling; added quarterly audit report.     |
-| 5.1     | 2024-01-18    | K. Ito, DPO              | Added EU AI Act modules and controls; created specific roles for AI operations staff; updated escalation flow.       |
-| 5.7     | 2024-03-22    | J. Walsh, CHRO           | Refined exception handling procedure; introduced formal workday integration for escalation warnings.                 |
-| **5.8** | **2024-05-01**| **J. Walsh, CHRO**       | **Annual review. Updated KPI dashboards and SOC 2 mapping for 2023 TSC alignment. Minor curriculum mapping updates.** |
+| Version | Date | Author | Description of Changes |
+| :--- | :--- | :--- | :--- |
+| 1.0 | 2020-03-15 | J. Walsh | Initial release of unified compliance training framework. |
+| 2.0 | 2023-01-10 | J. Walsh | Major revision: added Tier 2/3 role-based matrix; moved tracking from spreadsheets to Workday LMS. |
+| 3.0 | 2025-01-22 | J. Walsh | Added full EU AI Act module catalog (AI-301, 302, 303). Introduced automated Okta suspension escalation. |
+| 3.1 | 2025-08-14 | J. Walsh | Refined Annual Compliance Window dates; updated Content Owner list following re-org; added SSO enforcement control. |
+| 3.2 | 2025-11-26 | J. Walsh | Finalization of Human Oversight sandbox procedures for AI-302; clarified Vendor Management Office reporting line; updated CPO title to CPO/DPO. |

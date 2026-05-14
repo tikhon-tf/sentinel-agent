@@ -2,10 +2,10 @@
 sop_id: "SOP-HR-007"
 title: "Employee Data Privacy"
 business_unit: "Human Resources"
-version: "3.8"
-effective_date: "2025-02-26"
-last_reviewed: "2026-06-05"
-next_review: "2026-12-24"
+version: "1.8"
+effective_date: "2025-03-27"
+last_reviewed: "2026-06-22"
+next_review: "2026-12-03"
 owner: "Jennifer Walsh, Chief Human Resources Officer"
 approver: "Dr. Sarah Chen, CEO"
 classification: "Internal"
@@ -16,366 +16,412 @@ status: "Active"
 ---
 
 # Standard Operating Procedure: Employee Data Privacy
-## SOP-HR-007 | Version 3.8
-
----
 
 ## 1. Purpose and Scope
 
 ### 1.1 Purpose
 
-This Standard Operating Procedure (SOP) establishes the framework for the collection, processing, storage, transfer, and disposal of Employee Personal Data at Meridian Health Technologies, Inc. and its wholly-owned subsidiaries. Given Meridian's dual role as a healthcare technology provider processing protected health information (PHI) and as an employer managing sensitive workforce data across multiple jurisdictions, adherence to the highest standards of data privacy is not merely a regulatory obligation but a foundational element of our corporate integrity.
+This Standard Operating Procedure (SOP) establishes the framework for the collection, processing, storage, transfer, and disposal of Employee Personal Data at Meridian Health Technologies, Inc. ("Meridian" or "the Company"). The purpose of this SOP is to:
 
-The purpose of this document is to operationalize the principles of data minimization, purpose limitation, storage limitation, integrity, confidentiality, and accountability as they pertain to our workforce. It ensures that Meridian respects the privacy rights of its employees, contractors, and applicants while enabling the business to meet its operational, legal, and financial objectives.
+- Ensure compliance with the General Data Protection Regulation (EU) 2016/679 (GDPR), the Health Insurance Portability and Accountability Act of 1996 (HIPAA), and other applicable data protection laws across all jurisdictions in which Meridian operates.
+- Define the legitimate bases, purposes, and boundaries for processing Employee Personal Data.
+- Operationalize the data subject rights of all Meridian employees, contractors, and applicants globally.
+- Establish clear governance, accountability, and technical controls to protect Employee Personal Data from unauthorized access, alteration, disclosure, or destruction.
+- Implement the principles of Privacy by Design and Default as mandated by Article 25 of GDPR across all HR systems and processes.
+- Maintain alignment with Meridian's SOC 2 Type II, ISO 27001:2022, and HITRUST CSF certifications.
 
 ### 1.2 Scope
 
-This SOP applies to the following categories of individuals ("Data Subjects"):
+#### 1.2.1 In-Scope Entities and Individuals
 
-- **Current Employees:** All full-time, part-time, and fixed-term employees of Meridian Health Technologies, Inc. across all global offices (Boston HQ, London, Berlin, Singapore, Toronto).
-- **Former Employees:** Individuals whose employment has been terminated, until the expiration of applicable statutory retention periods.
-- **Applicants and Candidates:** Individuals who have applied for a position at Meridian, submitted through the Workday Recruiting module.
-- **Contractors and Contingent Workers:** Independent contractors, consultants, temporary staff, and interns whose personal data is processed by Meridian HR systems.
-- **Dependents and Beneficiaries:** To the extent that Meridian processes personal data of employee dependents for benefits administration (e.g., health insurance enrollment through Meridian's HealthPay benefits portal).
+This SOP applies to:
 
-This SOP covers all Employee Personal Data regardless of format—digital data residing in Workday, ADP Workforce Now, the Meridian Okta identity platform, Snowflake HR analytics, and physical records stored in locked HR file rooms.
+| Category | Coverage Detail |
+|---|---|
+| **Employees** | All full-time, part-time, and temporary employees of Meridian Health Technologies, Inc. across all global offices (Boston HQ, London, Berlin, Singapore, Toronto) and remote workers. |
+| **Applicants** | All individuals who submit applications for employment, including those who are ultimately not hired. |
+| **Alumni** | Former employees whose data is retained in accordance with legal and business retention requirements. |
+| **Contractors and Consultants** | Independent contractors, consultants, and agency temporary workers engaged by Meridian, to the extent Meridian processes their personal data as a Data Controller. |
+| **Dependents and Beneficiaries** | Spouses, domestic partners, children, and other dependents whose personal data is submitted for benefits administration, emergency contacts, or other employment-related purposes. |
+| **Board Members** | Non-employee members of the Board of Directors whose personal data is processed for governance purposes. |
 
-### 1.3 Out-of-Scope
+#### 1.2.2 In-Scope Data Categories
 
-This SOP does not govern the processing of patient data, provider data, or consumer financial data. Those activities are governed by the Clinical AI Platform data governance framework, HealthPay SOC 2 controls, and the MedInsight Data Processing Agreement. Refer to SOP-COMP-001 (Clinical AI Data Governance) and SOP-FIN-014 (HealthPay Consumer Privacy) for those domains. However, if an employee is also a patient of Meridian's occupational health services, the patient-employee data segregation wall described in Section 6.9 applies.
+This SOP governs "Employee Personal Data," defined as any information relating to an identified or identifiable natural person that is processed in the context of the employment or engagement relationship. Categories are detailed in Section 5.2.
 
----
+#### 1.2.3 In-Scope Systems
+
+This SOP covers data processed in the following Meridian systems, whether hosted on-premises or in cloud environments:
+
+| System | Purpose | Hosting |
+|---|---|---|
+| Workday HCM | Core HRIS, payroll, benefits, talent management | AWS us-east-1 |
+| Greenhouse | Applicant tracking and recruitment | AWS us-east-1 |
+| Culture Amp | Employee engagement and performance | AWS eu-west-1 |
+| ADP Workforce Now | International payroll (UK, Germany) | ADP-managed |
+| SAP SuccessFactors | Singapore and Canada HR operations | Azure |
+| Okta | Identity and access management | AWS |
+| Microsoft 365 | Email, documents, collaboration | Microsoft Cloud |
+| Snowflake | HR analytics and reporting | AWS us-east-1 |
+| Confluence | Policy documentation and knowledge management | AWS us-east-1 |
+
+#### 1.2.4 Out-of-Scope
+
+- Patient, provider, and member data governed under SOP-DS-003 (Clinical Data Privacy) and SOP-DS-005 (MedInsight Data Governance).
+- Customer financial data governed under SOP-FIN-012 (HealthPay Data Protection).
+- B2B vendor contacts, which are governed under SOP-LGL-004 (Third-Party Data Management).
+
+#### 1.2.5 Jurisdictional Coverage
+
+This SOP establishes a global baseline that meets the highest applicable standard (GDPR). Where local law exceeds this baseline, the local standard applies. The EU Employee Data Protection Addendum (see Appendix A of this SOP) applies to employees in the London and Berlin offices.
 
 ## 2. Definitions and Acronyms
 
-| Term / Acronym | Definition |
-| :--- | :--- |
-| **Employee Personal Data** | Any information relating to an identified or identifiable Employee Data Subject. This includes identifiers such as name, employee ID, government ID numbers, location data, online identifiers (Okta user ID, IP address), and factors specific to the individual's physical, physiological, genetic, mental, economic, cultural, or social identity. |
-| **Sensitive Employee Data** | Special categories of personal data requiring enhanced protections, including: racial or ethnic origin data (collected for EEO/Affirmative Action), political opinions (if disclosed for accommodation requests), religious beliefs (for accommodation requests), trade union membership (if applicable), genetic data, biometric data (fingerprints used in Boston HQ biometric access systems), health information (occupational health records, disability status, sick leave records), and sexual orientation data (collected via voluntary DEI surveys). |
-| **Processing** | Any operation performed on personal data, whether automated or manual, including collection, recording, organization, structuring, storage in Workday, transmission via Slack or Meridian email, consultation, use, disclosure by transmission, alignment with other data, restriction, erasure, or destruction. |
-| **Data Subject Request (DSR)** | A formal request from an employee exercising rights under GDPR (Chapter III, Articles 12-23) or equivalent state laws, including the right of access, rectification, erasure, restriction of processing, data portability, and objection. |
-| **Data Protection Impact Assessment (DPIA)** | A mandatory assessment required under GDPR Article 35 for processing operations that are likely to result in high risk to the rights and freedoms of natural persons, such as the use of new technologies for employee monitoring. |
-| **Privacy by Design and Default** | The principle enshrined in GDPR Article 25, requiring that data protection measures are integrated into the processing activity design and that only data necessary for each specific purpose is processed by default. |
-| **Joint Controllership** | Where two or more controllers (e.g., Meridian and ADP) jointly determine the purposes and means of processing. The arrangement is governed by a transparent agreement per GDPR Article 26. |
-| **HRIS** | Human Resources Information System (Workday). |
-| **PII** | Personally Identifiable Information. |
-| **PIIA** | Proprietary Information and Inventions Agreement. |
-| **LCA** | Public Access Files for Labor Condition Applications. |
+### 2.1 Definitions
 
----
+| Term | Definition |
+|---|---|
+| **Binding Corporate Rules (BCR)** | Meridian's internal data protection policy for intra-group transfers to Singapore and Canada, approved by the Berlin Supervisory Authority (Berliner Beauftragte für Datenschutz und Informationsfreiheit) in Q1 2025. |
+| **Consent** | Any freely given, specific, informed, and unambiguous indication of the data subject's wishes by which they, by a statement or by clear affirmative action, signify agreement to the processing of their personal data (GDPR Art. 4(11)). Meridian recognizes the power imbalance inherent in employment relationships and **DOES NOT** rely on employee consent as a lawful basis for routine processing. |
+| **Data Controller** | The entity that determines the purposes and means of processing personal data. Meridian is the Data Controller for all Employee Personal Data covered by this SOP. |
+| **Data Processor** | A third party that processes personal data on behalf of Meridian (e.g., ADP, Culture Amp, AWS). |
+| **Data Protection Impact Assessment (DPIA)** | A mandatory risk assessment required under GDPR Art. 35 for processing activities likely to result in high risk to the rights and freedoms of natural persons. |
+| **Employee Personal Data** | Any information relating to an identified or identifiable natural person processed in the context of employment, including but not limited to: name, identification number, location data, online identifier, or factors specific to the physical, physiological, genetic, mental, economic, cultural, or social identity of that person. |
+| **Ergänzende Vertragsbedingungen (EVB-IT)** | Supplementary contractual terms for IT procurement, used in the Berlin office for local system contracts. |
+| **Lawful Basis** | The legal ground for processing under GDPR Art. 6. For employee data, Meridian primarily relies on: (a) performance of the employment contract (Art. 6(1)(b)); (b) legal obligation (Art. 6(1)(c)); and (c) legitimate interests balanced against fundamental rights and freedoms (Art. 6(1)(f)). |
+| **PHI (Protected Health Information)** | As defined by HIPAA, individually identifiable health information held or transmitted by a covered entity or its business associate. Employee health data within self-insured health plans may constitute PHI. |
+| **Privacy by Design and Default** | The requirement under GDPR Art. 25 to implement appropriate technical and organizational measures designed to implement data protection principles and integrate necessary safeguards into processing. |
+| **Right of Access (DSAR)** | The right of a data subject to obtain from the controller confirmation as to whether personal data concerning them is being processed, and access to that data and associated information (GDPR Art. 15). |
+| **Sensitive Personal Data (Special Categories)** | Data revealing racial or ethnic origin, political opinions, religious or philosophical beliefs, trade union membership, genetic data, biometric data for the purpose of uniquely identifying a natural person, data concerning health, or data concerning a natural person's sex life or sexual orientation (GDPR Art. 9). |
+| **Standard Contractual Clauses (SCCs)** | European Commission-approved model contracts for the transfer of personal data to third countries, utilized for transfers to our Toronto and Singapore offices. |
+| **Subject Access Request (DSAR)** | A formal request from a data subject exercising their Right of Access. |
+| **Third Country** | Any country outside the European Economic Area (EEA) that has not received an adequacy decision from the European Commission. |
+| **Works Council (Betriebsrat)** | Employee representative body established at the Berlin office under the Betriebsverfassungsgesetz (BetrVG), with co-determination rights over the implementation of technical systems that monitor employee behavior or performance. |
+
+### 2.2 Acronyms
+
+| Acronym | Definition |
+|---|---|
+| ART | Article (of GDPR) |
+| BAA | Business Associate Agreement |
+| BCR | Binding Corporate Rules |
+| CHRO | Chief Human Resources Officer |
+| CISO | Chief Information Security Officer |
+| CPO/DPO | Chief Privacy Officer / Data Protection Officer |
+| DPIA | Data Protection Impact Assessment |
+| DSAR | Data Subject Access Request |
+| ECPA | Employee Consent and Processing Agreement |
+| EEA | European Economic Area |
+| EMLA | Employee Master List Assessment |
+| ER | Employee Relations |
+| HRIS | Human Resources Information System |
+| IAM | Identity and Access Management |
+| LOA | Leave of Absence |
+| NIST AI RMF | National Institute of Standards and Technology Artificial Intelligence Risk Management Framework |
+| PII | Personally Identifiable Information |
+| PHI | Protected Health Information |
+| RACI | Responsible, Accountable, Consulted, Informed |
+| RBAC | Role-Based Access Control |
+| ROPA | Record of Processing Activities |
+| SLA | Service Level Agreement |
+| SOC 2 | System and Organization Controls 2 |
+| SR 11-7 | Federal Reserve Supervisory Letter 11-7 on Model Risk Management |
+| WoW | Ways of Working |
 
 ## 3. Roles and Responsibilities
 
-The following RACI matrix delineates responsibility for employee data privacy operations at Meridian. Specific responsibilities are detailed below the matrix.
+The following RACI matrix establishes accountability for Employee Data Privacy activities within Meridian.
 
-| Activity / Process | CHRO (Owner) | Chief Privacy Officer | HR Operations Director | IT Security (CISO) | Legal (GC) | Payroll Director | Employee |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Policy Maintenance & Approval** | **A** | R | C | I | C | I | I |
-| **Data Inventory & Mapping** | I | **A** | R | C | C | C | I |
-| **Privacy Notice Delivery** | I | I | **A / R** | I | C | I | I |
-| **Consent Management (Art. 7)** | I | **A** | R | C | C | I | I |
-| **Data Subject Request Processing** | I | **A** | R | C | C | I | R |
-| **Access Control Provisioning** | I | I | C | **A / R** | I | C | I |
-| **Breach Detection & Notification** | I | R | C | **A** | R | I | I |
-| **Retention & Deletion Execution** | I | I | **A / R** | R | C | I | I |
-| **Third-Party Due Diligence** | I | **A** | R | C | R | I | I |
-| **Annual Privacy Training Development** | I | **A** | R | C | R | I | I |
+| Activity / Decision | CHRO (J. Walsh) | CPO/DPO (Dr. K. Weber) | VP IT Ops (S. Torres) | CISO (R. Kim) | Legal/GC (M. Gonzalez) | VP Eng. (D. Park) | People Operations | All Employees |
+|---|---|---|---|---|---|---|---|---|
+| **Policy Ownership and Annual Review** | **A** | R | C | C | C | I | I | I |
+| **DPIA Execution and Approval** | C | **A** | R | R | C | C | I | I |
+| **Art. 30 ROPA Maintenance (HR Data)** | R | **A** | C | C | C | I | I | I |
+| **DSAR Fulfillment** | I | **A** | R | R | C | C | I | I |
+| **Data Breach Detection and 24hr Escalation** | I | R | **A** | R | I | R | I | R |
+| **Breach Notification (72-hour DPA)** | I | **A** | I | I | R | I | I | I |
+| **Role-Based Access Provisioning** | C | I | **A** | C | I | R | R | I |
+| **Consent Management for Non-Mandatory Processing** | I | C | I | I | **A** | I | **R** | I |
+| **Employee Data Subject Rights Awareness** | C | R | I | I | I | I | **A** | I |
+| **Adherence to Privacy Policies** | I | I | I | I | I | I | I | **A** |
 
-**Key:** R = Responsible (executes), A = Accountable (approver, ultimately answerable), C = Consulted (prior to action), I = Informed (after action).
+**Key:**
+- **R (Responsible):** Performs the task.
+- **A (Accountable):** Ultimately answerable for the task; sign-off authority.
+- **C (Consulted):** Input sought before action.
+- **I (Informed):** Kept up-to-date.
 
-### 3.1 Chief Human Resources Officer (CHRO), Jennifer Walsh
-- Serves as the executive owner of this SOP.
-- Approves all HR data privacy exceptions and escalations.
-- Approves new processing activities involving Sensitive Employee Data.
-- Reviews and signs off on HR Data Protection Impact Assessments.
+### 3.1 Specific Role Descriptions
 
-### 3.2 Chief Privacy Officer (CPO), Marcus Okonkwo
-- Provides authoritative interpretation of GDPR, HIPAA, and applicable state privacy laws.
-- Leads the investigation and regulatory notification for all actual or suspected personal data breaches.
-- Maintains the Meridian Record of Processing Activities (ROPA) per GDPR Article 30, including all HR processing activities.
-- Coordinates the Data Subject Request portal and ensures timely responses within statutory deadlines.
+**Chief Human Resources Officer (CHRO), Jennifer Walsh:** Serves as the business process owner for HR data. Accountable for ensuring HR strategy, third-party procurement, and internal processes align with this SOP. Owns the budget for privacy-enhancing HR technologies and training.
 
-### 3.3 Director of HR Operations, Priya Singh
-- Operationalizes this policy within the Workday HRIS.
-- Manages the lifecycle of employee data, including onboarding collection, in-service changes, and off-boarding archival.
-- Executes the annual data minimization clean-up sprints.
-- Serves as the primary point-of-contact for third-party HR vendors (ADP, HireRight, Workday) regarding data processing agreements.
+**Chief Privacy Officer / Data Protection Officer (CPO/DPO), Dr. Klaus Weber:** An independent, statutory role under GDPR Art. 37. Dr. Weber, based in the Berlin office, monitors compliance, advises on DPIAs, acts as the primary contact point for supervisory authorities and data subjects, and has a direct reporting line to the CEO and Audit Committee. Dr. Weber's approval is required for any new processing activity involving Special Categories of Employee Data.
 
-### 3.4 Chief Information Security Officer (CISO), David Chen
-- Implements and maintains technical and organizational measures (TOMs) to ensure appropriate security of employee data, including encryption, pseudonymization, and access logs.
-- Leads technical forensics during a data incident investigation.
-- Manages the SIEM (Splunk) rules that alert on anomalous access to HR data lakes (Snowflake).
+**Chief Information Security Officer (CISO), Rachel Kim:** Accountable for the technical implementation of security controls protecting Employee Personal Data. Ensures encryption standards, access controls, and logging are implemented per SOC 2 and ISO 27001:2022 controls and provides the DPO with breach notification data.
 
-### 3.5 General Counsel, Priya Kapoor
-- Advises on legal bases for processing in high-risk jurisdictions.
-- Reviews and approves cross-border data transfer mechanisms (EU SCCs, UK Addendum).
-- Manages litigation holds that override standard retention policies.
+**VP of IT Operations, Sarah Torres:** Responsible for operational management of HR systems, user access administration, and data lifecycle management (backups and deletion).
 
-### 3.6 Employees (All Data Subjects)
-- Review and acknowledge this SOP and the Employee Privacy Notice during onboarding and annually thereafter.
-- Submit Data Subject Requests through the designated Jira Service Management portal ("Privacy Rights" project).
-- Immediately report any suspected privacy incident or unauthorized access via the `#sec-incident` Slack channel or by emailing `privacy@meridianhealth.com`.
+**VP of Engineering, Daniel Park:** Responsible for ensuring that any custom application, API endpoint, or internal tool built by Meridian's engineering team that touches HR data complies with the "Security by Design" mandates and the data minimization requirements of this SOP before deployment.
 
----
+**General Counsel, Maria Gonzalez:** Advises on the legal interpretation of employment law versus data protection law, manages legal privilege claims in DSAR responses, and negotiates Data Processing Agreements (DPAs) with all HR vendors.
 
 ## 4. Policy Statements
 
-Meridian Health Technologies adheres to the following foundational policy commitments, which are derived directly from the GDPR Article 5 principles and extended to all global operations:
+Meridian Health Technologies commits to the following fundamental principles governing the processing of Employee Personal Data:
 
-- **Lawfulness, Fairness, and Transparency (Art. 5.1.a):** Employee personal data shall be processed lawfully, fairly, and in a transparent manner. Meridian provides a detailed Privacy Notice accessible via the Workday Help Portal, updated on a rolling 12-month cycle or within 30 days of a material processing change. No hidden or covert monitoring will occur.
+1.  **Lawfulness, Fairness, and Transparency:** Meridian shall process Employee Personal Data lawfully, fairly, and in a transparent manner. Every new applicant and employee shall receive a layered privacy notice (see Section 5.1.2) detailing what data is collected and why. In accordance with GDPR Art. 5(1)(a), there shall be no invisible or unexpected processing.
 
-- **Purpose Limitation (Art. 5.1.b):** Data collected for specific, explicit, and legitimate purposes (e.g., payroll) shall not be further processed in a manner incompatible with those purposes. Employee engagement surveys conducted on Culture Amp will not be co-mingled with performance management data in Workday without explicit, documented justification approved by the CHRO and CPO.
+2.  **Purpose Limitation:** Employee Personal Data shall be collected for specified, explicit, and legitimate purposes as outlined in the Record of Processing Activities (ROPA) maintained by the DPO and shall not be further processed in a manner incompatible with those purposes. Historical data stored for archiving in the public interest under GDPR Art. 89 receives a specific derogation.
 
-- **Data Minimization (Art. 5.1.c):** Processing of employee data shall be adequate, relevant, and limited to what is necessary. This principle is enforced at the system-configuration level in Workday. Recruiters are blocked from viewing candidate health data or Social Security Numbers. Manager dashboards redact the underlying reasons for leave-of-absence, displaying only "LOA – Status Code."
+3.  **Data Minimization:** Every collection point within Workday, Greenhouse, and any integrated ATS/HRIS must be reviewed semi-annually to ensure only data adequate, relevant, and limited to what is necessary for the specific employment purpose is collected. "Nice-to-know" fields shall be removed.
 
-- **Accuracy (Art. 5.1.d):** Meridian will take every reasonable step to ensure inaccurate personal data is rectified or deleted without delay. Employees are encouraged and technically empowered to update their personal contact details, banking information, and emergency contacts via the "Employee Self-Service" portal in Workday. Annual "Data Accuracy" campaigns are run every January.
+4.  **Accuracy:** Employees have the right and the mechanism (Workday self-service) to rectify inaccurate personal data without undue delay. HR Business Partners shall process these rectification requests within 10 business days.
 
-- **Storage Limitation (Art. 5.1.e):** Data shall be kept in a form which permits identification of data subjects for no longer than is necessary. Strict retention schedules are enforced (see Table 4.1) via automated archival and purging scripts.
+5.  **Storage Limitation:** Employee files shall not be retained indefinitely. Specific retention periods based on data category and legal necessity are established in the ROPA (see Section 5.7). Upon expiry of the retention period, data shall be securely deleted or anonymized.
 
-- **Integrity and Confidentiality (Art. 5.1.f):** Data shall be processed in a manner that ensures appropriate security, including protection against unauthorized or unlawful processing and against accidental loss, destruction or damage. Encryption at rest (AES-256) and in transit (TLS 1.3) is mandatory.
+6.  **Integrity and Confidentiality:** Employee Personal Data shall be processed in a manner ensuring appropriate security, including protection against unauthorized or unlawful processing and against accidental loss, destruction, or damage, using appropriate technical and organizational measures as defined in SOP-IT-014 (Information Security Controls).
 
-- **Accountability (Art. 5.2):** The CHRO and CPO are jointly responsible for demonstrating compliance with these principles. This is achieved through meticulous Record of Processing Activities (ROPA) maintenance, regular internal audits conducted by the Internal Audit team (see SOP-IA-011), and adherence to approved Codes of Conduct.
+7.  **Accountability:** Meridian, as the Data Controller, shall be responsible for and able to demonstrate compliance with all the above principles. This is achieved through auditable DPIAs, the ROPA under Art. 30, documented compliance reviews, and mandatory data protection training.
 
-### 4.1 Legal Basis for Processing
+8.  **Prohibition of Solely Automated Decision-Making:** Meridian shall not subject employees to decisions based solely on automated processing, including profiling, which produces legal effects or similarly significantly affects them, unless explicitly authorized by national law, in compliance with GDPR Art. 22. Meridian's current use of Culture Amp does not constitute automated individual decision-making for the purposes of Art. 22.
 
-Meridian does not rely primarily on consent for the processing of core employee data. Consent is used only in narrow, non-employment-conditional circumstances (e.g., inclusion on a marketing photo newsletter). The primary legal bases for processing are:
+9.  **Protected Health Information (PHI):** Meridian recognizes that employee health information processed in the context of our self-insured health plan is classified as PHI. Access to this data is strictly limited to the Benefits Team. Meridian shall apply the minimum necessary standard for disclosures to group health plan sponsors, though the operational specifics of this review for every instance are managed through the plan sponsor amendment rather than automated system flagging.
 
-1.  **Contractual Necessity (Art. 6.1.b):** Processing for salary payment, benefits enrollment, performance management, and provision of IT access credentials. If an employee refuses to provide essential payroll data, Meridian cannot fulfill the employment contract.
-2.  **Legal Obligation (Art. 6.1.c):** Reporting payroll taxes to the IRS and HMRC, maintaining records for EEO compliance, retaining records for OSHA mandates, and processing garnishment orders.
-3.  **Legitimate Interests (Art. 6.1.f):** Processing for enterprise security (access badging, network monitoring), workforce planning analytics (aggregated, non-individualized), and internal directory services. A Legitimate Interests Assessment (LIA) is documented and approved by the CPO for each such processing activity.
-4.  **Explicit Consent (Art. 9.2.a):** For processing Sensitive Data (e.g., health information for a wellness portal integration), explicit consent, separate from the employment contract, is obtained using a granular consent form stored in the employee's Workday Worker Profile under "Documents." Consent may be withdrawn via the DSR mechanism.
-
----
+10.  **Transborder Data Flows:** All transfers of Employee Personal Data from the EEA to Meridian's US headquarters or to our Singapore office must be covered by the Company's Binding Corporate Rules or executed EU Standard Contractual Clauses.
 
 ## 5. Detailed Procedures
 
-This section defines the end-to-end operational workflows for managing employee data privacy at Meridian.
+This section defines the step-by-step operational procedures to be followed by the People Operations team, managers, and support functions.
 
-### 5.1 Employee Data Collection
+### 5.1 Transparency and Notice
 
-#### 5.1.1 Recruitment and Onboarding
+#### 5.1.1 Candidate Privacy Notice
+
+Upon application submission via Greenhouse, all candidates must:
+1.  Receive an automated email from `privacy@meridian.health` containing a link to the Candidate Privacy Notice (Document HR-FRM-007a).
+2.  The notice, written in clear plain English and German (for Berlin office applicants), explains:
+    - Data Controller: Meridian Health Technologies, Inc., 1 Meridian Square, Boston, MA 02110, and Meridian Health Technologies GmbH, Unter den Linden 10, 10117 Berlin (for EU applicants).
+    - Data Collected: CV/résumé data, cover letters, assessment results, interview notes, background check results (post-offer, where local law permits).
+    - Purpose: Evaluating suitability for the specific role and potentially other future roles (with an opt-in).
+    - Legal Basis: Steps prior to entering into a contract (Art. 6(1)(b)), legitimate interest in identifying suitable candidates (Art. 6(1)(f)), and explicit consent for Special Categories (Art. 9(2)(a)) where an applicant voluntarily provides health or diversity data.
+    - Retention: 12 months for unsuccessful candidates; see Section 5.7.
+
+#### 5.1.2 Employee Privacy Notice (Layered)
+
+On day one of employment, and annually thereafter in the first week of December, all employees will receive a "Privacy at Work" notification via Workday's inbox, requiring acknowledgment. The layered notice consists of:
+
+- **Layer 1: Infographic** — A one-page visual overview of where data sits and for what high-level purposes (payroll, performance, benefits).
+- **Layer 2: Full Notice** — A hyperlinked document providing a detailed table of processing activities, retention periods, and a description of employee rights under GDPR Articles 15-21 and 77.
+- **Layer 3: Policy Library** — A link to this SOP-HR-007 and the DPO's contact details.
+
+### 5.2 Categories of Data Collected
+
+The following table represents a mandatory list of data categories, their lawful basis, and the system of record. This must align perfectly with the Art. 30 ROPA managed by Dr. Weber.
+
+| Data Category | Examples | Primary System | Lawful Basis (GDPR) |
+|---|---|---|---|
+| **Identification & Contact** | Name, DOB, SSN/SIN/NI Number, Address, Personal Email, Phone, Emergency Contacts | Workday, ADP | Contract (Art. 6(1)(b)), Legal Obligation (Art. 6(1)(c)) |
+| **Recruitment Data** | CV, interview scorecards, Psychometric assessment results, offer letters | Greenhouse | Legitimate Interest (Art. 6(1)(f)), Pre-contractual steps |
+| **Compensation & Benefits** | Salary, Bonus targets, Stock grants, Bank account, Insurance beneficiaries, LTD details | Workday, Fidelity NetBenefits | Contract (Art. 6(1)(b)), Legal Obligation |
+| **Performance & Talent** | Goals, Performance ratings, 360 feedback, Promotion history, Succession planning flags | Workday, Culture Amp | Legitimate Interest (Art. 6(1)(f)) |
+| **Time & Attendance** | PTO balances, Sick time, Clock-in/out data | Workday | Legal Obligation (Art. 6(1)(c)) |
+| **System & IT Use** | User ID, Okta logs, Email metadata, Slack activity timestamps | Okta, Microsoft 365 | Legitimate Interest (Art. 6(1)(f)) — Network security, insider threat detection |
+| **Sensitive / Special Categories (Art. 9)** | **Health data** (disability accommodations, LOA documentation), **Biometric data** (if used for time clocks in Berlin office), **Diversity data** (race/ethnicity, veteran status for EEOC/Voluntary monitoring) | Workday (restricted), OHM (Occupational Health Management) | Explicit Consent (Art. 9(2)(a)) or Employment Legal Obligation (Art. 9(2)(b)) |
+| **Disciplinary & Grievance** | ER case notes, investigations, performance improvement plans (PIPs) | Workday (confidential), ER shared drive | Legitimate Interest (Art. 6(1)(f)), Legal Obligation |
+
+### 5.3 Employee Rights and DSAR Processing
+
+Meridian must respond to all Data Subject Access Requests (DSARs) within **one month** (30 calendar days) of receipt, in accordance with GDPR Art. 12(3). This extends to two months (60 calendar days) for complex or multiple requests, but **the DPO must inform the employee of the extension within the first 30 calendar days**.
+
+#### 5.3.1 DSAR Intake
+
+1.  Employees may submit a DSAR verbally, via email to `privacy@meridian.health`, or by submitting a ticket through the ServiceNow "Privacy Rights Request" portal.
+2.  Any Meridian employee who receives a DSAR must forward it to `privacy@meridian.health` within **4 business hours**. Failure to do so is a policy violation.
+3.  Upon receipt, the DPO's office logs the request in the Jira Service Management (JSM) "DSAR-QUEUE" project with a unique ticket ID (e.g., DSAR-2026-045).
+
+#### 5.3.2 Identity Verification
+
+Before releasing data, the DPO must verify the requestor's identity. Acceptable methods include:
+- Verification of government-issued ID via a secure Okta Verify Identity Proofing session.
+- If the request comes from a known email, the DPO may ask a "gatekeeper" knowledge question (e.g., "What is your Workday Employee ID?").
+- **No data shall be released** until identity is confirmed to the DPO's satisfaction.
+
+#### 5.3.3 Data Assembly and Extraction
+
+1.  The DPO creates a task in JSM for each system owner (e.g., VP of People Operations for Workday, VP of IT Ops for Slack logs).
+2.  System owners run an export from the production system to a designated, encrypted SharePoint location (URL: `privacy_dsar_staging`).
+3.  The extracted data is collected by the DPO's Analyst. The Analyst reviews the data and redacts third-party personal data (e.g., names of other employees who gave peer feedback, unless consent from that peer is obtained) and legally privileged information, consulting with the General Counsel where necessary.
+4.  A DSAR Response Package is compiled, consisting of:
+    - A narrative explanation of the processing.
+    - The specific copies of personal data.
+    - A reiteration of the employee's rights (rectification, erasure, restriction, portability, right to lodge a complaint with a supervisory authority).
+
+#### 5.3.4 Portability Requests
+
+For requests to exercise the right to data portability under Art. 20, the People Operations team shall provide a structured, commonly used, and machine-readable format (JSON file). This is limited to data provided by the employee processed by automated means on the basis of consent or contract.
+
+### 5.4 New HR Technology Procurement (Privacy by Design)
+
+Before People Operations procures or builds any new system or tool that processes Employee Personal Data, a **Privacy Threshold Assessment (PTA)** must be completed. This procedure formalizes Article 25.
+
+1.  **Initiation:** People Operations submits a ServiceNow "HR Tech Procurement Request."
+2.  **PTA Triage:** The DPO determines if the processing is likely to be "high risk." Automatic triggers for a full DPIA include:
+    - Processing of Special Categories of Data (e.g., a new wellness app).
+    - Systemic monitoring of employee performance or behavior (e.g., key logging or productivity tracking).
+    - Processing involving new technologies (e.g., sentiment analysis using AI on employee communications).
+    - AI-driven talent analytics. Meridian's NIST AI RMF Profile guides this DPIA.
+3.  **DPIA Execution:** The DPO, in collaboration with the CHRO, CISO, and the requesting team, conducts a DPIA using the French CNIL's PIA methodology template, adapted to Meridian. The DPIA must:
+    - Describe the processing operations.
+    - Assess the necessity and proportionality of the processing.
+    - Define the risks to rights and freedoms.
+    - Outline the measures to mitigate those risks.
+4.  **Betriebsrat Consultation:** For any tool impacting the Berlin office, the VP of People Operations, Europe (London) must initiate a Works Agreement (Betriebsvereinbarung) negotiation with the Berlin Works Council **before** global deployment. The CHRO is accountable for ensuring this step is not skipped.
+5.  **DPO Sign-Off:** No purchase order or Statement of Work (SOW) can be executed for a high-risk HR tool without the DPO's digital sign-off in ServiceNow.
+
+### 5.5 International Data Transfers
+
+Meridian's HR data originates globally and is consolidated in AWS us-east-1 (Workday). The transfer mechanism must be in place *before* any bulk data migration.
+
+1.  **EEA to USA:** Data transfers from the Berlin and London offices to the US corporate offices are governed by Meridian's Binding Corporate Rules (BCR) for Processors and Controllers.
+2.  **Transfers to Singapore:** Singapore is a "Third Country." Meridian uses the 2021 EU Standard Contractual Clauses (Module 2: Controller to Controller) as a transfer mechanism, supplemented by a Transfer Impact Assessment (TIA) to ensure Singaporean law does not impinge on the effectiveness of the SCCs.
+3.  **Recipients Outside the EEA:** The People Operations team must, at least annually, ensure that all third-party HR systems with access to EU employee data have executed DPAs incorporating the SCCs. The DPO maintains a Transfer Register as a sub-log of the Art. 30 ROPA.
+
+### 5.6 Internal Investigations and Employee Monitoring
+
+When Meridian conducts investigations into employee conduct, specific privacy safeguards apply to counterbalance the Company's legitimate interests:
+
+1.  **Authorization:** Accessing an employee's Slack messages or email metadata for an investigation requires a formal Case Initiation Form co-signed by the CHRO (or designate from Employee Relations) and the General Counsel, or her designate.
+2.  **Scope of Access:** IT's access is limited to the specific mailboxes, folders, and date ranges specified in the form. A data extraction log is generated and appended to the case file.
+3.  **Notification:** The subject employee will be informed of the investigation and the nature of the data accessed, but only at a time determined by Legal to be non-prejudicial to the investigation.
+
+### 5.7 Data Retention and Destruction
+
+Meridian retains Employee Personal Data only as long as necessary or mandated. The "End of Employment" clock starts on the effective date of termination.
+
+| Record Category | Retention Period (Post-Employment) | Justification | Destruction Method |
+|---|---|---|---|
+| **Core HR File (excl. ER cases)** | **10 years** | Statute of limitations on tax and social security audits | Workday Automated Purge (or manual overwrite + encrypted deletion) |
+| **Recruitment Data (Unsuccessful)** | **12 months** from application | Defense of legal claims (e.g., discrimination) | Greenhouse automatic anonymization |
+| **Payroll & Tax Records** | **7 years** | IRS Section 31.3502-1, Betriebsrentengesetz (Berlin) | Encrypted deletion at storage level |
+| **Special Categories (Health)** | **5 years** after last action | Local medical records laws | Secure shredding of OHM data by Occupational Health Provider |
+| **Employee Relations (ER) Cases (Closed)** | **7 years** from closure | Defense against legal claims | Physical and electronic file destruction |
+| **Okta and IT Usage Logs** | **1 year** | SOC 2 and insider threat detection | Automated SIEM log rotation |
 
 **Procedure:**
-1.  **Offer Letter Generation:** The Talent Acquisition (TA) Partner generates the offer letter package via Workday Recruiting. This package includes the conditional offer, links to the global Employee Privacy Notice (SOP-HR-007-PN-3.8), and confidentiality agreements (PIIA).
-2.  **Background Check Authorization:** Should a role require a background check per Meridian's screening matrix, the candidate receives a standalone disclosure and authorization form, electronically via HireRight. The TA Partner is responsible for ensuring the disclosure is presented separately from the main offer letter. No background check is initiated without a valid electronic signature recorded in HireRight.
-3.  **Onboarding Data Entry (Pre-Day-1):** Upon acceptance, the Onboarding Coordinator triggers the "New Hire Data Collection" business process in Workday. The new hire receives a "Onboarding Portal" task to complete the following sections *before* their first day:
-    - Personal Identity Data: Full legal name, date of birth, national identifier (SSN/SIN/NIN).
-    - Contact Data: Emergency contacts (minimum 2), personal email, personal mobile number.
-    - Banking Data: Direct deposit details (routing/account number). This data is masked in Workday UI and API calls.
-4.  **Day-1 Identity Verification (I-9/E-Verify):** On their first day, the US-based employee presents original identity and employment authorization documents to the Onboarding Coordinator. The Onboarding Coordinator reviews the physical document in the presence of the employee, enters the data into the E-Verify system within 3 business days, and stores a digital copy in the employee's secure, isolated "Government Compliance" folder in the Workday Document Cloud. Physical copies are returned to the employee immediately after digital archiving. Non-US employees are processed through the right-to-work checks mandated by specific jurisdictions (e.g., UK Home Office online checking service).
-5.  **Biometric Enrollment:** Employees at the Boston HQ are invited to enroll their fingerprint template in the Brivo access control system. A separate biometric consent form is administered, explicitly stating that the fingerprint is used solely for physical access and not for time-tracking or any secondary purpose. The template is stored as a one-way hashed token in Brivo's cloud; the raw fingerprint image is discarded.
+1.  On the 1st day of every month, the Workday administrator runs an "End of Service + Policy" report identifying records that have passed their retention window.
+2.  The report is reviewed by the DPO for any unresolved legal holds.
+3.  Once cleared, the "Purge Program" script is executed, generating a destruction certificate. This certificate is stored as evidence for the Art. 30 ROPA.
 
-#### 5.1.2 Collection of Sensitive Employee Data
+### 5.8 Breach Notification Procedure (GDPR)
 
-**Procedure for Voluntary DEI Surveys (Art. 9.2.a GDPR):**
-1.  The Office of Inclusion conducts an annual "Meridian Culture Monitor" survey using the Culture Amp platform.
-2.  Demographic questions concerning race/ethnicity, veteran status, disability, sexual orientation, and gender identity are strictly optional.
-3.  Each question includes a "Prefer not to say" option, which is the default.
-4.  The invitation email explicitly states: *"Your participation is voluntary. Data collected is aggregated and anonymized for workforce reporting and is never linked to your individual HR record, performance evaluations, or compensation. In accordance with SOP-HR-007, your explicit consent is required."*
-5.  Before the survey launches, a granular consent form is presented. The employee must actively toggle "Yes" for each special category of data they agree to provide.
-6.  The Culture Amp integration pipeline to our Snowflake analytics instance applies a strict hashing and aggregation script that prevents re-identification of any individual "raw" responses.
+A "Personal Data Breach" is a breach of security leading to the accidental or unlawful destruction, loss, alteration, unauthorized disclosure of, or access to, Employee Personal Data.
 
-### 5.2 Processing Purposes and Restrictions
-
-Meridian strictly segregates processing purposes to prevent function creep. Data collected for one purpose is not processed for another incompatible purpose without explicit notice, consent (where required), and CPO approval.
-
-#### 5.2.1 Payroll Processing (Joint Controllership with ADP)
-
-The Payroll Director (reporting to the CFO) specifies the purpose for payroll data. The HR Operations Director transmits a secure, encrypted file (SFTP, port 2222, AES-256-GCM encryption) to ADP containing only the Minimum Necessary Data elements (Name, Employee ID, Salary, Tax Withholding Elections, Bank Routing). Performance ratings, medical leave details, or disciplinary records are explicitly excluded from the payroll transmission schema. This is enforced by a Workday Integration Security rule: "Integration_ISU_Payroll_Export."
-
-#### 5.2.2 Workforce Planning Analytics (Legitimate Interest)
-
-The People Analytics team uses de-identified and aggregated HR data to model attrition risk and workforce needs. Queries run on the Snowflake `HR_ANALYTICS` (read-only) schema, which is automatically refreshed daily from Workday. A strict SQL-based masking view has been implemented (`ANALYTICS.VW_EMPLOYEE_MASKED`) that replaces direct identifiers (Name, Email) with pseudonymous tokens. The data scientist cannot access raw tables without explicit approval via a SailPoint temporary elevated access request, which is monitored by the CISO's team.
-
-### 5.3 Data Subject Requests (DSRs)
-
-Meridian empowers employees to exercise their rights under GDPR Chapter III, Articles 15-22. The DSR process is managed centrally by the Privacy Operations team.
-
-#### 5.3.1 Receipt and Validation
-
-1.  **Receipt:** Employees submit requests via the Jira Service Management portal ("Privacy Rights" project), selecting the specific right (e.g., "Right of Access," "Right to Erasure"). Automated acknowledgment is sent immediately.
-2.  **Validation:** The Privacy Analyst (first-line responder) validates the requestor's identity within 24 hours. Given the logged-in SSO context, this is typically satisfied by the Okta session token. If a request is submitted from an external channel (e.g., personal Gmail), a multi-factor challenge is initiated: the analyst sends a verification code to the employee's registered personal mobile phone or personal email on file in Workday.
-3.  **Logging:** The validated request is logged in the "DSR Register" (a locked, restricted-access SharePoint list) with a unique DSR-ID, timestamp, and status ("Open").
-
-#### 5.3.2 Processing a "Right of Access" Request (Art. 15)
-
-1.  The Privacy Analyst maps the DSR-ID against our processing activities.
-2.  An automated, orchestrated data search is triggered across primary HR silos:
-    - **Workday:** The `Worker Data Export` integration is invoked via the DSR-ID.
-    - **ADP:** A secure e-mail containing the request ID is sent to our designated ADP Privacy Officer (`DPO@adp.com`) via TLS-encrypted mail.
-    - **Brivo** (for BOS HQ employees): The privacy officer manually downloads the employee's access-event log.
-    - **Slack Enterprise Grid:** A DSR export tool captures public channel messages and metadata.
-3.  Within 28 days, the Privacy Analyst compiles the data into a structured, portable, machine-readable JSON and PDF report. The report is delivered through the Jira portal in a password-protected `.zip` archive, with the password delivered via SMS.
-
-#### 5.3.3 Processing a "Right to Erasure" Request (Art. 17)
-
-1.  **Eligibility Check:** The Legal & Privacy team reviews the request based on the established legal bases. For example, a current employee's basic payroll data cannot be erased due to legal obligation. The record is retained, but the primary identifier in the analytics sandbox (Snowflake) is pseudonymized.
-2.  **Segmented Deletion:** A script is executed across the HR tech stack:
-    - Culture Amp Survey raw responses: Hard delete.
-    - Workday: If permissible, non-statutory fields are overwritten with "[REDACTED]". Where statutory retention overrides the right to erasure, the record is placed under an "Archival Lock" with a future deletion date.
-    - HireRight: A deletion command is sent via API to the HireRight background screening platform.
-3.  **Confirmation:** A "Certificate of Erasure/Archival" is generated and delivered to the requestor within 40 days.
-
-### 5.4 Data Retention and Disposal
-
-Meridian implements a lifecycle approach to all employee records, governed by the Global Retention Schedule (Appendix G of this SOP).
-
-#### 5.4.1 Retention Schedule (Excerpt)
-
-| Record Category | System of Record | Retention Period | Trigger Event | Disposal Method |
-| :--- | :--- | :--- | :--- | :--- |
-| **Core HR Master File** (Offer letters, PIIA, Performance Reviews) | Workday | Termination + 7 Years | Termination Date | Automated archival to AWS Glacier; Cryptographic shredding at 7yr+1day via Workday purge job. |
-| **Payroll Records** (Payslips, Tax forms) | ADP Workforce Now | Termination + 4 Years | End of Tax Year | Secure file deletion via ADP Admin Console; Certificate of Destruction retained. |
-| **Recruitment (Unsuccessful Candidates)** | Workday Recruiting | 2 Years | Application Rejection Date | Automated anonymization script (`ANON_CANDIDATE`) runs every Sunday at 03:00 UTC. |
-| **I-9 Forms (US)** | Workday Gov Cloud | Termination + 3 Years | Termination Date | Manual purge by HR Ops on the first Monday after the 3-year anniversary. |
-| **Background Check Reports** | HireRight | 2 Years | Hire Date | API call to HireRight deletion endpoint; confirmation logged. |
-
-#### 5.4.2 Disposal Procedure
-
-1.  **Trigger:** A nightly batch script (`RETENTION_ENGINE`) runs, comparing `Record_Date + Retention_Period` against `Current_Date`. Records identified for disposal are moved to a "Pending Purge" staging area. A notification is generated to the HR Operations Director.
-2.  **Review:** The HR Operations Director has a 10-day "cooling-off" period to place a hold on any record (e.g., pending litigation). If no hold is placed, the system automatically executes the purge on day 11.
-3.  **Execution and Verification:** The disposal job executes, overwriting the unencrypted data blocks with cryptographically secure random data before releasing the cloud storage blocks. A Destruction Certificate log is written to an immutable ledger (AWS QLDB) for audit purposes.
-
-### 5.5 Cross-Border Data Transfers (Chapter V, GDPR)
-
-As a global entity with offices in the US, UK, and Singapore, Meridian routinely transfers employee data across jurisdictions.
-
-1.  **Data Flow Mapping:** The `HR_Data_Transfer_Impact_Assessment.xlsx` (maintained by HR Ops) maps all flows, including the hub-to-spoke transfer from London to Boston (colocation-managed Workday private cloud) and Boston to Singapore.
-2.  **Safeguards for EU/UK Data:**
-    - **Binding Corporate Rules (BCRs):** Meridian implemented HR-specific BCRs, approved by the Irish Data Protection Commission (Lead Supervisory Authority) in Q3 2024. These BCRs govern all intra-group transfers of employee data. A summary of the BCRs is provided in the Employee Privacy Notice.
-    - **Standard Contractual Clauses (SCCs):** For transfers to a third-country processor (e.g., a US-based benefits provider not bound by our BCRs), the Meridian 2021 EU SCC Module Two (Controller to Processor) template is utilized, supplemented by a Transfer Impact Assessment (TIA).
-3.  **Necessity Derogations (Art. 49):** In the rare, non-repetitive circumstance where BCRs or SCCs do not apply, a transfer may be made only if necessary for the performance of the contract between the data subject and Meridian. This is strictly interpreted and must be approved by the CPO prior to the transfer.
-
----
+1.  **Detection and Containment (0-4 hours):** Any employee recognizing a breach (e.g., phishing success, lost laptop) must immediately notify the SOC at `soc@meridian.health`. CISO Rachel Kim's team immediately initiates containment.
+2.  **Evaluation and Escalation (4-24 hours):** The CISO assesses risk using the Meridian Breach Risk Matrix. If there is a risk to the rights and freedoms of employees, the CISO escalates to the DPO, Dr. Weber, within 24 hours of detection.
+3.  **Supervisory Authority Notification (within 72 hours):** Dr. Weber, as DPO, is responsible for notifying the relevant supervisory authority (e.g., Berlin Commissioner for Data Protection) within 72 hours of Meridian becoming aware of the breach, as mandated by Art. 33. The notification includes the nature of the breach, categories of data, records affected, and mitigation measures.
+4.  **Data Subject Notification (without undue delay):** If the breach is likely to result in high risk (identity theft, financial loss), the DPO and General Counsel determine the content of a communication to affected employees, sent "without undue delay" (Art. 34). A dedicated hotline is established.
+5.  **Breach Register:** The DPO maintains a master Breach Register (stored in Jira) detailing all incidents, even those not requiring notification.
 
 ## 6. Controls and Safeguards
 
-Meridian implements a multi-layered defense-in-depth strategy encompassing administrative, technical, and physical controls.
-
 ### 6.1 Technical Controls
 
-- **Encryption:** AES-256 at rest for all data stores (Workday, Snowflake, AWS S3 buckets). TLS 1.3 for all data in transit.
-- **Pseudonymization:** Analytics environments utilize tokenized employee IDs, rendering datasets effectively non-identifiable without a key stored in a separate, hardened vault (HashiCorp Vault).
-- **Identity and Access Management (IAM):** Role-Based Access Control (RBAC) enforced via Okta SSO integrated with Workday. Segregation of Duties (SOD) rules prevent a single individual from modifying both payroll and banking data.
-- **Audit Logging:** All access, modification, and export events within the HR Data Domain are shipped as immutable JSON logs to Splunk Cloud. Anomaly detection rules flag bulk downloads of HR records performed outside of the `HR_Integrations` service account.
+| Control | Implementation Detail | Tool / System |
+|---|---|---|
+| **Encryption at Rest** | All HR data storage volumes (EBS, S3 buckets) must be encrypted with AES-256. | AWS Key Management Service (KMS) |
+| **Encryption in Transit** | All data communication must use TLS 1.3. Internal application-to-application traffic between Workday and M365 must be encrypted. | Service Mesh / VPC Peering Policies |
+| **Access Control (RBAC)** | Role-Based Access Control (RBAC) implemented in Workday, Greenhouse, and Culture Amp. Access is segmented into granular security groups (e.g., `HR_BP_NorthAmerica`, `GB_Recruiter`, `DE_Payroll_Admin`). | Okta / Workday Security Configuration |
+| **Multi-Factor Authentication (MFA)** | Mandatory phishing-resistant MFA (Okta FastPass / YubiKey) for all HR system access from managed devices. SMS-based MFA is deprecated for HR data. | Okta Verify |
+| **Automated Anonymization** | Greenhouse anonymizes candidate records on a rolling 13-month schedule for unsuccessful applicants who do not opt-in to retention. | Greenhouse |
+| **Data Loss Prevention (DLP)** | Microsoft 365 DLP policies block the transmission of Sensitive Data (SSN/SIN patterns, NI numbers) from Meridian workstations to unmanaged external recipients. | Microsoft Purview Information Protection |
+| **Audit Logging** | All access, modification, and export actions for Special Categories of data must generate an immutable audit log sent to the SIEM. Retention: Minimum 3 years. | Splunk / AWS CloudTrail |
 
 ### 6.2 Administrative Controls
 
-- **Access Reviews:** Semi-annual "HR Data Access Certification" campaign conducted in SailPoint. Managers must affirmatively re-certify that their team members require their assigned HR roles.
-- **Data Minimization:** Workday fields are configured with mandatory field-level help tags indicating the lawful basis for collection. The HRIS team conducts an annual "Field Harvest" sprint to identify and remove any fields that are not actively used for a documented processing purpose.
-
-### 6.3 Access Controls and the HIPAA Intersection
-
-Given that Meridian administers a self-insured health plan, our Benefits team in HR interfaces with electronic Protected Health Information (ePHI). To meet the HIPAA Security Rule's Access Control standard (45 CFR § 164.312(a)(1)), the following technical policies are enforced:
-
-- **Unique User Identification:** All access to ePHI systems (e.g., the Blue Cross Blue Shield portal, Meridian's internal occupational health system) requires a unique Okta-assigned username.
-- **Automatic Logoff:** Workday sessions terminate automatically after 15 minutes of inactivity.
-- **Access Authorization:** The Benefits Manager role in Workday is the only role granted access to view dependent health enrollment data. This role is granted via a strict Okta group push.
-
-### 6.4 Breach Notification Procedure
-
-In the event of a confirmed Personal Data Breach (both PII and ePHI), the Meridian Incident Response Team (MIRT) is convened. For breaches involving ePHI, Meridian's HIPAA Breach Notification Rule obligations are triggered, requiring notification to affected individuals and the Secretary of HHS. The MIRT assesses the nature and extent of the PHI involved, the unauthorized person who used the PHI, and whether the PHI was actually acquired or viewed. The notification to individuals is provided without unreasonable delay and in no case later than the statutory timeframe.
-
-### 6.5 Physical Controls
-
-- **Clean Desk Policy:** SOP-HR-002 mandates a clean desk policy in HR suites. File cabinets containing employment records are locked at the end of the business day.
-- **Access Badging:** HR suites in Boston, London, and Singapore are "Red Zone" access areas, requiring specific badge access granted only to HR personnel and approved facilities staff. Badge logs are reviewed monthly by Physical Security.
-
----
+- **Bi-Annual Access Review:** Every April and October, the VP of IT Ops and the CHRO will conduct a formal Access Review. This involves reviewing all user accounts with access to Workday's "Compensation" and "Benefits" domains. Any inappropriate privileges found constitute a "Finding" and must be remediated within 3 business days.
+- **Clean Desk Policy:** Hard copies of Employee files must be stored in locked Verifile cabinets with digital access PINs. A monthly physical check is performed in Boston and Berlin offices.
+- **SOP Alignment:** This policy is intrinsically linked to SOP-DS-001 (Data Classification and Handling) and SOP-IT-014 (Information Security Controls). All HR staff are "Data Guardians" within the Meridian Data Governance Framework.
 
 ## 7. Monitoring, Metrics, and Reporting
 
-Compliance with this SOP is continuously monitored through a series of Key Performance Indicators (KPIs) and Key Risk Indicators (KRIs).
+### 7.1 Key Performance Indicators (KPIs)
 
-| Metric ID | Metric Description | Target / Threshold | Measurement Tool | Reporting Cadence | Owner |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **KPI-007-A** | **DSR Timeliness:** Percentage of Data Subject Requests fulfilled within regulatory deadline (30/60 days). | **Target: 100%**<br>Threshold: < 95% | Jira Service Management Dashboard | Monthly | CPO |
-| **KPI-007-B** | **Record Purge Accuracy:** Percentage of records dispositioned on their scheduled destruction date without manual intervention. | **Target: 98%**<br>Threshold: < 95% | Workday Audit Trail / AWS QLDB | Quarterly | Dir, HR Ops |
-| **KPI-007-C** | **Access Control Recertification:** Percentage of sensitive HR roles re-certified by managers within the 14-day campaign window. | **Target: 100%**<br>Threshold: 90% | SailPoint IdentityIQ | Semi-Annual | CISO |
-| **KRI-007-A** | **Unauthorized Access Attempts:** Count of "Access Denied" (Error 403) events in Workday for sensitive worker profile segments. | **Threshold: > 10 attempts from a single user in 1 hour triggers real-time alert.** | Splunk SIEM Alert | Real-Time Alerting; Monthly Trend Report | CISO |
-| **KRI-007-B** | **Bulk Data Exports:** Count of events where a single user exports more than 50 employee records from Workday. | **Alert on Any Occurrence** | Splunk SIEM Alert | Real-Time | Dir, HR Ops |
+The DPO and CHRO report on the following KPIs quarterly to the Risk and Compliance Committee, chaired by Dr. Sarah Chen.
 
-### 7.1 Reporting Cadence
+| KPI | Target | Measurement Tool |
+|---|---|---|
+| **DSAR Compliance Rate** (requests closed within 30-day deadline) | **100%** | Jira Service Management Dashboard |
+| **DPIA Completion Before Procurement Go-Live** | **100%** | ServiceNow HR Tech Procurement vs. Jira DPIA Register |
+| **Bi-Annual Access Review Completion** | **100% by April 15 and Oct 15** | Confirmed sign-off by CHRO and DPO |
+| **Privacy Training Completion (Active Employees)** | **>95%** | Culture Amp / Workday Learning |
+| **Mean Time to Notify (MTTN) — Breach to DPO** | **< 4 hours** | SOC Incident Response Ticket linkage |
 
-- **Monthly Operational Report:** The HR Operations Director presents a scorecard of KPI-007-A (DSR Timeliness), minor incident volumes, and exception statuses to the CHRO.
-- **Quarterly Governance Review:** The CPO presents a consolidated "Employee Data Privacy Dashboard" to the Data Protection Steering Committee (chaired by the CEO), covering all KPIs, KRIs, DPIA approvals, and regulatory horizon scanning.
-- **Annual Privacy Report:** A detailed report on the state of employee data privacy, including ROPA updates and training completion rates, is included in the Chief Compliance Officer's annual board presentation.
+### 7.2 Reporting Cadence
 
----
+| Report Type | Audience | Frequency | Owner |
+|---|---|---|---|
+| **DSAR Fulfillment KPIs** | CHRO, DPO | Monthly | DPO Office (J. Walsh copied) |
+| **Retention & Destruction Reporting** | DPO, VP IT Ops | Monthly (1st of month) | S. Torres |
+| **HR Privacy Audit & Access Review** | CHRO, DPO, CISO | Bi-Annual (April & October) | S. Torres / R. Kim |
+| **Comprehensive Data Privacy Review** | CEO, Board Audit Committee | Annually (December) | Dr. K. Weber |
 
 ## 8. Exception Handling and Escalation
 
-Privacy by default requires that any deviation from this SOP is formally managed.
+Deviations from this SOP must be handled through a formal exception process; operating outside the policy without a registered exception is a direct violation subject to disciplinary action up to and including termination, as defined in SOP-LGL-002 (Employee Code of Conduct).
 
-### 8.1 Standard Exception Process
+### 8.1 Exception Request Procedure
 
-1.  **Request:** The requestor (e.g., a recruiter requesting access to a redacted field for an audit) must submit a ticket in the "HR Privacy Exception" queue in Jira. The ticket must specify the data elements involved, the processing purpose, the technical necessity, and the duration (max 90 days).
-2.  **Risk Assessment:** The Privacy Analyst completes a mini-risk assessment attached to the Jira ticket, rating the risk as Low, Medium, or High based on data sensitivity and processing volume.
+1.  **Initiation:** The requesting party (e.g., a VP wanting to bypass data minimization to collect a new data field) submits a Policy Exception Request through ServiceNow.
+2.  **Risk Assessment:** The CISO and DPO jointly conduct a risk assessment and document the compensating controls required.
 3.  **Approval Matrix:**
-
-    | Risk Level | Approver Required | Documentation Required |
-    | :--- | :--- | :--- |
-    | **Low** (e.g., extended retention of an org chart) | Director, HR Operations | Jira ticket approval |
-    | **Medium** (e.g., granting temporary PI access to an auditor) | CPO | Approved DPIA Lite / Justification Memo |
-    | **High** (e.g., processing new category of sensitive data) | CHRO & CPO | Full DPIA signed by both CHRO and CPO |
-
-4.  **Lifecycle:** All exceptions have a hard-coded expiration date. Jira automatically transitions the issue to a "Decommission" workflow 3 days before expiry, notifying the requestor to remove access or cease processing. If no action is taken, the SOC team is automatically assigned to revoke access/execute a clean-up script.
-
-### 8.2 Escalation Path
-
-- **Potential Data Breach Identified:** Any employee who identifies a potential security incident (including a privacy breach) must immediately telephone the Security Operations Center (SOC) at extension `x-1-777` (Boston HQ) or `+44-20-7946-0958` (London). Do not use email or Slack as the sole initial reporting mechanism.
-- **Unresolved DSR Dispute:** If a Privacy Analyst cannot resolve an employee's DSR complaint, the matter is escalated within 3 business days to the CPO. The employee is informed of their right to lodge a complaint with their local supervisory authority (e.g., the UK Information Commissioner's Office, the Irish Data Protection Commission).
-
----
+    - **Low Risk:** (e.g., extending a minor retention date by 30 days) — Approved by DPO and CHRO.
+    - **Medium Risk:** (e.g., temporary emergency access to PHI for an unauthorized role) — Approved by DPO, CHRO, and CISO.
+    - **High Risk:** (e.g., use of a non-approved SaaS tool processing Special Categories of data) — Approved by CEO or Audit Committee, upon recommendation from the DPO.
+4.  **Time-Bound:** All exceptions are time-bounded and registered in the Jira Exception Register for quarterly review. No permanent exceptions are granted unless the SOP itself is formally revised.
 
 ## 9. Training Requirements
 
-Effective privacy protection demands a competent and aware workforce.
+A privacy-aware workforce is a foundational administrative control. Training is tailored by role.
 
-| Training Module | Target Audience | Frequency | Delivery Method | Compliance Target |
-| :--- | :--- | :--- | :--- | :--- |
-| **SOP-HR-007: Employee Data Privacy (Annual Refresher)** | ALL Employees, Contractors | Annually (by Q1 end) | Litmos LMS (15-min video + quiz) | 100% Completion |
-| **GDPR Foundations for HR Professionals** | HR Operations, Recruitment, Total Rewards, TA | Annually | Instructor-Led (CPO) | 100% Attendance |
-| **Handling Sensitive Data (ART. 9)** | Benefits Team, DEI Analytics Team | Quarterly | Micro-learning Module (Litmos) | 95% Completion |
-| **Phishing & Social Engineering Awareness** | ALL Employees | Monthly | Simulated Phishing via KnowBe4 | < 3% Click-Through Rate for HR Dept. |
-| **DSR Triage and Processing** | Privacy Operations Team (Legal) | Bi-Annually | Workshop with GC | 100% Certification |
+| Training Module | Target Audience | Frequency | Delivery Method | Tracking |
+|---|---|---|---|---|
+| **META-001: Global Data Privacy & Ethics** | All employees globally on Day 1 and annually on anniversary | Annual | Workday Learning (SCORM 1.2) | Completion Rate in Workday |
+| **META-002: GDPR at Work (EU Focused)** | Berlin & London office staff, all People Operations globally | Annual | In-person (Berlin) / Zoom (London) / eLearning | DPO Training Register |
+| **META-003: HIPAA Privacy for Employers** | US Benefits Specialists, Self-Insured Plan Team, relevant ER team | Annual | Zoom Webinar by outside counsel | Compliance Team Register |
+| **META-004: DSAR Handling & Data Security** | People Operations, IT Support, SOC Team | Bi-Annual | Dr. Weber's Direct Briefings | Attendance Log (DocuSign) |
 
-Training completion records are automatically synced from Litmos to the employee's Workday profile. Non-compliance at 30 days past the deadline results in automated notification to the line manager and, at 60 days, a formal written warning per SOP-HR-003 (Progressive Discipline).
-
----
+Non-compliance with mandatory training results in automated notification to the employee's manager and restricted access to HR systems after a 30-day grace period.
 
 ## 10. Related Policies and References
 
 ### 10.1 Internal Meridian Policies
 
-- **SOP-IS-001:** Information Security Policy
-- **SOP-IS-005:** Incident Response and Data Breach Notification
-- **SOP-IS-008:** Identity and Access Management (Okta & SailPoint)
-- **SOP-IA-011:** Internal Privacy Audit Procedure
-- **SOP-LG-002:** Global Employee Privacy Notice (External-Facing)
-- **SOP-HR-003:** Progressive Discipline Policy
-- **SOP-HR-004:** Personnel Records & Retention
-- **SOP-COMP-001:** Clinical AI Data Governance
-- **SOP-DE-001:** Data Ethics Framework
+| SOP ID | Document Name | Relationship |
+|---|---|---|
+| SOP-PR-001 | Meridian Global Data Protection Policy (Umbrella) | Foundational Policy |
+| SOP-DS-001 | Data Classification and Handling | Controls for what constitutes "Confidential" and "Restricted" |
+| SOP-IT-014 | Information Security Controls | Technical safeguards detailed; Encryption standard A.10.1.1 |
+| SOP-LGL-002 | Employee Code of Conduct and Disciplinary Action | Defines consequences for privacy violation |
+| SOP-LGL-004 | Third-Party Data Management (Vendor DPAs) | Required HR vendor contract standards |
+| SOP-DS-003 | Clinical Data Privacy | Contrasting policy for patient data |
+| SOP-BCP-001 | Business Continuity and Disaster Recovery | Data availability and backup verification for HR systems |
 
-### 10.2 External Regulations and Frameworks
+### 10.2 External Standards and Legal References
 
-- **Regulation (EU) 2016/679** (General Data Protection Regulation), specifically Chapter III (Rights of the Data Subject) and Chapter IV (Controller and Processor).
-- **UK GDPR** and Data Protection Act 2018.
-- **Health Insurance Portability and Accountability Act of 1996** (HIPAA) Privacy and Security Rules.
-- **California Privacy Rights Act (CPRA)**.
-- **Singapore Personal Data Protection Act 2012 (PDPA)**.
-- **ISO/IEC 27001:2022** Information Security, Control A.7.3.1 (Termination responsibilities) and A.5.34 (Privacy and protection of PII).
-
----
+- Regulation (EU) 2016/679 (General Data Protection Regulation)
+- Health Insurance Portability and Accountability Act (HIPAA) of 1996
+- NIST Special Publication 800-53, Revision 5: Security and Privacy Controls for Information Systems and Organizations
+- NIST AI 100-1: Artificial Intelligence Risk Management Framework
+- ISO/IEC 27001:2022, Annex A.5.34 (Privacy and protection of PII)
+- SOC 2 TSC 2017 CC6.1 (Logical and Physical Access Controls)
+- Meridian Health Technologies Binding Corporate Rules (BCR), as approved 15 Feb 2025.
 
 ## 11. Revision History
 
-| Version | Date | Author | Description of Changes |
-| :--- | :--- | :--- | :--- |
-| 1.0 | 2019-03-15 | J. Walsh | Initial document creation. Aligns with pre-GDPR preparation. |
-| 2.2 | 2020-11-01 | P. Singh | Major overhaul: Added detailed DSR procedures, Jira portal integration, cross-border transfer maps. |
-| 3.0 | 2023-07-12 | M. Okonkwo | Post-Schrems II update; incorporation of Binding Corporate Rules (BCRs) for EU-UK-US transfers. |
-| 3.5 | 2024-09-05 | D. Chen | Technical controls refresh: implemented QLDB for destruction logs, Splunk SIEM rules for bulk export alerting. |
-| 3.7 | 2025-01-15 | P. Singh | Updated Third-Party vendor processor list; added Culture Amp to DEI data processing procedures. |
-| **3.8** | **2025-02-26** | **J. Walsh** | **Annual review cycle. Minor edits to retention table (I-9 period), updated CHRO approval signature. Matured HIPAA access control descriptions.** |
+| Version | Date | Author / Owner | Summary of Changes |
+|---|---|---|---|
+| 1.0 | 2022-01-25 | J. Walsh | Initial Policy Creation and ROPA alignment. |
+| 1.4 | 2023-06-01 | Dr. K. Weber | Major revision: Operationalized DSAR timelines (30-day mandate); Added Art. 30 ROPA linkage; Introduced DPIA mandatory triggers for AI profiling. |
+| 1.6 | 2024-09-15 | J. Walsh / S. Torres | Updated the International Data Transfer section to reflect the new EU-US Data Privacy Framework adequacy decision; Added Okta AMFA requirement; Updated retention for payroll records to 7 years based on Texas workforce audit. |
+| 1.7 | 2025-03-20 | Dr. K. Weber | Revised DPIA process post-CE certification. Added NIST AI RMF reference for HR analytics tools. Replaced "Annual" with specific Bi-Annual access calendar dates. |
+| 1.8 | 2026-06-22 | J. Walsh | Merged feedback from Works Council Agreement (BV-ID: 2026-04-BE1). Strengthened language on pseudonymization in Culture Amp. Clarified exception timelines; introduced automated Greenhouse anonymization flag. Updated role titles post-restructure. |

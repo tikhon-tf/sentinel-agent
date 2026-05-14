@@ -2,10 +2,10 @@
 sop_id: "SOP-CLIN-003"
 title: "Clinical Trial Data Integration"
 business_unit: "Clinical AI Products"
-version: "5.9"
-effective_date: "2024-01-28"
-last_reviewed: "2025-09-18"
-next_review: "2026-03-21"
+version: "3.5"
+effective_date: "2024-12-07"
+last_reviewed: "2025-05-08"
+next_review: "2025-11-18"
 owner: "Dr. Aisha Okafor, VP of Clinical AI Products"
 approver: "Dr. Priya Patel, Chief Medical Officer"
 classification: "Internal"
@@ -20,275 +20,240 @@ status: "Active"
 ## 1. Purpose and Scope
 
 ### 1.1 Purpose
-This Standard Operating Procedure (SOP) establishes the framework, procedures, and controls for ingesting, validating, transforming, and integrating clinical trial data into the Meridian Health Technologies Clinical AI Platform and MedInsight Analytics environments. The purpose is to ensure that all clinical trial data incorporated into Meridian products meets rigorous standards for data integrity, traceability, regulatory compliance, and patient privacy, thereby ensuring the safety and efficacy of AI models trained or fine-tuned on such data.
+This Standard Operating Procedure (SOP) establishes the framework, controls, and procedural requirements for the ingestion, validation, transformation, and integration of external clinical trial data into the Meridian Health Technologies Clinical AI Platform. The objective is to ensure that all third-party clinical trial datasets leveraged for AI model training, validation, and fine-tuning are integrated with demonstrable integrity, traceability, and regulatory compliance, thereby preserving the safety and efficacy of Meridian’s high-risk AI systems.
 
 ### 1.2 Scope
-This SOP applies to all employees, contractors, subcontractors, and third-party vendors involved in the end-to-end lifecycle of clinical trial data within Meridian Health Technologies, Inc. This includes, but is not limited to:
+This SOP applies to all Meridian Health Technologies employees, contractors, and authorized third parties involved in the lifecycle of clinical trial data integration for the Clinical AI Products business unit. Specifically, this document governs:
 
-- **Data Acquisition:** The legal, regulatory, and commercial process of procuring clinical trial datasets from sponsors, Contract Research Organizations (CROs), academic medical centers, and data consortiums.
-- **Data Ingestion:** The technical process of receiving data from external sources via secure transfer protocols into the Meridian AWS (us-east-1, eu-west-1) boundary.
-- **Data Standards & Transformation:** The mapping and transformation of source data (e.g., CDISC SDTM, ADaM, non-standard legacy formats) into the Meridian Canonical Data Model (MCDM).
-- **Data Quality Assurance:** The execution of automated and manual quality checks to assess completeness, conformance, and plausibility.
-- **Data Integration:** The merging of validated trial data with Real-World Data (RWD) assets in the MedInsight Analytics platform for secondary analysis and Clinical AI model development.
-- **Geographic Applicability:** This SOP applies globally across all Meridian offices (Boston, London, Berlin, Singapore, Toronto), with specific enhanced controls for data involving European Union data subjects as mandated by the General Data Protection Regulation (GDPR).
+- **Data Types:** Individual Participant Data (IPD), clinical study reports, tabulation datasets, analysis datasets, and associated metadata from completed pharmaceutical and medical device trials.
+- **Data Sources:** Direct transfers from sponsor organizations, data aggregator portals, academic medical centers, and regulatory submission data packages publicly released with appropriate usage rights.
+- **Systems:** All data staging, transformation, and storage environments within the Meridian SaaS Platform, including AWS S3 data lakes, Snowflake schemas, and ML feature stores managed via SageMaker and MLflow.
+- **Geographies:** All data integration activities across Meridian’s global offices in Boston, London, Berlin, Singapore, and Toronto.
 
-### 1.3 Out of Scope
-- The collection of primary data directly from patients in Meridian-sponsored interventional clinical trials (Meridian does not currently act as a trial sponsor).
-- The integration of genomic sequencing data (see SOP-RES-007: Genomic Data Management).
-- The operational management of the HealthPay Financial Services platform.
+### 1.3 Applicability
+This SOP is binding upon:
+- **Clinical Data Engineering Team:** Responsible for pipeline execution.
+- **AI Model Development Team:** Responsible for defining data requirements.
+- **Information Security Team:** Responsible for environmental controls.
+- **Data Protection & Privacy Team:** Responsible for lawful basis assessments for EU/EEA data subjects.
+- **Compliance & Quality Assurance:** Responsible for auditing adherence.
 
----
+### 1.4 Out of Scope
+This SOP does not cover the primary collection of clinical trial data by Meridian acting as a Clinical Research Organization (CRO). It solely addresses the integration of pre-existing trial data from external custodians. Raw imaging integration pipelines are addressed in SOP-CLIN-004 (Medical Imaging Data Onboarding). Real-world evidence (RWE) data integration is addressed in SOP-CLIN-005.
 
 ## 2. Definitions and Acronyms
 
-| Term | Definition |
+| Term/Acronym | Definition |
 | :--- | :--- |
-| **ADaM** | Analysis Data Model. CDISC standard for analysis-ready datasets. |
-| **Anonymization** | The irreversible process of rendering personal data non-personal, such that the data subject is no longer identifiable (per GDPR Recital 26), assessed against all means reasonably likely to be used. |
-| **BIMO** | FDA Bioresearch Monitoring program, applicable to certain clinical data standards. |
-| **CDISC** | Clinical Data Interchange Standards Consortium. Global standards for clinical research data. |
-| **CRO** | Contract Research Organization. An external entity contracted to conduct clinical trial activities. |
-| **Data Controller** | The entity which determines the purposes and means of the processing of personal data. |
-| **Data Processor** | The entity which processes personal data on behalf of the Controller. |
-| **DPIA** | Data Protection Impact Assessment. A process required by GDPR Art. 35 for high-risk processing. |
-| **DPO** | Data Protection Officer. Dr. Klaus Weber, based in Berlin. |
-| **eCRF** | Electronic Case Report Form. |
-| **GDPR** | General Data Protection Regulation (Regulation (EU) 2016/679). |
-| **MCDM** | Meridian Canonical Data Model. The internal, unified data schema for the Clinical AI Platform. |
-| **PHI** | Protected Health Information. |
-| **Pseudonymization** | The processing of personal data in such a manner that it can no longer be attributed to a specific data subject without additional information, provided such additional information is kept separately and subject to technical and organizational measures (GDPR Art. 4(5)). |
-| **ROPA** | Record of Processing Activities (GDPR Art. 30). |
-| **SDTM** | Study Data Tabulation Model. CDISC standard for tabulating clinical trial data. |
-| **SLA** | Service Level Agreement. |
-| **SOC 2** | Service Organization Control 2. An auditing procedure for managing customer data. |
-| **TMF** | Trial Master File. A collection of essential documents for a clinical trial. |
-
----
+| **AE** | Adverse Event |
+| **CDISC** | Clinical Data Interchange Standards Consortium |
+| **CDM** | Clinical Data Management |
+| **CRO** | Contract Research Organization |
+| **DTA** | Data Transfer Agreement |
+| **eCRF** | Electronic Case Report Form |
+| **GDPR** | General Data Protection Regulation (Regulation (EU) 2016/679) |
+| **IPD** | Individual Participant Data |
+| **LAB** | Laboratory Test Results domain (CDISC SDTM) |
+| **MLflow** | Machine Learning lifecycle management platform used by Meridian |
+| **PHI** | Protected Health Information (as defined by HIPAA) |
+| **PII** | Personally Identifiable Information (as defined under GDPR) |
+| **PRO** | Patient-Reported Outcome |
+| **SAE** | Serious Adverse Event |
+| **SDTM** | Study Data Tabulation Model (CDISC standard) |
+| **SME** | Subject Matter Expert |
+| **SOP** | Standard Operating Procedure |
+| **ADaM** | Analysis Data Model (CDISC standard) |
 
 ## 3. Roles and Responsibilities
 
-The following RACI matrix delineates the responsibility assignment for the Clinical Trial Data Integration lifecycle:
+The following responsibility assignment matrix (RACI) delineates the specific accountabilities for the Clinical Trial Data Integration lifecycle.
 
-- **R: Responsible** (Executes the task)
-- **A: Accountable** (Ultimate ownership, sign-off authority)
-- **C: Consulted** (Subject matter expert, provides input)
-- **I: Informed** (Kept up-to-date on progress/decisions)
-
-| Activity / Decision Point | Data Ops Engineer | Clinical Data Steward | VP Clinical AI (Dr. Okafor) | DPO (Dr. Weber) | Security (CISO Kim) | Compliance (Anderson) |
+| Activity / Decision Point | Data Engineering Lead | Clinical Data Steward | Chief Privacy Officer / DPO (Dr. Weber) | VP Clinical AI (Dr. Okafor) | CISO (Rachel Kim) | Compliance (Thomas Anderson) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| 1. Data Acquisition Agreement & DPIA | I | C | A | R | C | C |
-| 2. Secure File Transfer Setup | R | I | I | C | A | I |
-| 3. Source-to-MCDM Mapping Spec | C | R | A | I | I | I |
-| 4. Ingest & Validation Pipeline Execution | R | C | A | I | I | I |
-| 5. Data Quality Exception Resolution | C | R | A | I | I | I |
-| 6. GDPR Data Subject Access Request (DSAR) | I | I | C | A/R | C | C |
-| 7. ROPA Update for New Data Source | I | C | C | R | I | A |
-| 8. Approval of Anonymization Status | C | R | A | C | I | I |
+| **Intake Request Approval** | I | C | I | A | I | R |
+| **Data Privacy Impact Assessment (DPIA)** | C | I | A/R | I | C | C |
+| **GDPR Lawful Basis Determination** | I | I | A/R | I | I | I |
+| **Data Transfer Agreement Execution** | I | I | C | A | I | R |
+| **CDISC Compliance Validation** | R | A | I | C | I | I |
+| **PHI/PII Minimization Enforcement** | I | C | R | I | I | A |
+| **Data Quality Gate Approval** | C | R | I | A | I | I |
+| **Integration Pipeline Execution** | A/R | C | I | I | I | I |
+| **Audit Log Review** | I | R | I | I | I | A |
 
----
+*Key: R=Responsible, A=Accountable, C=Consulted, I=Informed*
+
+### 3.1 Named Role Descriptions
+- **VP of Clinical AI Products (Dr. Aisha Okafor):** Ultimate business owner of integrated datasets. Approves high-risk integrations and any exceptions to data quality thresholds.
+- **Chief Privacy Officer / DPO (Dr. Heinrich Weber):** Singular authority for determining GDPR applicability and Article 6/9 lawful bases for processing clinical trial data containing information on EU data subjects. Chairs the weekly Privacy Review Board.
+- **Chief Information Security Officer (Rachel Kim):** Ensures the technical infrastructure for data transfer and storage aligns with Meridian’s ISO 27001:2022 and SOC 2 control sets.
+- **Clinical Data Steward:** A domain expert responsible for clinical concept mapping and verifying the semantic integrity of SDTM mappings.
 
 ## 4. Policy Statements
 
-Meridian Health Technologies is committed to the responsible and compliant use of clinical trial data to power insights and AI-driven solutions. The following high-level policies govern this SOP:
+### 4.1 Data Minimization and Purpose Limitation (GDPR Compliance — Thorough Coverage)
+Meridian Health Technologies strictly adheres to the principles of data minimization and purpose limitation as mandated by the General Data Protection Regulation (Regulation (EU) 2016/679). In the context of clinical trial data integration, the following binding policy statements apply:
 
-- **Policy of Lawful, Fair, and Transparent Processing (GDPR Art. 5(1)(a)):** Meridian will only process clinical trial data containing personal data of EU data subjects after establishing a valid legal basis (e.g., data subject consent obtained by the Controller, or legitimate interest balanced against data subject rights) and ensuring full transparency as articulated in the Controller's privacy notice. Meridian, as a Processor, will verify this basis contractually.
-- **Policy of Purpose Limitation (GDPR Art. 5(1)(b)):** Trial data will be integrated solely for the purposes of secondary research, clinical AI model development, and population health analytics as specified in the Data Use Agreement (DUA) with the data provider. Any new purpose requires a new DPIA and DUA amendment.
-- **Policy of Data Minimization (GDPR Art. 5(1)(c)):** Meridian will only ingest data variables that are adequate, relevant, and limited to what is necessary for the defined analytical purpose. A mandatory variable-necessity review is part of the source-to-MCDM mapping process.
-- **Policy of Storage Limitation (GDPR Art. 5(1)(e)):** Clinical trial data containing personal data will be retained only for the duration defined in the DUA and the associated ROPA. Automated data lifecycle policies in AWS S3 will enforce retention and secure deletion upon contract termination.
-- **Policy of Integrity and Confidentiality (GDPR Art. 5(1)(f)):** Meridian employs state-of-the-art technical and organizational measures, including pseudonymization and encryption at rest and in transit, to ensure appropriate security of personal data against unauthorized or unlawful processing and against accidental loss, destruction, or damage.
+- **Article 5(1)(b) — Purpose Specification:** Integrated clinical trial data shall be repurposed exclusively for the defined secondary purpose of improving diagnostic AI algorithms. This purpose is explicitly documented in Section 4.2 of the mandatory Data Privacy Impact Assessment (DPIA) template (FRM-PRIV-102). Re-identification of any pseudonymized data subjects using the integrated dataset is strictly prohibited and constitutes a Level 1 Security Incident per SOP-SEC-001.
+- **Article 5(1)(c) — Data Minimization:** Prior to ingestion into Snowflake, the Data Ingestion Pipeline must execute a script (`clean_script_pro.sh`) to strip all Free Text fields from SDTM datasets unless a documented and approved exception exists. The default configuration rejects all `CO` (Comments) domains. Any request to retain specific Comment domains must be justified via the Clinical Relevance Exception Form (FRM-CLIN-007) and approved by both Dr. Okafor and Dr. Weber.
+- **Article 5(1)(e) — Storage Limitation:** Integrated clinical trial data stored in the `prod-clinical-ai-ingested` S3 bucket is subject to a lifecycle policy. Data that has not been accessed for model training within 36 months will be automatically archived to Glacier Deep Archive. Full deletion of the source integration dataset occurs 60 months after contract termination with the Data Controller, unless a separate regulatory retention mandate (e.g., FDA 21 CFR Part 11 linkage) is in effect.
+- **Article 25(1) — Data Protection by Design and by Default:** The default configuration for the Ingestion Pipeline maps only the standardized controlled terminology value (`STDVAL`), not the collected verbatim term (`ORVAL`), unless the Verbatim Term is crucial for NLP-based feature engineering (e.g., for AE indication coding). This configuration is enforced by Infrastructure-as-Code templates in Terraform, preventing manual overrides without a validated change request.
+- **Article 32(1)(a) — Pseudonymization and Encryption:** Upon ingestion, all direct identifiers specified in the Data Transfer Agreement are immediately pseudonymized using a SHA-256 one-way hash function. The pseudo-identifier crosswalk file is stored in a separate, isolated AWS Secrets Manager vault, accessible only to the CISO and Chief Medical Officer. This crosswalk is never merged into the ML feature store.
+- **Article 9(2)(j) — Processing of Special Categories of Data:** Given that clinical trial data invariably contains data concerning health (Art. 9(1)), Meridian's lawful basis for processing is solely under Article 9(2)(j), processing for scientific research purposes in accordance with Article 89(1). Meridian’s “Scientific Research Derogation Protocol” (Document-POL-015), approved by the independent Meridian Research Ethics Board, details the proportionate safeguards.
 
----
+### 4.2 Clinical Data Integrity
+Meridian commits to maintaining the scientific integrity of integrated trial data. No transformation pipeline shall alter the statistical interpretation of a submitted clinical endpoint. Specifically, changes to SDTM Controlled Terminology (CT) mappings require Medical Monitor review.
 
 ## 5. Detailed Procedures
 
-### 5.1 Phase 1: Data Acquisition and Intake
+The integration lifecycle is segmented into six sequential phases, each gated by explicit approval milestones.
 
-This phase covers the process from initial data identification through legal agreement execution and technical receipt.
+### 5.1 Phase 1: Intake and Feasibility Assessment
 
-#### 5.1.1 Data Source Identification
-1.  A Meridian stakeholder (typically a Product Manager from the Clinical AI Products business unit or a Data Scientist) identifies a clinical trial dataset that could enhance a product feature.
-2.  The stakeholder submits a "Data Acquisition Request" via the Jira Service Management (JSM) portal, selecting the "Clinical Data Intake" request type.
-3.  The request must include:
-    - Link to ClinicalTrials.gov identifier or EU Clinical Trials Register (EUCT) number.
-    - Proposed analytical use case.
-    - Estimated number of data subjects and volume (GB/TB).
-    - Known geographic origin of data subjects (critical for GDPR flagging).
+1.  The Clinical AI Product Manager initiates a request via the Meridian ServiceNow portal (`SOP Intake Form | CLIN-003`).
+2.  The form captures:
+    -   **Data Controller Identity:** Legal entity name and contact.
+    -   **Trial Registry Identifier(s):** ClinicalTrials.gov (NCT) and/or EU Clinical Trials Register (EudraCT) numbers.
+    -   **Data Volume:** Estimated number of subjects and gigabytes per domain.
+    -   **Proposed Use Case:** Specific AI model version and indication.
+3.  The Clinical Data Steward receives the ticket and performs a preliminary CDISC standards feasibility check within 3 business days. The Steward verifies whether the source data packaging indicates SDTM v3.3 or v3.4 metadata versioning.
+4.  If the data standard is non-CDISC (e.g., custom sponsor database), a Level 2 Exception (Section 8) is automatically triggered, requiring VP Clinical AI sign-off.
 
-#### 5.1.2 Legal and Privacy Review
-1.  The General Counsel, Maria Gonzalez, receives the JSM ticket and initiates a legal review of the data provider’s DUA template or drafts a new one.
-2.  **GDPR-Specific Gate (Art. 35 Trigger):** If the dataset contains data of EU data subjects, the Data Protection Officer (Dr. Klaus Weber) is a mandatory approver and performs or commissions a Data Protection Impact Assessment (DPIA) before signature.
-    - The DPIA describes the processing operations, assesses necessity and proportionality, evaluates risks to rights and freedoms, and details measures to mitigate those risks, including technical controls and pseudonymization.
-    - The DPIA outcome is logged in the central Privacy Register (OneTrust), with a risk rating (Low, Medium, High). "High" residual risk requires consultation with the supervisory authority.
-3.  The Compliance Officer (Thomas Anderson) verifies that the proposed use aligns with SOC 2 contractual commitments and internal data classification policies.
-4.  Upon satisfactory review, the DUA is signed by an authorized Meridian officer.
+### 5.2 Phase 2: Compliance Assessment & Agreement Execution
 
-#### 5.1.3 Secure Data Transfer Setup
-1.  The VP of IT Operations, Samantha Torres, or her delegate, provisions a dedicated, encrypted AWS S3 bucket with a unique prefix (e.g., `meridian-clinical-trial-intake/provider-{id}/study-{id}`).
-2.  The Data Ops Engineer configures a Secure File Transfer Protocol (SFTP) endpoint using AWS Transfer Family with Okta Single Sign-On (SSO) multi-factor authentication as the identity provider.
-3.  An encryption strategy is established: data must be encrypted at rest using AWS Key Management Service (KMS) with a customer-managed key, and in transit via TLS 1.3.
+This phase is governed primarily by the Office of the DPO and Legal Department.
 
-### 5.2 Phase 2: Data Ingestion and Staging
+1.  **DPIA Trigger:** The DPO (Dr. Weber) reviews the intake form. If any trial site is located in the EEA, or the sponsor is an EU-based entity, a full DPIA (FRM-PRIV-102) is mandatory, irrespective of subject-level data residency.
+2.  **Lawful Basis Mapping (GDPR Art. 6 & 9):** Dr. Weber's team explicitly maps the processing onto Articles 6(1)(f) (Legitimate Interest) and 9(2)(j) (Scientific Research). The Legitimate Interest Assessment (LIA) must be documented and linked to the ServiceNow ticket.
+3.  **Data Transfer Agreement (DTA):** Legal drafts the DTA. Key mandatory Meridian-specific clauses are enforced:
+    -   Clause 3.1: Sponsor warrants data is SDTM-compliant.
+    -   Clause 3.2: Sponsor assumes responsibility for original consent scope, confirming re-analysis for algorithm training is permitted.
+    -   Clause 4.1: Meridian is a Controller for the pseudonymized derived dataset.
+4.  Execution of the DTA by both parties unlocks the technical S3 staging dropzone.
 
-#### 5.2.1 Data Landing
-1.  The external data provider uploads the dataset(s) to the provisioned SFTP endpoint.
-2.  A file manifest (CSV or Excel format) is required from the provider, containing:
-    - Filename
-    - Checksum (SHA-256)
-    - File size
-    - Description (e.g., "DM domain SDTM dataset")
+### 5.3 Phase 3: Technical Ingestion and Pseudonymization
 
-#### 5.2.2 Automated Ingestion Pipeline
-1.  Upon arrival of a file matching the manifest, an AWS EventBridge rule triggers a Step Functions state machine named `TrialDataIngestionWorkflow`.
-2.  **Checksum Verification:** The workflow computes the SHA-256 checksum of the landed file and compares it to the manifest. A mismatch immediately halts the pipeline and triggers a PagerDuty alert to the Data Ops team.
-3.  **Anti-Malware Scan:** The file is scanned in-place using CrowdStrike Falcon. A "malware detected" result quarantines the file and triggers a critical security incident response process.
-4.  **Staging:** Successfully verified files are moved to a staging zone: `s3://meridian-clinical-trial-staging/provider-{id}/study-{id}/YYYY-MM-DD/`.
-5.  **Metadata Registration:** The ingestion event is logged immutably in the Meridian Data Catalog (Apache Atlas), tagged with the SOP-ID `SOP-CLIN-003`.
+1.  **Dropzone Configuration:** CISO (Rachel Kim) configures a dedicated, time-limited (30-day) S3 bucket dropzone (`sponsor-drop-{trial_id}`). Access is via pre-signed URLs with enforced TLS 1.3 encryption.
+2.  **Data Landing:** Sponsor uploads data. Meridian's AWS EventBridge listens for `PutObject` events and logs the arrival in an immutable CloudTrail log.
+3.  **Automated Pseudonymization & Minimization Pipeline:**
+    -   **Step 3A (Identify):** Script `sdtm_scanner.py` scans all `.xpt` (SAS V5 Transport) files. It searches for SDTM variables flagged in the Global Clinical Variable Dictionary (GCVD) as "Direct Identifier" (e.g., `SUBJID`, `USUBJID` in DM domain).
+    -   **Step 3B (Hash/Pseudo):** The scanner invokes an AWS Lambda (`pseudo_engine`) that replaces `SUBJID` with a Trial-Specific Subject ID (`TSSID`). `TSSID` is structured as `{Meridian_Study_Index}-{sequential_random_number}`. The mapping secret is vaulted.
+    -   **Step 3C (Minimize):** The pipeline automatically drops:
+        -   The `CO` (Comments) domain entirely.
+        -   Variables annotated as `Origin = CRF Collected` and `QRS = Yes` (Questionnaire, Rating Scale) where verbatim text is freeform, unless a specific variable exemption exists.
+    -   **Step 3D (Partition):** Data is written into an Apache Iceberg table format in a secured S3 Data Lake, partitioned by `StudyID`.
 
-### 5.3 Phase 3: Data Transformation and Standards Mapping
+### 5.4 Phase 4: CDISC Compliance and Structural Validation
 
-This is the most complex phase, standardizing heterogeneous source data into the MCDM.
+1.  **OpenCDISC/Define-XML Check:** The Data Steward validates the supplied Define-XML metadata against the actual XPT file contents using the Pinnacle 21 Community tool.
+2.  **Standard Conformance Rules:**
+    -   **Rule SD0037:** Check that all AE (Adverse Events) records have a populated `AETERM` (Reported Term for the AE).
+    -   **Rule LB0042:** Check that Lab Test results in LB domain with `LBTOX=’Y’` have a populated `LBTOXGR` (Toxicity Grade).
+3.  **Non-Conformance Handling:** If a dataset fails a Pinnacle 21 check with a severity of "Error," ingestion is paused. If it fails with a "Warning" severity, a data conformance waiver must be signed by the Clinical Data Steward and stored in the Meridian Document Management System (DMS) linked to the trial.
 
-#### 5.3.1 Source Data Profiling
-1.  A Clinical Data Steward uses a SageMaker notebook (with restricted network access) to profile landed data, generating a report using the "YData Profiling" library.
-2.  The report identifies all source variables, data types, value distributions, and a "GDPR Personal Data Flag" if variables contain direct identifiers or potentially quasi-identifiable data (defined per Meridian's internal re-identification risk thresholds).
+### 5.5 Phase 5: Clinical Data Quality and Harmonization
 
-#### 5.3.2 Mapping Specification
-1.  The Clinical Data Steward documents a formal "Source-to-MCDM Mapping Specification" in a controlled spreadsheet (XLSX) stored in SharePoint.
-2.  The specification must include:
-    - Source Variable Name → MCDM Variable Name
-    - Data Type Conversion (e.g., Char to Integer)
-    - Value Transformation Logic (e.g., `SEX = 'M'` → `GENDER_CONCEPT_ID = 8507`, a SNOMED CT code)
-    - Codelist Harmonization (e.g., mapping MedDRA terms from source to OMOP Standard Vocabulary concepts)
-    - Date shifting logic (for pseudonymization, see Section 5.3.3)
-    - **Variable Necessity Justification:** A mandatory column where the Steward confirms the mapped variable is necessary for the defined analytical purpose, fulfilling the data minimization principle.
+The Clinical Data Engineer executes the harmonization routine using the Meridian Integrated Mapping Layer (MIML) on AWS Glue.
 
-#### 5.3.3 Pseudonymization Procedure
-1.  All direct identifiers (Names, Medical Record Numbers, Social Security Numbers, etc.) are strictly prohibited for ingestion. The Data Ops pipeline is configured with a regex-based filter to reject any file containing pattern-matched direct identifiers.
-2.  For identifiers integral to analysis (e.g., Site ID, Subject ID), an irreversible, salt-cryptographic hashing algorithm (SHA-256) with a key managed by HashiCorp Vault is applied, generating a Meridian Subject Key (MSK).
-3.  Dates (Birth, Screening, Visit, AE Start) are algorithmically shifted by a random, study-specific offset (between -90 and +90 days) to maintain temporal relationships for analysis while preventing re-identification. The original dates are discarded.
+1.  **Adverse Event Harmonization:** `AETERM` is mapped to MedDRA (Medical Dictionary for Regulatory Activities) Preferred Terms (PT) and System Organ Class (SOC). The mapping logic uses a validated dictionary lookup table within Snowflake. Unmapped terms are routed to a QA queue for manual coding.
+2.  **Medication Harmonization:** Concomitant medications (`CMTRT` in CM domain) are mapped to WHODrug Global dictionary. A fuzzy string matching algorithm (`T_CM_HARMONIZE`) attempts mapping; a confidence score > 90 is auto-accepted; lower scores are routed for manual review.
+3.  **Safety Signal Check:** A mandatory aggregate query checks for any 1.5x disproportionality in SAE reporting compared to the sponsor’s Clinical Study Report summary table. Variance triggers a Clinical Scientist investigation.
+4.  **Outlier Detection:** Numeric lab data (`LBTESTCD` = select tests) is subjected to an interquartile range (IQR) outlier check. Outliers are not removed automatically; a Quality Flag variable (`LBQUAL_N` = 1) is added to the dataset row. The dataset is deemed non-suitable for AI training until 100% of Quality Flag rows are reviewed.
 
-#### 5.3.4 Transformation Pipeline Execution
-1.  The Data Ops Engineer translates the Mapping Specification into a DBT (data build tool) SQL or Python transformation model.
-2.  The DBT model is committed to a Git repository (GitHub Enterprise), must undergo a peer review, and is executed via a CI/CD pipeline.
-3.  The transformation run creates the MCDM-compliant datasets in the `meridian-integrated-clinical-trial` S3 bucket, partitioned by `study_id` and `data_version`.
+### 5.6 Phase 6: Release to ML Feature Store
 
-### 5.4 Phase 4: Data Quality Assurance
-
-#### 5.4.1 Automated Quality Checks
-The transformation pipeline runs a suite of automated quality checks using the "Great Expectations" framework. Checks include:
-
-| Check Category | Description | Threshold | Action on Failure |
-| :--- | :--- | :--- | :--- |
-| **Completeness** | Percentage of non-null values in mandatory MCDM columns (e.g., `SUBJECT_KEY`, `AETERM`). | > 99.5% | Pipeline stops; error queue to Steward. |
-| **Conformance** | Source values match expected codelists (e.g., `SEX` in ['M','F']). | 100% | Pipeline stops; error queue to Steward. |
-| **Uniqueness** | `SUBJECT_KEY` is unique within a domain. | 100% | Pipeline stops; error queue to Steward. |
-| **Referential Integrity** | Each record in the Adverse Events table (`AE`) has a corresponding valid `SUBJECT_KEY` in Demographics (`DM`). | > 99.9% | Warning logged; records with no key are routed to a quarantine table. |
-| **Plausibility** | Visit dates are after birth dates; subject age is within a plausible range. | 100% | Warning logged; anomalous records flagged for review. |
-
-#### 5.4.2 Manual Steward Review
-1.  Each time a study is integrated, the Clinical Data Steward must perform a manual review of a 10% random sample of patient-level trajectories, tracing a Subject Key across DM, AE, and LB (Labs) domains.
-2.  A "Data Quality Certification Report" (DQCR) is generated via a Jupyter Notebook template and signed by the Steward.
-3.  The DQCR includes a specific attestation: *“I confirm that the data transformation was executed in accordance with SOP-CLIN-003 and that the output data in the MCDM is a true, pseudonymized representation of the source SDTM.”*
-
-### 5.5 Phase 5: Integration and Release
-
-#### 5.5.1 Integration into MedInsight
-1.  The released MCDM dataset is registered as a new "Data Asset" in the MedInsight Analytics platform's data catalog (Snowflake).
-2.  The Data Product team maps the dataset into predefined subject area mart tables (e.g., `CARDIOVASCULAR_V2`, `ONCOLOGY_V3`).
-3.  Access permissions are managed through Okta groups and Snowflake Role-Based Access Control (RBAC).
-
-#### 5.5.2 Integration for AI Training
-1.  To use the data for Clinical AI Platform model training, a separate "AI Training Data Request" is filed in JSM.
-2.  The Chief AI Officer (Dr. Marcus Rivera) reviews the request for model risk tier (High-Risk under EU AI Act).
-3.  For high-risk AI use cases, the dataset name and version are entered into the Model Card under the "Training Data" section, ensuring traceability from model output back to source data, as required by the NIST AI RMF “Traceability” characteristic (GOVERN 4.1).
-4.  A frozen, version-controlled copy of the dataset is created for the training run to ensure reproducibility (`s3://meridian-ml-training-data/frozen/`).
-
----
+1.  **Review Gate:** The Clinical Data Steward presents the final Data Quality Dashboard (see Section 7) to Dr. Okafor.
+2.  **Approval:** Dr. Okafor approves the batch in the Meridian Metadata Repository (Collibra). This approval triggers the MLflow Experiment Registry to unlock the dataset.
+3.  **Lineage Capture:** The SageMaker training job automatically captures the Dataset URI and Version (e.g., `s3://meridian-ml-features/vault/clin/trial_nct0012345_ver_1`) as immutable Run Metadata.
 
 ## 6. Controls and Safeguards
 
 ### 6.1 Technical Controls
-- **Access Control:** All access is governed by the principle of least privilege, enforced via Okta Universal Directory groups and AWS IAM roles. Direct bucket access is prohibited; only programmatic access via approved pipelines is permitted.
-- **Encryption:** AES-256 encryption at rest (AWS KMS CMK) and TLS 1.3 in transit.
-- **Network Segmentation:** Data storage accounts reside in a dedicated Virtual Private Cloud (VPC) with no direct internet egress. Outbound connections are proxied via a strict web gateway.
-- **Audit Logging:** All data access, transformation, and movement events are logged to a centralized Datadog SIEM with immutable, write-once-read-many (WORM) storage. Logs are retained for 7 years.
+| Control ID | Control Name | Implementation Detail |
+| :--- | :--- | :--- |
+| **TC-01** | Immutable Audit Logging | AWS CloudTrail enabled for all S3, Lambda, and Glue operations. Logs are stored in a write-once-read-many (WORM) compliant log archive bucket. No delete permissions are granted to root or admin users on this bucket. |
+| **TC-02** | Multi-Factor Authentication (MFA) | MFA enforcement policy applied to all IAM roles capable of accessing the Clinical Trial S3 staging or production zones. YubiKey hardware tokens required for privilege escalation. |
+| **TC-03** | VPC Isolation | All data transformation Glue jobs run within a private subnet (Meridian-Clinical-Prod-VPC) with no direct internet egress. NAT gateways are disabled for this subnet. |
+| **TC-04** | Secrets Vaulting | The `pseudo_engine` Lambda retrieves salt values and the crosswalk storage location from AWS Secrets Manager. Access is restricted to just-in-time (JIT) elevation via PAM. |
+| **TC-05** | End-to-End Encryption | TLS 1.3 used for data in transit. All at-rest data in S3 and Snowflake encrypted using AWS KMS customer-managed keys with automatic annual rotation. |
 
 ### 6.2 Administrative Controls
-- **ROPA Maintenance:** Dr. Klaus Weber (DPO) is responsible for updating the central Record of Processing Activities (ROPA) under GDPR Art. 30 within 5 business days of a new clinical trial data integration. The ROPA entry includes: name of data source, purpose of processing, categories of data subjects and personal data, and technical safeguards applied.
-- **Data Processing Addendum (DPA):** No clinical trial data integration proceeds without an executed Data Processing Addendum with the data provider, containing the mandatory Standard Contractual Clauses (SCCs) for EU personal data transfers, as required by GDPR Art. 28 and Art. 46.
-- **Third-Party Audit:** The effectiveness of these controls against SOC 2 criteria is tested annually by an external auditor.
-
----
+| Control ID | Control Name | Implementation Detail |
+| :--- | :--- | :--- |
+| **AC-01** | Annual Permissions Review | Rachel Kim’s team performs an annual IAM access review. A report is produced and reviewed with Dr. Okafor. Any stale accounts or permissions exceeding least-privilege baselines are remediated within 14 days. |
+| **AC-02** | Monthly EU/EEA Subject Validation (GDPR-Specific) | Dr. Weber’s Data Protection Office performs a manual reconciliation of processed NCT records against sponsor Data Privacy Notices to ensure the Article 14 transparency obligation (Indirect Collection) has been discharged. |
 
 ## 7. Monitoring, Metrics, and Reporting
 
-### 7.1 Key Performance Indicators (KPIs)
-The Data Operations team will track the following metrics on a Datadog real-time dashboard and report them at the monthly Clinical AI Operations Review:
+The Clinical Data Integration program success is tracked via a real-time PowerBI dashboard, refreshed from Snowflake query logs and the Clinical Metadata Repository (Collibra). A monthly QMR (Quarterly Management Review) deck is produced by the Clinical AI QA Lead and reviewed by the VP of Clinical AI Products.
 
-| Metric | Target Source | SLA / Threshold |
-| :--- | :--- | :--- |
-| **Time-to-Insight** | Jira, Step Functions | Time from DUA signature to data being released in MedInsight. Target: < 30 calendar days. |
-| **Pipeline Success Rate** | Step Functions | Percentage of pipeline runs that complete without a fatal error. Target: > 98%. |
-| **Data Quality Defect Rate** | Great Expectations | Number of records quarantined / total records ingested. Target: < 0.1%. |
-| **GDPR DSAR Response Time** | JSM, OneTrust | Time to locate and report on all data for a specific MSK. Target: < 10 calendar days (vs. GDPR 30-day limit). |
-| **Out-of-Policy Data Storage** | AWS Config | Number of S3 buckets containing trial data without a valid lifecycle policy. Target: 0. |
+### 7.1 Key Performance Indicators (KPIs)
+
+| # | Key Performance Indicator | Target Threshold | Measurement Methodology |
+| :--- | :--- | :--- | :--- |
+| **KPI-1** | **Integrated Record Completeness** | ≥ 98% | Ratio of successful row insertions to total rows received in source XPT files. Failures logged to `sop_clin_003_log`. |
+| **KPI-2** | **CDISC Domain Conformance** | Pass (No Errors) | Number of Pinnacle 21 “ERROR” findings from Phase 4 validation. The metric is binary (Pass/Fail) for production approval. |
+| **KPI-3** | **Ingestion Timeliness** | 95% within 7 business days | Time from DTA signature receipt (`status=dta_done`) to successful data landing in Iceberg table. |
+| **KPI-4** | **Pseudonymization Efficacy** | 100% | Binary scan of all DM-domain tables ensuring no raw original `SUBJID` or `USUBJID` strings exist in production schemas. |
+| **KPI-5** | **Data Minimization Efficiency (GDPR)** | ≥ 90% | Percentage of imported SDTM domains where Free Text variables have been correctly stripped or pseudo-tokenized out of total imported domains. |
+| **KPI-6** | **Manual Coding Queue Backlog** | < 24 hours TAT | Median time a verbatim term (e.g., `AETERM`) sits in the Manual Harmonization Queue (MIML-Queue-1) before clinical expert review and resolution. |
 
 ### 7.2 Reporting Cadence
-- **Weekly:** Operational pipeline health report to VP of IT Operations (Samantha Torres).
-- **Monthly:** KPI dashboard review with VP of Clinical AI Products (Dr. Aisha Okafor).
-- **Quarterly:** Governance review with the Clinical AI Risk Committee, including a summary of any exceptions or DPIA updates.
-
----
+- **Daily:** Automated Jenkins job `sop-clin-003-dq-report` sends an email to the Clinical Data Engineering distribution list containing the pass/fail result of the previous night's scheduled ingestion jobs.
+- **Weekly:** The Data Steward compiles the "Weekly Trial Data Harmonization Backlog" report, distributed to Dr. Okafor and the Clinical Science team leads.
+- **Monthly:** Dr. Okafor and the DPO Office review the "Data Protection Compliance Dashboard," specifically reviewing the Log of Article 15 Access Requests (Subject Access Requests) attempting to query integrated trial data.
 
 ## 8. Exception Handling and Escalation
 
-### 8.1 Non-Standard Data Ingestion Request
-A formal exception is required for any of the following:
-- Ingestion of clinical data not in a CDISC-compliant format.
-- Ingestion of data containing an unplanned, direct identifier deemed “non-removable” for a critical business reason.
-- Processing data for a new purpose not covered in the original DUA or DPIA.
+Deviations from this SOP must follow a strict governance path to ensure accountability without halting critical AI safety research.
 
-### 8.2 Exception Procedure
-1.  The requesting party documents the business justification and the specific technical or procedural deviation in an "SOP Exception Form" in JSM.
-2.  **Risk Assessment:** The Clinical Data Steward and the CISO (Rachel Kim) conduct a joint technical risk assessment.
-3.  **Escalation and Approval Authority:**
-    - **Standard Exceptions:** Approved by VP of Clinical AI Products (Dr. Aisha Okafor) and Data Protection Officer (Dr. Klaus Weber).
-    - **High-Risk Exceptions:** Any exception materially affecting EU data subject rights or involving high-risk personal data under GDPR Art. 9 must be escalated to and approved by the General Counsel (Maria Gonzalez) and the Chief Compliance Officer (Thomas Anderson).
-4.  All approved exceptions are time-bound and must be re-validated annually.
-
----
+### 8.1 Exception Classification
+- **Level 1 (Informational):** Minor deviations captured in automated logs that do not impact data quality (e.g., a source file using a deprecated CDISC controlled terminology version, but still mapping correctly). Auto-approved by the pipeline, logged for retrospective review.
+- **Level 2 (Clinical Discretion):** Waiver of a specific Pinnacle 21 "Warning," or ingestion of a non-standard raw domain. Requires completion of form FRM-CLIN-008.
+    - *Approver:* Clinical Data Steward.
+    - *Notification:* VP of Clinical AI Products.
+- **Level 3 (Regulatory/Privacy):** Urgent risk of PII re-identification, ingestion of data without an executed DTA, or a material finding in a DPIA. Level 3 exceptions trigger a stop-work order for the specific trial pipeline.
+    - *Approver:* VP of Clinical AI Products (Dr. Okafor) AND Chief Privacy Officer (Dr. Weber).
+    - *Escalation Path:* Immediate notification to the Chief Medical Officer (Dr. Priya Patel) and General Counsel.
+    - *Remediation SLA:* Work must not resume until a formal corrective action report (CAR) is presented within 5 business days.
 
 ## 9. Training Requirements
 
-| Role | Required Training | Frequency | Platform |
-| :--- | :--- | :--- | :--- |
-| **Data Ops Engineer** | 1. SOP-CLIN-003 Deep Dive <br> 2. Secure Coding & Pipeline Security | 1. Annually <br> 2. Annually | Workday LMS |
-| **Clinical Data Steward** | 1. CDISC Standards Refresher <br> 2. GDPR for Data Stewards (focus on Pseudonymization & Anonymization) | 1. Bi-annually <br> 2. Annually | Workday LMS / External |
-| **Product Manager** | 1. Clinical Data Acquisition & Ethics Overview | Annually | Workday LMS |
-| **All Staff with Data Access** | 1. GDPR Core Principles <br> 2. HIPAA & PHI Awareness | Annually | Workday LMS |
+### 9.1 Role-Based Training Curriculum
+All personnel assigned to roles in Section 3 are required to complete the training modules listed below.
 
-Training completion is tracked in Workday. Access to clinical trial data S3 buckets is programmatically revoked for any individual whose mandatory training has lapsed beyond a 15-day grace period.
+| Training Module Code | Module Name | Assigned Roles | Frequency | Assessment |
+| :--- | :--- | :--- | :--- | :--- |
+| **TR-CLIN-003A** | Foundations of CDISC SDTM & ADaM | Data Engineer, Data Steward, Clinical Scientist | Annually | 80% pass rate on 50-question MCQ |
+| **TR-CLIN-003B** | Meridian Pseudonymization Pipeline & Secrets Vault | Data Engineer, DevOps | Annually/Upon Deployment | Practical Lab (HashiCorp Vault Query) |
+| **TR-CLIN-003C** | GDPR in Practice: Clinical Data Repurposing | Data Steward, Product Manager, DPO Office, Clinical Scientist | Semi-Annually | 90% pass rate on quiz covering Art. 9(2)(j) derogation & Art. 89 safeguards |
+| **TR-CLIN-003D** | SOP-CLIN-003 Revision Walkthrough | All Applicable Roles | Upon Effective Date | Electronic Attestation in Workday |
 
----
+### 9.2 Training Tracking and Enforcement
+Workday serves as the Learning Management System (LMS) of record. Before an engineer is granted write-access to the `prod-clinical-ai` AWS environment (via Active Directory group `AZ-RO-CLINICAL-ENG`), the SailPoint IdentityIQ integration queries Workday to validate that all training assignments are in `Completed` status. Expired training triggers an automated revocation of administrative Snowflake and S3 privileges.
 
 ## 10. Related Policies and References
 
-- **EU General Data Protection Regulation (GDPR) (Regulation (EU) 2016/679)**
-- **SOP-IS-005: Information Classification and Handling Policy**
-- **SOP-SEC-012: Cryptographic Key Management**
-- **SOP-AI-001: AI Model Risk Management Framework (NIST AI RMF)**
-- **SOP-ANALYTICS-008: MedInsight Data Mart Access Control**
-- **Meridian Clinical AI Data Standard: MCDM v4.2 Specification**
-- **CDISC SDTM Implementation Guide v3.4**
+### 10.1 Internal Meridian SOPs
+- **SOP-CLIN-002:** AI Model Training and Algorithm Change Control
+- **SOP-CLIN-004:** Medical Imaging Data Onboarding
+- **SOP-CLIN-005:** Real-World Evidence (RWE) Data Integration
+- **SOP-SEC-001:** Incident Response and Management (For PII re-identification events)
+- **SOP-PRIV-101:** Data Privacy Impact Assessment (DPIA) Procedure
+- **SOP-QA-101:** Corrective and Preventive Action (CAPA) Process
 
----
+### 10.2 External References
+- **CDISC SDTM Implementation Guide (Version 3.4)**
+- **21 CFR Part 11: FDA Electronic Records; Electronic Signatures**
+- **EU General Data Protection Regulation (GDPR) 2016/679**
+- **EU MDR 2017/745 (Annex II, Technical Documentation)**
+- **Pinnacle 21 Community Edition Documentation**
 
 ## 11. Revision History
 
-| Version | Date | Author(s) | Summary of Changes |
+| Version | Effective Date | Author(s) | Summary of Changes |
 | :--- | :--- | :--- | :--- |
-| 5.9 | 2024-01-28 | Dr. Aisha Okafor, Dr. Klaus Weber | Major revision. Overhauled Phase 3 for GDPR pseudonymization depth; added MCDM v4.2 mapping; integrated DPO into DPIA gate; updated RACI matrix to reflect new Compliance Officer role. |
-| 5.5 | 2023-08-14 | James Park (former Data Ops Lead), Dr. Weber | Updated Data Quality Assurance thresholds for Referential Integrity based on audit finding #CLIN-2023-08; added SHA-256 checksum verification step. |
-| 5.1 | 2023-02-01 | James Park | Switched transformation engine from Airflow/Kotlin to DBT. Updated Phase 3 procedure. Updated all component names to reflect new stack. |
-| 4.3 | 2022-09-22 | Dr. Aisha Okafor | Replaced manual SFTP with AWS Transfer Family with Okta SSO. Updated Section 5.1.3. |
-| 4.0 | 2021-11-15 | Dr. Priya Patel, Legal | Initial formal release incorporating GDPR framework and formal DPIA process. |
+| **1.0** | 2021-03-15 | J. Kim, M. Lefevre | Initial document creation. Established manual upload and basic SDTM validation steps. |
+| **2.2** | 2022-01-20 | M. Lefevre, A. Okafor | Added pseudonymization engine (v1.0) and automated AWS Lambda triggers. Introduced role of Clinical Data Steward. |
+| **3.0** | 2023-08-01 | A. Okafor, H. Weber | Major revision for post-MDR CE marking compliance. Added GDPR Art. 9(2)(j) scientific research derogation framework and explicit DPIA linkage. Replaced legacy FTP dropzone with S3 Pre-signed URLs. |
+| **3.1** | 2023-10-10 | A. Okafor, R. Kim | Modified Section 6 (TC-01) to address IAM privilege escalation vulnerability. Enforced MFA for data lake access. Clarified retention lifecycle in Policy Statement. |
+| **3.5** | 2024-12-07 | Dr. Aisha Okafor, Clinical Data Engineering Team | Refined Phase 3 ingestion to use Apache Iceberg partitioning. Updated Pinnacle 21 conformance rules (SD0037, LB0042). Updated RACI matrix to reflect new Compliance oversight model. Added detailed KPI thresholds for reporting cadence. Replaced "Subject ID" with "Trial-Specific Subject ID (TSSID)" in pseudonym definitions. |

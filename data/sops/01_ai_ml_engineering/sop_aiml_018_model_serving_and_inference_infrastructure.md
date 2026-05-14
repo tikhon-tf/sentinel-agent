@@ -2,10 +2,10 @@
 sop_id: "SOP-AIML-018"
 title: "Model Serving and Inference Infrastructure"
 business_unit: "AI/ML Engineering"
-version: "3.2"
-effective_date: "2025-05-18"
-last_reviewed: "2026-08-09"
-next_review: "2027-02-25"
+version: "2.1"
+effective_date: "2025-05-20"
+last_reviewed: "2026-10-01"
+next_review: "2027-04-26"
 owner: "Dr. Marcus Rivera, Chief AI Officer"
 approver: "David Park, VP of Engineering"
 classification: "Internal"
@@ -17,825 +17,779 @@ status: "Active"
 
 # Standard Operating Procedure: Model Serving and Inference Infrastructure
 
+**SOP-AIML-018 | Version 2.1**
+**Effective: 2025-05-20 | Classification: Internal**
+
+---
+
 ## 1. Purpose and Scope
 
 ### 1.1 Purpose
 
-This Standard Operating Procedure (SOP) establishes the standardized requirements, operational controls, and governance framework for the deployment, serving, scaling, and lifecycle management of all machine learning (ML) and artificial intelligence (AI) models across the Meridian Health Technologies, Inc. production serving infrastructure. The purpose of this document is to ensure that all models—regardless of business line origin—are served in a secure, reliable, observable, and performant manner commensurate with their risk classification and business criticality.
+This Standard Operating Procedure establishes the governance framework, architectural standards, operational protocols, and performance requirements for all production model serving and inference infrastructure deployed across Meridian Health Technologies, Inc. The purpose of this document is to ensure that machine learning models are served in a reliable, secure, observable, and scalable manner that meets the regulatory obligations and business requirements of the organization.
 
-This SOP defines the architectural standards, deployment pipelines, monitoring expectations, and incident response procedures necessary to maintain the integrity and availability of inference services that directly support clinical decision-making, financial transactions, and population health analytics.
+Model serving represents the critical bridge between model development and business value realization. Inferencing failures, latency degradation, or unauthorized model access can directly impact patient care decisions, financial transaction processing, and regulatory compliance posture. This SOP provides the engineering and operational controls necessary to maintain the integrity of the inference pipeline from deployment through decommissioning.
 
 ### 1.2 Scope
 
-This SOP applies to:
+This SOP applies to all machine learning models, inference endpoints, and serving infrastructure operating at the "Production" tier within the Meridian Model Governance Framework (SOP-AIML-001). The scope encompasses the following assets and activities:
 
-- All production and pre-production (staging, shadow, canary) model serving environments across all Meridian cloud tenants (AWS us-east-1, AWS eu-west-1, Azure DR).
-- All business lines: Clinical AI Platform, HealthPay Financial Services, MedInsight Analytics, and the Meridian SaaS Platform.
-- All model artifacts—including PyTorch, TensorFlow, ONNX, and containerized custom inference code—deployed via Kubeflow pipelines or SageMaker endpoints.
-- All inference API endpoints exposed to internal services, customer-facing applications, and third-party integrators.
-- Batch inference jobs processing PHI/PII on the Snowflake and Spark-based analytics clusters.
-- Real-time synchronous inference (p99 latency ≤ 500ms target) and asynchronous inference (batch, streaming) workloads.
-- Shadow deployments, A/B test routing, canary rollouts, and rollback procedures.
-- All personnel—full-time employees, contractors, and vendors—involved in model deployment, infrastructure provisioning, performance tuning, or incident response for AI/ML systems.
+| In Scope | Out of Scope |
+|----------|--------------|
+| Production inference endpoints serving internal or external consumers | Model training infrastructure and pipelines (see SOP-AIML-015) |
+| Shadow and Canary deployment environments | Development and Staging environments (see SOP-AIML-002) |
+| Inference latency, throughput, availability, and accuracy monitoring | Model development and feature engineering workflows |
+| Model serving container images and their lifecycle | Data pipeline and feature store management (see SOP-DATA-009) |
+| A/B routing, traffic splitting, and rollback mechanisms | Business-level model validation and clinical efficacy studies |
+| Inference authentication, authorization, and audit logging | Model explainability output generation (see SOP-AIML-022) |
+| AWS SageMaker, Kubernetes (EKS), and custom serving infrastructure | Desktop or local inference tooling |
+| HealthPay Financial Services scoring models (non-clinical) | Direct EMR integration logic |
+| Clinical AI Platform inference endpoints (EU and US regions) | End-user application architecture |
 
-### 1.3 Out of Scope
+### 1.3 Applicability by Product Line
 
-- Model training and experimentation workflows (see SOP-AIML-012: Model Development Lifecycle).
-- Data pipeline ingestion and feature engineering operations (see SOP-DATA-005: Feature Store and Training Data Management).
-- Clinical validation studies for model efficacy (see SOP-CLIN-022: Clinical AI Validation Protocol).
-- End-user application logic consuming inference results (covered by product-specific engineering standards).
+| Product Line | Models in Scope | Regulatory Sensitivity | Maximum Permitted Latency (p99) |
+|--------------|-----------------|------------------------|--------------------------------|
+| Clinical AI Platform | Diagnostic imaging, risk scoring, adverse event prediction | High-Risk AI (EU AI Act Annex III), HIPAA | 500ms synchronous / 30s async |
+| HealthPay Financial Services | Credit scoring, fraud detection, claims prediction | SR 11-7, SOC 2 | 200ms synchronous |
+| MedInsight Analytics | Population health, care gap, outcomes prediction | HIPAA, GDPR | 5,000ms batch |
+| Meridian SaaS Platform | Infrastructure-level operational models | SOC 2 Type II | 1,000ms |
 
 ### 1.4 Target Audience
 
-The primary audiences for this SOP are:
+This SOP is binding upon all personnel involved in the design, deployment, operation, and decommissioning of production inference infrastructure, including:
 
-| Role | Relevance |
-|------|-----------|
-| ML Engineers (MLE) | Primary operators; responsible for containerization, deployment, and performance tuning |
-| Platform Engineers | Infrastructure provisioning, cluster scaling, networking |
-| DevOps/SRE Teams | Monitoring, alerting, incident response for inference services |
-| Security Engineering | Model artifact signing, vulnerability scanning, access control |
-| QA/Validation Engineers | Pre-production inference validation, load testing, regression testing |
-| Product Managers | Understanding SLA commitments and deployment timelines |
-| Compliance & Audit | Evidence collection for SOC 2 and HITRUST controls |
+- AI/ML Engineering team members
+- MLOps and DevOps engineers
+- Site Reliability Engineering (SRE) team
+- Information Security personnel
+- Clinical AI product managers
+- Financial Services engineering leads
+- Platform engineering team
 
 ---
 
 ## 2. Definitions and Acronyms
 
-### 2.1 Definitions
+### 2.1 Terminology
 
 | Term | Definition |
 |------|------------|
-| **Model Serving** | The operational process of making a trained ML model available to receive inference requests and return predictions via a network-accessible endpoint. |
-| **Inference** | The computational process of applying a trained model to input data to produce a prediction, classification, or recommendation output. |
-| **Model Artifact** | The serialized file(s) representing a trained model (e.g., .pt, .pb, .onnx, .mar files), including associated tokenizers, preprocessing logic, and metadata. |
-| **Inference Container** | A Docker/OCI-compliant container image encapsulating the model artifact, runtime dependencies, and serving logic (e.g., TorchServe, Triton Inference Server, custom Flask/FastAPI application). |
-| **Shadow Deployment** | A deployment mode where a new model version receives live production traffic in parallel with the active model, but its outputs are logged for analysis rather than returned to the caller. |
-| **Canary Deployment** | A deployment strategy where a percentage of production traffic is routed to a new model version, with gradual traffic shifting based on health metrics. |
-| **A/B Routing** | Traffic splitting between two or more model versions based on predefined rules (headers, tenant IDs, random sampling) to compare performance characteristics. |
-| **Cold Start** | The latency penalty incurred when a model container or endpoint is initialized from a dormant state, including container startup, model loading into memory, and first-inference warmup. |
-| **Model Registry** | The centralized repository (MLflow Model Registry) storing versioned model artifacts, stage transitions, and deployment metadata. |
-| **Inference SLA** | Service Level Agreement defining availability percentage and latency targets for production inference endpoints. |
-| **Traffic Manager** | The infrastructure component (AWS Application Load Balancer with weighted target groups, or Istio VirtualService) responsible for routing inference requests to backend endpoints. |
-| **Graceful Degradation** | The ability of the inference system to continue serving with reduced functionality or quality when dependent services or resources are unavailable. |
+| **Model Serving** | The process of hosting a trained machine learning model as a networked service that accepts inference requests and returns predictions. |
+| **Inference Endpoint** | A network-addressable API endpoint that exposes one or more model versions for synchronous or asynchronous prediction requests. |
+| **Model Version** | A specific, immutable artifact produced by the model training pipeline, identified by a unique SHA-256 hash and registered in the Meridian Model Registry (MLflow). |
+| **Serving Container** | A Docker container image that packages a model artifact with its runtime dependencies, preprocessing logic, and prediction handler, conforming to the Meridian Serving Interface Specification. |
+| **Shadow Deployment** | A deployment pattern where a new model version receives a copy of production traffic without returning predictions to consumers, used to validate performance under load. |
+| **Canary Deployment** | A deployment pattern where a new model version serves a progressively increasing percentage of production traffic while being monitored for anomalies. |
+| **Traffic Router** | The infrastructure component (AWS Application Load Balancer with Istio service mesh) responsible for distributing inference requests across model versions based on configured routing rules. |
+| **Inference Pipeline** | The complete sequence of operations executed for a single prediction request, including preprocessing, model inference, post-processing, and response assembly. |
+| **Cold Start** | The latency penalty incurred when a model container is initialized for the first time or after a period of inactivity, including model weight loading and compilation. |
+| **Model Registry** | The MLflow-based centralized repository for model artifacts, managed through SOP-AIML-001, and serving as the source of truth for all production model versions. |
+| **Inference SLA** | The service level agreement defining acceptable inference latency, throughput, availability, and accuracy thresholds for a given endpoint. |
+| **Inference Tracing** | The end-to-end correlation of prediction requests across microservice boundaries, implemented via LangSmith for AI-specific telemetry and Datadog APM for infrastructure telemetry. |
+| **Traffic Splitting** | The practice of distributing incoming inference requests across multiple model versions according to defined weight ratios. |
+| **Ghost Traffic** | Production traffic mirrored to a shadow deployment for validation purposes. |
 
 ### 2.2 Acronyms
 
 | Acronym | Definition |
 |---------|------------|
-| ALB | Application Load Balancer |
-| AZ | Availability Zone |
-| CIS | Center for Internet Security |
-| CVE | Common Vulnerabilities and Exposures |
-| DAG | Directed Acyclic Graph |
-| DORA | DevOps Research and Assessment metrics |
-| ECR | Elastic Container Registry |
-| EKS | Elastic Kubernetes Service |
+| ALB | AWS Application Load Balancer |
+| APM | Application Performance Monitoring |
+| EKS | Amazon Elastic Kubernetes Service |
 | GPU | Graphics Processing Unit |
-| HPA | Horizontal Pod Autoscaler |
-| KMS | Key Management Service |
+| IAM | Identity and Access Management |
+| IST | Inference Stress Test |
+| KMS | AWS Key Management Service |
+| ML | Machine Learning |
 | MTTR | Mean Time to Recovery |
-| NIST | National Institute of Standards and Technology |
-| OCI | Open Container Initiative |
-| PHI | Protected Health Information |
-| RPS | Requests Per Second |
-| SLO | Service Level Objective |
+| POD | Point of Deployment |
+| RTO | Recovery Time Objective |
+| RPO | Recovery Point Objective |
+| SHA | Secure Hash Algorithm |
 | SRE | Site Reliability Engineering |
-| TTL | Time To Live |
+| TLS | Transport Layer Security |
+| VPC | Virtual Private Cloud |
 
 ---
 
 ## 3. Roles and Responsibilities
 
-The following RACI matrix defines accountability for activities governed by this SOP. All named roles correspond to Meridian organizational positions as of the effective date.
+The following RACI matrix assigns accountability for all activities within the model serving lifecycle. Named roles represent organizational positions as of the effective date of this SOP.
 
-| Activity | Responsible (R) | Accountable (A) | Consulted (C) | Informed (I) |
-|----------|-----------------|-----------------|---------------|--------------|
-| Model containerization and packaging | ML Engineer, AI/ML Engineering | VP of Engineering | Platform Engineering | Product Manager |
-| Model Registry stage promotion (Staging → Production) | ML Engineer | Chief AI Officer or designee | QA Engineering | VP of Clinical AI Products (clinical models only) |
-| Infrastructure provisioning for inference | Platform Engineer, IT Operations | VP of IT Operations | ML Engineer | VP of Engineering |
-| Production deployment execution | ML Engineer, SRE | VP of Engineering | Platform Engineering | Product Manager, Customer Operations |
-| A/B routing configuration | ML Engineer, SRE | VP of Engineering | Chief AI Officer | Product Manager |
-| Canary rollout health evaluation | SRE | VP of Engineering | ML Engineer | VP of Clinical AI Products |
-| Rollback execution | SRE (primary), ML Engineer (secondary) | VP of Engineering | Chief AI Officer | General Counsel, Chief Compliance Officer |
-| Performance tuning and optimization | ML Engineer | VP of Engineering | Platform Engineering | VP of IT Operations |
-| Security scanning of inference containers | Security Engineering | CISO | ML Engineer | Chief Compliance Officer |
-| Monitoring and alert configuration | SRE, ML Engineer (joint) | VP of Engineering | CISO | VP of IT Operations |
-| Incident response for inference outages | SRE | VP of Engineering | ML Engineer, Platform Engineering | CISO, General Counsel |
-| SLA reporting and compliance | VP of IT Operations | CISO | SRE | Chief Compliance Officer, Customer Operations |
-| Model decommissioning and endpoint teardown | ML Engineer | VP of Engineering | Chief AI Officer | Customer Operations |
-| Cost governance for inference infrastructure | VP of IT Operations | CFO | VP of Engineering | Chief AI Officer |
+### 3.1 RACI Matrix
 
-### 3.1 Additional Role Descriptions
+| Activity | AI/ML Engineer | MLOps Engineer | SRE | Security Team | VP of Engineering | Product Owner | Compliance Officer |
+|----------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| Serving architecture design | R | A | C | C | I | I | I |
+| Container image creation | R | A | I | C | | I | |
+| Model registry registration | R | A | I | I | | I | |
+| Deployment to production | I | R | A | C | I | I | |
+| Traffic routing configuration | I | R | A | C | | I | |
+| Rollback execution | C | R | A | I | I | I | |
+| Monitoring dashboard configuration | C | R | A | I | | I | I |
+| Incident response for inference outage | C | R | A | I | I | I | |
+| Exception approval | C | C | C | C | A | I | I |
+| Quarterly infrastructure review | R | R | A | I | I | I | I |
 
-**Chief AI Officer (CAIO)** — Dr. Marcus Rivera holds final authority over model promotion to production for all clinical and financial models. The CAIO approves all A/B testing protocols involving patient-impacting or credit-impacting models and signs off on model decommissioning requests.
+**Legend:** R = Responsible (performs work), A = Accountable (approves work), C = Consulted (provides input), I = Informed (receives notification)
 
-**VP of Engineering** — David Park is the accountable executive for the operational reliability of the serving infrastructure. All deployment runbooks, rollback procedures, and SLA definitions require VP of Engineering approval.
+### 3.2 Named Role Assignments
 
-**SRE Lead** — A designated senior SRE within the Platform Operations team serves as the primary on-call escalation point for inference service incidents. The SRE Lead maintains the PagerDuty escalation policies for all model-serving services.
-
-**Model Steward** — Each production model must have a designated Model Steward (typically the senior MLE who developed or last substantially modified the model). The Model Steward is listed in the MLflow Model Registry metadata and serves as the subject matter expert during incident triage.
+| Role | Primary Assignee | Alternate |
+|------|------------------|-----------|
+| Chief AI Officer (Policy Owner) | Dr. Marcus Rivera | Dr. Elena Vasquez, Director of ML Engineering |
+| VP of Engineering (Policy Approver) | David Park | Sarah Chen, Senior Director of Platform |
+| Lead MLOps Engineer, US-East | James Okonkwo | Priya Sharma |
+| Lead MLOps Engineer, EU-West | Thomas Lindström | Anika Meier |
+| SRE Lead | Robert Kim | Jennifer Walsh |
+| Security Engineering Lead | Michael Torres | Angela Liu |
 
 ---
 
 ## 4. Policy Statements
 
-### 4.1 General Serving Principles
+### 4.1 Architectural Standards
 
-**PS-001: Immutable Artifacts** — All model artifacts deployed to production must be stored in the MLflow Model Registry with immutable versioning. Once a model version is promoted to the "Production" stage, its artifact binary shall not be overwritten or modified. Any change—including preprocessing logic, feature ordering, or runtime dependencies—constitutes a new model version requiring a new registry entry.
+**PS-001:** All production model serving infrastructure shall be deployed within the Meridian Production Virtual Private Cloud (VPC) in either the `us-east-1-prod` or `eu-west-1-prod` regions, with no direct public internet exposure. All inference endpoints shall be fronted by at minimum an AWS Application Load Balancer terminating TLS 1.3.
 
-**PS-002: Containerized Serving Mandate** — All production model inference must execute within OCI-compliant container images. Bare-metal deployments, uncontainerized Python scripts, and Jupyter notebook-based serving are prohibited in production environments.
+**PS-002:** Every production model shall be served from immutable, versioned container images stored in the Meridian ECR repository `prod-model-serving`. Image tags shall follow the convention `<model-group>-<version-number>-<git-commit-short>`. The `latest` tag shall not be used in production routing configurations.
 
-**PS-003: Infrastructure-as-Code** — All inference infrastructure—including EKS clusters, SageMaker endpoint configurations, ALB rules, and autoscaling policies—must be defined and managed through Terraform (Meridian's approved IaC tool) stored in the `meridian-infra` Git repository. Manual console-based infrastructure changes are prohibited except during declared incident response with VP of Engineering authorization.
+**PS-003:** Model artifacts shall be loaded at container initialization from the Meridian Model Registry, never baked directly into serving container images. This separation ensures that security patches to the serving runtime can be deployed without re-registering model artifacts, and vice versa.
 
-**PS-004: Registry Stage Enforcement** — A model shall not be deployed to production unless its MLflow Model Registry stage is set to "Production" and the promotion was approved by the appropriate accountable authority per the RACI matrix in Section 3.
+**PS-004:** No production inference endpoint shall operate without an active health check endpoint (`/healthz`) returning HTTP 200 for at minimum liveness verification. Readiness verification (`/readyz`) shall incorporate model loading status checks.
 
-**PS-005: High Availability Minimum** — All production inference endpoints serving synchronous requests must be deployed across a minimum of two Availability Zones within their primary AWS region. Single-AZ deployments are permitted only for non-production environments and batch inference workloads that are not latency-sensitive.
+### 4.2 Latency and Performance Commitments
 
-### 4.2 Security and Access Control
+**PS-005:** All synchronous inference endpoints shall maintain a 99th percentile (p99) latency at or below thresholds defined in Section 1.3. Measurements shall be taken at the ALB layer to capture full round-trip latency from request arrival to response departure, inclusive of network transit within the VPC.
 
-**PS-006: Least Privilege Access** — Inference endpoints must be configured with IAM roles granting the minimum permissions necessary for operation. Model containers shall not have access to training data buckets, model registry write APIs, or infrastructure provisioning APIs.
+**PS-006:** Asynchronous inference endpoints shall acknowledge receipt of inference requests within 1,000ms and complete batch processing within 30 seconds for Clinical AI workloads and 15 seconds for HealthPay workloads.
 
-**PS-007: Image Vulnerability Scanning** — Every inference container image must pass a vulnerability scan through AWS ECR scanning (enhanced scanning enabled) before deployment to any staging or production environment. Images with CRITICAL or HIGH CVEs that have a CVSS score ≥ 7.0 and an available fix are blocked from deployment unless a formal risk acceptance is approved by the CISO.
+**PS-007:** Any model serving deployment that introduces a p99 latency regression of more than 15% compared to the incumbent production version, as measured during canary deployment, shall be automatically halted by the traffic router and flagged for engineering investigation.
 
-**PS-008: Model Artifact Signing** — All model artifacts promoted to production must be cryptographically signed using Cosign with a key stored in AWS KMS. Signature verification must be enforced at container build time; unsigned artifacts shall not be packaged into inference containers.
+### 4.3 Security and Access Control
 
-**PS-009: Data Encryption** — All inference traffic must be encrypted in transit using TLS 1.2 or higher. Data at rest—including model artifacts in ECR, cached predictions in Redis, and inference logs in S3—must be encrypted using AWS KMS-managed keys. Customer-managed keys (CMKs) are required for PHI-containing data stores.
+**PS-008:** All inference endpoints shall enforce mutual TLS (mTLS) authentication between the ALB and serving containers within the EKS cluster. Service-to-service inference calls shall present valid X.509 certificates issued by the Meridian Internal Certificate Authority.
 
-### 4.3 Availability and Performance
+**PS-009:** Inference request authentication shall be enforced at the ALB layer via OAuth 2.0 client credentials flow. All inference consumers shall present valid bearer tokens issued by the Meridian Identity Provider (Okta). Anonymous inference access is prohibited in production.
 
-**PS-010: Availability Commitment** — Production inference endpoints supporting synchronous clinical or financial transactions must be deployed with a target availability of 99.9% measured monthly, excluding scheduled maintenance windows approved 72 hours in advance.
+**PS-010:** Model serving containers shall run as non-root users with minimal Linux capabilities. Container filesystems shall be read-only except for designated temporary directories required for model weight loading.
 
-**PS-011: Latency Targets** — The following latency targets apply to synchronous inference endpoints, measured at the 99th percentile (p99) over a rolling 5-minute window:
+### 4.4 A/B Routing and Traffic Management
 
-| Use Case Classification | p99 Latency Target | Measurement Point |
-|-------------------------|-------------------|-------------------|
-| Real-time clinical (diagnostic imaging, risk scoring) | ≤ 500ms | ALB target response time |
-| Real-time financial (credit scoring, fraud detection) | ≤ 250ms | ALB target response time |
-| Interactive analytics (dashboard queries) | ≤ 2 seconds | API gateway to response |
-| Patient-facing applications | ≤ 1 second | ALB target response time |
+**PS-011:** All production endpoints serving multiple model versions shall implement traffic routing via the Meridian Traffic Router, configured through the GitOps repository `meridian-istio-config` following the deployment workflow defined in Procedure 5.6.
 
-**PS-012: Graceful Degradation** — All inference services must implement graceful degradation patterns. When dependent services (feature stores, databases) are unavailable, models must return a structured error response or fallback prediction rather than crashing or hanging. Fallback predictions for clinical models must be clearly flagged with `"fallback": true` in the response payload.
+**PS-012:** Traffic splitting ratios for A/B testing shall be documented in the model's corresponding Deployment Record in the Model Registry. No A/B test shall exceed 30 days in duration without explicit review and extension approval from the VP of Engineering.
 
-### 4.4 Lifecycle Management
+### 4.5 Deployment Gates
 
-**PS-013: Model Version Lifecycle** — Each model version shall proceed through the following lifecycle stages: Registered → Staging → Shadow (optional) → Canary → Production → Archived → Decommissioned. The criteria for each stage transition are defined in Section 5.
+**PS-013:** No model version shall advance from Shadow to Canary, or Canary to Full Production, without satisfying all deployment gates defined in Procedure 5.5, including completion of Inference Stress Testing (IST) and accuracy validation where applicable.
 
-**PS-014: Decommissioning Requirement** — A model version must be decommissioned and its endpoint resources reclaimed when any of the following conditions are met: (a) it has been superseded by a newer version receiving 100% of production traffic for ≥ 30 days, (b) the business line owner confirms discontinuation, or (c) a critical security vulnerability is identified and cannot be remediated.
+**PS-014:** All production deployments shall maintain a rollback-ready previous version configuration within the Traffic Router such that reversion to the prior known-good state can be completed in under five minutes from the rollback decision point.
+
+### 4.6 Availability and Continuity
+
+**PS-015:** Production inference endpoints shall target a minimum availability of 99.9% measured on a rolling 30-day window, excluding scheduled maintenance windows communicated via the Meridian Service Status Page at least 72 hours in advance. Unscheduled maintenance necessitated by critical security patches shall be communicated with as much advance notice as operationally feasible.
+
+**PS-016:** All production serving infrastructure shall operate with a minimum of three availability zones for AWS regional deployments. The SRE team shall maintain infrastructure-as-code configurations that support complete regional failover capability, with failover procedures documented in the SRE runbooks and tested during the quarterly business continuity exercise.
 
 ---
 
 ## 5. Detailed Procedures
 
-### 5.1 Model Containerization and Packaging
+### 5.1 Model Serving Architecture Design
 
-This procedure defines the standardized process for converting a trained model artifact into a production-ready inference container.
+The Meridian model serving architecture follows a layered design pattern consisting of the following components, described in their standard deployment topology:
 
-#### 5.1.1 Container Specification Requirements
+#### 5.1.1 Standard Synchronous Inference Architecture
 
-Every inference container must meet the following specifications:
+```
+[Client / Consumer Application]
+         |
+    [mTLS 1.3]
+         |
+[AWS Application Load Balancer (ALB)]
+    - Authentication: OAuth 2.0 (Okta)
+    - WAF rules for rate limiting
+    - TLS termination
+         |
+    [HTTP/2 over TLS]
+         |
+[Istio Ingress Gateway (EKS)]
+    - Traffic routing enforcement
+    - Circuit breaking
+    - Retry policies (max 3 attempts with exponential backoff)
+         |
+    [Service Mesh Sidecar (Envoy)]
+         |
+[Model Serving Container (EKS Pod)]
+    - gRPC or REST handler
+    - Preprocessing logic
+    - Model inference execution
+    - Post-processing
+         |
+[Model Artifacts (MLflow Registry)]
+    - Loaded at cold start into GPU/CPU memory
+```
 
-| Requirement | Specification |
-|-------------|---------------|
-| Base Image | `meridian-ml-base:4.1` (hardened Ubuntu 22.04, Python 3.11) or `meridian-triton-base:2.8` (for Triton Inference Server deployments) |
-| Health Check Endpoint | Must implement `GET /health` returning HTTP 200 with JSON `{"status": "healthy", "model_version": "<version>"}` |
-| Readiness Check Endpoint | Must implement `GET /ready` returning HTTP 200 only when model is loaded in memory and ready to serve |
-| Liveness Check Endpoint | Must implement `GET /live` returning HTTP 200 if container process is running |
-| Prediction Endpoint | Must implement `POST /predict` accepting and returning JSON per model-specific schema |
-| Metadata Endpoint | Must implement `GET /metadata` returning model version, framework, input schema, and build timestamp |
-| Logging | All logs must be emitted to stdout/stderr in structured JSON format including `model_id`, `version`, `request_id`, and `timestamp` fields |
-| Graceful Shutdown | Container must handle SIGTERM by draining in-flight requests (up to 30 seconds) and exiting cleanly |
-| Resource Limits | Must define CPU and memory requests and limits in the Kubernetes pod spec or SageMaker endpoint configuration |
+#### 5.1.2 Asynchronous Inference Architecture
 
-#### 5.1.2 Container Build Pipeline
+For batch and async workloads, the request is accepted via the synchronous API gateway and published to a dedicated Amazon SQS queue. Worker containers pull from the queue and write prediction results to a designated S3 bucket or DynamoDB table, with response correlation handled via a client-supplied `correlation_id`.
 
-1. **Trigger**: Container build is automatically triggered by any of the following events:
-   - Model version promotion to "Staging" stage in MLflow Model Registry (via webhook).
-   - Merge to `main` branch of the model's deployment repository (`meridian-models/<model-name>`).
-   - Manual trigger via Jenkins pipeline `build-inference-container` with approved parameters.
+#### 5.1.3 Instance Selection Guidelines
 
-2. **Build Steps** — The Jenkins pipeline (`Jenkinsfile` in the model repository) executes:
-   ```
-   Stage 1: Checkout model repository and fetch model artifact from MLflow
-   Stage 2: Validate model artifact signature using Cosign/KMS
-   Stage 3: Build Docker image with model artifact baked in
-   Stage 4: Run container structure tests (Google Container Structure Test framework)
-   Stage 5: Scan image with AWS ECR enhanced scanning + Trivy
-   Stage 6: Run inference smoke tests against container:
-       - Send 100 sample requests covering all prediction paths
-       - Validate response schema compliance
-       - Verify latency < 2x baseline
-   Stage 7: Push image to ECR with tags: <version>, <git-sha>, latest-staging
-   Stage 8: Update MLflow Model Registry with container image URI
-   ```
+| Workload Type | Compute | Accelerator | Memory | Justification |
+|---------------|---------|-------------|--------|---------------|
+| Diagnostic Imaging (Clinical AI) | g5.4xlarge EKS node | 1x A10G GPU | 64 GB | Medical imaging models require GPU acceleration for sub-500ms inference |
+| Risk Scoring (Clinical AI) | c6i.4xlarge EKS node | None | 32 GB | XGBoost/LightGBM models are CPU-bound; memory for feature vector assembly |
+| Adverse Event Detection | g5.2xlarge EKS node | 1x A10G GPU | 32 GB | Transformer-based NLP models require GPU for text processing pipelines |
+| Credit Scoring (HealthPay) | c6i.2xlarge EKS node | None | 16 GB | Gradient-boosted tree ensembles; low latency CPU inference sufficient |
+| Fraud Detection (HealthPay) | m6i.2xlarge EKS node | None | 16 GB | Ensemble of models requiring balanced compute and memory |
+| Population Health (MedInsight) | m6i.8xlarge EKS node | None | 128 GB | Large-scale batch inference with substantial in-memory data transformations |
+| Operational Models (SaaS Platform) | m6i.large EKS node | None | 8 GB | Lightweight models for platform telemetry and anomaly detection |
 
-3. **Image Tagging Convention**:
-   - Pattern: `<ecr-registry>/<model-name>:<model-version>-<build-timestamp>-<git-short-sha>`
-   - Example: `123456789012.dkr.ecr.us-east-1.amazonaws.com/patient-risk-scorer:v2.3.1-20260518-a3f2b1c`
+### 5.2 Container Image Lifecycle
 
-4. **Build Failure Handling**: If any stage fails, the pipeline aborts. The ML Engineer receives automated notification via Slack (`#ml-build-alerts` channel) and email. Failed builds block stage promotion.
+#### 5.2.1 Image Creation and Validation
 
-#### 5.1.3 Model-Specific Configuration
+**Step 1: Base Image Selection**
+All production serving containers shall derive from the Meridian-approved base image `meridian/ai-serving-base:3.4.0` (amd64) or `meridian/ai-serving-base:3.4.0-arm64` for Graviton-based deployments. This base image includes:
+- Python 3.10 runtime
+- MLflow serving runtime v2.6.0
+- Meridian telemetry agent v4.2.0
+- Standardized health check endpoint implementations
 
-Each model repository must contain a `serving-config.yaml` file at the repository root:
+**Step 2: Container Image Build**
+The MLOps Engineer constructs the serving container using the following standardized Dockerfile template, stored in the `meridian/serving-images` GitLab repository under path `/<model-group>/<model-name>/Dockerfile`:
+
+```dockerfile
+FROM 905418263322.dkr.ecr.us-east-1.amazonaws.com/meridian/ai-serving-base:3.4.0
+
+ARG MODEL_ARTIFACT_PATH
+ENV MERIDIAN_MODEL_PATH=$MODEL_ARTIFACT_PATH
+ENV MERIDIAN_SERVING_PORT=8080
+
+COPY ./preprocessing /opt/meridian/preprocessing
+COPY ./postprocessing /opt/meridian/postprocessing
+COPY ./serving_config.yaml /opt/meridian/config/serving_config.yaml
+
+RUN chown -R meridian-svc:meridian-svc /opt/meridian && \
+    chmod 644 /opt/meridian/config/serving_config.yaml
+
+EXPOSE 8080
+USER meridian-svc
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
+  CMD ["/opt/meridian/healthcheck.sh"]
+
+ENTRYPOINT ["/opt/meridian/entrypoint.sh"]
+```
+
+**Step 3: Security Scanning**
+Before any image may be promoted to the `prod-model-serving` ECR repository, it must pass:
+- Aqua Security vulnerability scan with zero Critical or High findings (CVSS ≥ 7.0)
+- Meridian Secrets Scanner (no hardcoded credentials or keys)
+- Dependency license compliance check via FOSSA
+
+The scanning pipeline executes automatically on merge to the `main` branch of the serving-images repository. Scan results are published to the image's metadata in ECR.
+
+**Step 4: Registry Registration**
+Following successful security scanning, the image is tagged and pushed to ECR using the automated GitLab CI pipeline (`ci/serving-images/.gitlab-ci.yml`). The following tags are applied:
+
+| Tag | Format | Example |
+|-----|--------|---------|
+| Version | `<model-group>-<version>-<git-short-sha>` | `diag-chestxray-2.3.1-a3f82b9` |
+| Environment | `<env>-latest` | `prod-latest` |
+| Build Timestamp | `<YYYYMMDD>-<HHMMSS>-<version>` | `20250520-143022-2.3.1` |
+
+### 5.3 Model Deployment Procedures
+
+#### 5.3.1 Pre-Deployment Checklist
+
+Prior to initiating any production deployment, the Responsible MLOps Engineer shall complete the following checklist documented in Jira under the ticket type "Model Deployment Request" with the following verifications:
+
+| # | Verification | Evidence Required | Sign-Off |
+|---|-------------|-------------------|----------|
+| 1 | Model artifact registered in MLflow with "Staging" stage transition completed | MLflow Registry screenshot | AI/ML Engineer |
+| 2 | Model signature verified against production inference schema | MLflow `model-signature.json` diff | AI/ML Engineer |
+| 3 | IST completed with no failures and p99 latency within threshold | IST Report attached to Jira | MLOps Engineer |
+| 4 | Container image passed all security scans | Aqua report link in ECR | Security Team |
+| 5 | Traffic routing configuration PR merged to `meridian-istio-config` | GitLab MR link | SRE |
+| 6 | Rollback procedure documented and validated in staging | Rollback runbook link | MLOps Engineer |
+| 7 | Monitoring dashboards configured for new model version | Datadog dashboard link | SRE |
+
+#### 5.3.2 Deployment Approval Workflow
+
+```
+Initiation: MLOps Engineer creates "Model Deployment Request" (Jira)
+    ↓
+Technical Review: Senior MLOps Engineer reviews checklist items 1–6
+    ↓ (Approval gate: Technical)
+Shadow Deployment: MLOps Engineer deploys as Ghost Traffic
+    ↓
+Observation Period: Minimum 4 hours of production ghost traffic
+    ↓
+Shadow Review: AI/ML Engineer reviews inference parity metrics
+    ↓ (Approval gate: Shadow Validation)
+Canary Deployment: MLOps Engineer configures 5% traffic split
+    ↓
+Observation Period: Minimum 2 hours at 5%, then increment to 20% for 4 hours
+    ↓
+Canary Review: Product Owner reviews, SRE confirms no alert firings
+    ↓ (Approval gate: Canary Validation)
+Full Production: MLOps Engineer configures 100% traffic shift
+    ↓
+Post-Deployment Observation: 24 hours with heightened monitoring
+```
+
+### 5.4 Traffic Routing Configuration
+
+#### 5.4.1 Routing Rules Configuration
+
+All traffic routing rules are defined declaratively in the `meridian-istio-config` GitLab repository using Istio VirtualService and DestinationRule custom resources. The following is the canonical routing configuration template:
 
 ```yaml
-model_name: "patient-readmission-risk"
-model_type: "pytorch"  # pytorch, tensorflow, onnx, custom
-serving_framework: "torchserve"  # torchserve, triton, fastapi-custom
-runtime:
-  python_version: "3.11"
-  cuda_version: "12.1"  # null if CPU-only
-resources:
-  cpu_request: "2"
-  cpu_limit: "4"
-  memory_request: "4Gi"
-  memory_limit: "8Gi"
-  gpu_count: 1  # 0 if CPU-only
-  gpu_type: "nvidia-t4"  # nvidia-t4, nvidia-a10g, null
-scaling:
-  min_replicas: 3
-  max_replicas: 20
-  target_cpu_utilization: 70
-  target_rps_per_pod: 50
-inference:
-  batch_size: 16  # for GPU-optimized batching
-  max_batch_delay_ms: 50
-  input_timeout_ms: 9500
-  max_concurrent_requests: 100
-health_checks:
-  liveness_initial_delay: 30
-  readiness_initial_delay: 60
-  period_seconds: 10
-  failure_threshold: 3
-monitoring:
-  metrics_port: 8080
-  enable_detailed_latency_histograms: true
-fallback:
-  enabled: true
-  fallback_value: {"risk_score": null, "fallback": true, "reason": "model_unavailable"}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: <model-endpoint-name>-routing
+  namespace: meridian-ml-serving
+spec:
+  hosts:
+    - <model-endpoint-name>.meridian.svc.cluster.local
+  gateways:
+    - meridian-ml-gateway
+  http:
+    - match:
+        - headers:
+            x-meridian-traffic-group:
+              exact: experimental
+      route:
+        - destination:
+            host: <model-endpoint-name>-<new-version-hash>
+            port:
+              number: 8080
+          weight: 100
+    - route:
+        - destination:
+            host: <model-endpoint-name>-<stable-version-hash>
+            port:
+              number: 8080
+          weight: 95
+        - destination:
+            host: <model-endpoint-name>-<canary-version-hash>
+            port:
+              number: 8080
+          weight: 5
 ```
 
-The `serving-config.yaml` must be reviewed and approved as part of the staging promotion pull request.
+#### 5.4.2 Standard Traffic Split Progression
 
-### 5.2 Model Registry Stage Promotion
+| Phase | Duration | Traffic Split (Stable : New) | Automatic Rollback Trigger |
+|-------|----------|------------------------------|----------------------------|
+| Shadow | 4 hours minimum | 100 : 0 (ghost mirrored) | N/A for ghost traffic |
+| Canary Stage 1 | 2 hours | 95 : 5 | p99 latency > 115% of baseline OR error rate > 1% |
+| Canary Stage 2 | 4 hours | 80 : 20 | p99 latency > 110% of baseline OR error rate > 0.5% |
+| Full Production | Indefinite | 0 : 100 | p99 latency > 105% of baseline OR error rate > 0.1% for 15 consecutive minutes |
+| Rollback State | Immediate | Return to previous stable | Triggered by SRE or automated rule |
 
-#### 5.2.1 Stage Transition Process
+### 5.5 Deployment Gate Procedures
 
-| From Stage | To Stage | Required Approvals | Validation Gates |
-|------------|----------|-------------------|-----------------|
-| Registered | Staging | ML Engineer (self-service) | Automated tests pass in CI |
-| Staging | Shadow | QA Engineering | Staging performance test results, regression test pass |
-| Shadow | Canary | VP of Engineering or designee | Shadow results reviewed by ML Engineer and Product Manager |
-| Canary | Production (10%) | VP of Engineering | Canary health dashboard green for ≥ 2 hours |
-| Production (10%) | Production (50%) | VP of Engineering | No P1/P2 incidents for ≥ 24 hours |
-| Production (50%) | Production (100%) | VP of Engineering, Chief AI Officer (clinical/financial models) | Full traffic validation for ≥ 48 hours |
-| Production (any %) | Archived | ML Engineer | Superseded by new version ≥ 30 days; no traffic detected |
-| Archived | Decommissioned | VP of Engineering | Resources reclaimed; data retained per retention policy |
+#### 5.5.1 Shadow Deployment Validation
 
-#### 5.2.2 Staging Deployment Procedure
+**Procedure 5.5.1.A: Ghost Traffic Configuration**
+1. MLOps Engineer configures the Istio VirtualService to mirror 100% of production traffic to the shadow service using the `mirror` directive.
+2. Shadow service responses are discarded; only request metrics are collected.
+3. Ghost traffic volume must minimally equal 10% of average peak-hour production traffic volume to be considered representative.
 
-1. ML Engineer creates a deployment pull request in the model's repository targeting the `staging` branch.
-2. Pull request must include:
-   - Updated `serving-config.yaml` with staging environment values.
-   - Link to MLflow Model Registry version with "Staging" candidate stage.
-   - Results from the automated container build pipeline.
-3. QA Engineering reviews and approves the pull request.
-4. Upon merge, the CI/CD pipeline deploys the model to the `ml-staging` EKS namespace.
-5. QA executes the staging validation suite (Section 5.3).
+**Procedure 5.5.1.B: Shadow Validation Criteria**
+The shadow deployment must satisfy all of the following criteria before advancing to canary:
 
-#### 5.2.3 Production Promotion Request Template
+| Metric | Threshold | Measurement Source |
+|--------|-----------|-------------------|
+| Inference success rate | ≥ 99.95% | Datadog `model.inference.success_rate` |
+| p99 latency vs. production baseline | ≤ 120% of production | Datadog `model.inference.latency_p99` |
+| Prediction schema conformance | 100% valid responses | LangSmith schema validation |
+| Memory utilization | ≤ 85% of pod limit | Datadog `container.memory.utilization` |
+| Error rate | < 0.5% | Datadog `model.inference.error_rate` |
+| Cold start latency | ≤ maximum permitted for product line | Datadog `model.cold_start.duration` |
 
-Model Stewards must submit the following completed form via the `#model-promotion-requests` Slack channel or via Jira Service Management ticket:
+**Procedure 5.5.1.C: Shadow Report**
+The MLOps Engineer shall generate a "Shadow Deployment Validation Report" using the template in Confluence (`COPS-TEMPLATE-004`) and attach it to the Model Deployment Request Jira ticket. The report must include:
+- Observation period start and end timestamps
+- Total ghost traffic request count
+- All metric values compared to thresholds
+- PASS/FAIL determination for each criterion
+- Approval signature from AI/ML Engineer
 
+#### 5.5.2 Canary Deployment Validation
+
+**Procedure 5.5.2.A: Canary Initiation**
+1. Following successful shadow validation, the MLOps Engineer updates the VirtualService to split 5% of genuine production traffic to the new model version.
+2. SRE acknowledges active monitoring and configures elevated alert sensitivity for the canary service.
+3. Product Owner is notified via Slack channel `#prod-model-deployments`.
+
+**Procedure 5.5.2.B: Canary Monitoring**
+The following metrics shall be continuously monitored during the canary phase with automated rollback thresholds:
+
+| Metric | Rollback Threshold (5% Phase) | Rollback Threshold (20% Phase) |
+|--------|-------------------------------|--------------------------------|
+| p99 latency increase over baseline | > 15% for 5 consecutive minutes | > 10% for 5 consecutive minutes |
+| Error rate (5xx responses) | > 1% for 3 consecutive minutes | > 0.5% for 3 consecutive minutes |
+| Prediction output volume deviation | > 10% from expected | > 5% from expected |
+| Container restart count | > 3 restarts within any 15-minute window | > 3 restarts within any 15-minute window |
+
+**Procedure 5.5.2.C: Canary Decision Gate**
+After the minimum observation period for each canary stage, the MLOps Engineer shall:
+1. Export monitoring data from Datadog for the full canary period.
+2. Complete the "Canary Gate Checklist" (Confluence `COPS-TEMPLATE-005`).
+3. Schedule a brief decision meeting (15 minutes) with the AI/ML Engineer and Product Owner if the canary is for a Clinical AI model, or proceed with documented engineering approval for non-clinical models.
+4. Upon approval, proceed to the next traffic increment or full production deployment.
+
+### 5.6 Rollback Procedures
+
+#### 5.6.1 Rollback Triggers
+
+A rollback shall be initiated immediately under any of the following conditions:
+
+| Trigger | Detection Method | Authority to Initiate |
+|---------|-----------------|----------------------|
+| Automated metric threshold breach (per 5.5.2.B) | Datadog monitor alert | Automated (no human approval required) |
+| Manual SRE observation of anomalous behavior | SRE judgment | SRE on-call, with post-facto notification to MLOps Lead |
+| Clinical output quality concern raised by clinical team | Incident ticket via ServiceNow | MLOps Lead or AI/ML Engineering Director |
+| Security vulnerability disclosure affecting serving image | Security advisory | Security Engineering Lead with SRE execution |
+
+#### 5.6.2 Rollback Execution Procedure
+
+**Step 1: Decision and Notification**
+The initiator declares a rollback via the dedicated Slack channel `#prod-model-rollback` using the standardized message format:
 ```
-MODEL PRODUCTION PROMOTION REQUEST
-----------------------------------
-Model Name: [e.g., patient-readmission-risk]
-Current Version: [e.g., v2.3.1]
-Target Stage: [Canary / Production 10% / Production 100%]
-Business Line: [Clinical AI / HealthPay / MedInsight / SaaS]
-Model Risk Classification: [High / Medium / Low]
-
-Container Image URI: [ECR URI]
-MLflow Registry Link: [URL]
-serving-config.yaml attached: [Yes/No]
-
-Pre-Promotion Checks:
-[ ] Staging validation suite passed (attach results)
-[ ] Load test completed: [RPS tested / Max RPS / p99 latency]
-[ ] Regression test passed: accuracy/drift within thresholds
-[ ] Security scan passed: 0 CRITICAL, 0 HIGH CVEs
-[ ] Shadow results reviewed (if applicable): [attach summary]
-[ ] Rollback plan documented in runbook: [link to runbook]
-
-Business Approvals:
-[ ] Product Manager approval: [Name, Date]
-[ ] Chief AI Officer approval (if clinical/financial): [Name, Date]
-
-Scheduled Promotion Window: [YYYY-MM-DD HH:MM UTC]
-Rollback Trigger Criteria: [p99 latency > Xms, error rate > Y%, accuracy drop > Z%]
-
-Model Steward: [Name]
-On-Call SRE: [Name, PagerDuty schedule]
-```
-
-### 5.3 Staging and Pre-Production Validation
-
-#### 5.3.1 Staging Validation Suite
-
-Before any model version can be promoted beyond Staging, the following validation suite must be executed and passed:
-
-1. **Functional Correctness Tests**:
-   - 1,000 labeled test samples (held out from training data) processed through the inference endpoint.
-   - Outputs compared against expected predictions; tolerance thresholds defined per model.
-   - Edge case tests: empty inputs, maximum-length inputs, special characters, boundary values.
-
-2. **Performance Benchmark Tests**:
-   - Load test using Locust (Meridian's approved load testing tool) for a minimum of 30 minutes at 2x expected peak production RPS.
-   - Must demonstrate p99 latency within target thresholds under sustained load.
-   - CPU, memory, and GPU utilization must remain within 80% of defined limits.
-
-3. **Regression Tests**:
-   - Comparison of predictions against the current production model version on a standardized evaluation dataset (minimum 10,000 samples).
-   - Prediction distributions must be compared using Kolmogorov-Smirnov or Chi-squared tests.
-   - Significant drift (p < 0.01) requires documented justification from the Model Steward.
-
-4. **Security Validation**:
-   - Inference endpoint penetration testing using OWASP ZAP baseline scan.
-   - Input validation fuzzing: malformed JSON, SQL injection attempts, excessively large payloads.
-   - Authentication/authorization test: verify endpoint rejects unauthenticated requests.
-
-#### 5.3.2 Shadow Deployment Validation
-
-For models classified as High Risk (all clinical models and financial credit-scoring models), a shadow deployment of at least 72 hours is required:
-
-1. Deploy the candidate model in shadow mode using the `shadow` namespace in the target production cluster.
-2. Configure the ALB or Istio VirtualService to mirror 100% of production traffic to the shadow endpoint.
-3. Shadow endpoint responses are logged to a dedicated S3 bucket (`meridian-shadow-results/<model-name>/`) but not returned to clients.
-4. After the shadow period, the Model Steward analyzes:
-   - Prediction distribution alignment with production model.
-   - Latency characteristics under real traffic patterns.
-   - Error rates and exception patterns.
-   - Any evidence of model staleness or concept drift.
-5. Analysis results are documented in a Shadow Deployment Report and attached to the promotion request.
-
-### 5.4 Production Deployment and Traffic Management
-
-#### 5.4.1 Deployment Strategies
-
-Meridian supports three deployment strategies for production model serving. The strategy for each model is determined during the model architecture review and recorded in the MLflow Model Registry.
-
-**Strategy A: Blue/Green with Instant Cutover** (approved for Low Risk models only)
-- New version deployed to a separate, fully-scaled "green" endpoint.
-- Traffic is switched 100% to green after successful health checks via DNS or ALB target group update.
-- Blue endpoint retained for 1 hour as instant rollback target.
-- **Not permitted** for clinical or financial models.
-
-**Strategy B: Canary with Gradual Traffic Shifting** (required for Medium and High Risk models)
-- New version deployed to a canary endpoint receiving a configurable percentage of traffic.
-- Traffic percentage increased in pre-approved increments: 5% → 10% → 25% → 50% → 100%.
-- Each increment requires a "hold and evaluate" period:
-  - Low Risk: 30 minutes per increment.
-  - Medium Risk: 2 hours per increment.
-  - High Risk: 24 hours per increment.
-
-**Strategy C: A/B Testing** (temporary, for comparative evaluation)
-- Two model versions run concurrently with defined traffic splits.
-- Maximum duration: 30 days without VP of Engineering extension approval.
-- A/B test design, success metrics, and evaluation criteria must be documented before starting.
-- Clinical A/B tests require Chief Medical Officer awareness. Financial A/B tests require VP of Financial Services awareness.
-
-#### 5.4.2 Canary Rollout Procedure (Standard Path)
-
-```
-Step 1: Pre-Deployment Checklist
-  □ Canary deployment window scheduled (preferably Tuesday-Thursday, 10:00-16:00 local time)
-  □ On-call SRE confirmed available
-  □ Model Steward confirmed available for 2 hours post-deployment
-  □ Rollback runbook reviewed and accessible
-  □ Monitoring dashboards loaded and verified
-  □ Communication sent to #ml-production-announcements Slack
-  □ Change request approved in ServiceNow (CRQ-XXXXX)
-
-Step 2: Initial Canary Deployment (5% traffic)
-  □ Deploy using `kubectl apply -f canary-deployment.yaml` or SageMaker update-endpoint
-  □ Verify canary pods are Running and passing readiness checks
-  □ Configure ALB weighted target group: production 95%, canary 5%
-     (Or update Istio VirtualService weight)
-  □ Monitor for 5 minutes before proceeding
-
-Step 3: Health Evaluation (5% → 10% → 25% → 50% → 100%)
-  For each increment:
-    □ Adjust traffic weights
-    □ Monitor health indicators for the hold period
-    □ Evaluate against rollback triggers (Section 5.5)
-    □ If all metrics green, proceed to next increment
-    □ If any metric violates threshold, initiate rollback
-
-Step 4: Full Cutover (100%)
-  □ Set canary weight to 100%
-  □ Verify old version pods are receiving 0 traffic
-  □ Update MLflow Registry: old version to "Archived" stage, new version to "Production"
-  □ Scale down old version to 0 replicas (retain for 7 days as hot rollback target)
-
-Step 5: Post-Deployment Monitoring
-  □ Model Steward and SRE monitor for 2 hours post-cutover
-  □ 24-hour follow-up: review latency, error rates, and prediction drift metrics
-  □ 7-day follow-up: confirm stability, decommission old endpoint
+ROLLBACK INITIATED
+Model: <model-name>
+Current Version: <failing-version>
+Rollback Target: <stable-version>
+Reason: <brief-description>
+Initiator: <name>
+Time: <ISO-8601 timestamp>
 ```
 
-#### 5.4.3 A/B Testing Configuration
+**Step 2: Traffic Reversion**
+The MLOps Engineer or automated controller executes a `kubectl apply` of the previously-known-good VirtualService configuration, which:
+- Reverts traffic weights to 100% on the prior stable version
+- Ceases all traffic to the failing version
+- Preserves the failing version's pods for forensic analysis
 
-A/B routing rules are implemented at the API Gateway (Kong) or service mesh (Istio) layer:
+**Step 3: Verification**
+1. Confirm that the ALB Target Group health checks for the stable version report healthy.
+2. Verify via Datadog that traffic has shifted—monitor for a minimum of 5 minutes.
+3. Run the automated smoke test suite stored in `meridian/smoke-tests` against the endpoint.
+4. Confirm that error rates have returned to baseline levels.
 
-| Routing Mechanism | Use Case | Configuration |
-|-------------------|----------|---------------|
-| Header-based routing | Testing based on tenant or organization | Route `X-Meridian-Tenant-ID: <list>` to specific model version |
-| User-session based | Consistent user experience across requests | Route `X-Session-ID: hash % 2` for 50/50 split |
-| Random sampling | Statistical comparison | Route `random() < 0.5` for 50/50 split |
-| Geographic routing | Regional model variants | Route based on `CloudFront-Viewer-Country` header |
+**Step 4: Post-Rollback Actions**
+1. The MLOps Engineer creates a "Rollback Incident Report" in Confluence using template `COPS-TEMPLATE-006`.
+2. SRE preserves logs and metrics for the failing version for a minimum of 14 days.
+3. The failing container image is tagged `quarantined-<date>` in ECR and removed from the serving path.
+4. A post-mortem meeting is scheduled within 2 business days for any manual rollback.
 
-All A/B test configurations must be declared in the `ab-test-config.yaml` file committed to the model repository and reviewed by the Chief AI Officer before implementation.
+### 5.7 Inference Endpoint Decommissioning
 
-### 5.5 Rollback Procedures
+When a model version or endpoint is to be retired:
 
-#### 5.5.1 Automatic Rollback Triggers
+**Step 1: Deprecation Notice**
+The Product Owner issues a deprecation notice to all registered inference consumers via the Meridian API Management Portal. Minimum notice periods:
+- Internal consumers: 30 calendar days
+- External partners (HealthPay credit scoring): 90 calendar days
 
-The following conditions, when detected by the Datadog monitoring system, will automatically trigger a rollback via the PagerDuty + Runbook automation (Rundeck) pipeline:
+**Step 2: Traffic Drain**
+1. MLOps Engineer configures the VirtualService to route 0% traffic to the deprecated version.
+2. The deprecated pods continue running for a 7-day drain period to capture any stale DNS or cached routing configurations from consumers.
+3. Observability continues throughout the drain period.
 
-| Trigger | Threshold | Applicable To |
-|---------|-----------|---------------|
-| Error rate spike | 5xx error rate > 5% for 5 consecutive minutes | All production models |
-| Latency violation | p99 latency > 3x target for 5 consecutive minutes | Synchronous endpoints only |
-| Availability drop | Endpoint health check failure rate > 10% | All production models |
-| Prediction anomaly | Output distribution Z-score > 4.0 vs. baseline (if drift monitoring enabled) | Clinical and financial models |
-
-#### 5.5.2 Manual Rollback Procedure
-
-1. **Decision to Rollback**: The on-call SRE or Model Steward declares a rollback in the `#ml-incident-response` Slack channel using the command `/rollback <model-name> <from-version> <to-version>`.
-
-2. **Traffic Cutover**:
-   ```bash
-   # For ALB-based routing:
-   aws elbv2 modify-rule --rule-arn <rule-arn> \
-     --actions Type=forward,TargetGroupArn=<stable-target-group-arn>,Weight=100
-
-   # For Istio-based routing:
-   kubectl apply -f rollback-virtualservice.yaml -n ml-production
-   ```
-
-3. **Verification**:
-   - Confirm 100% of traffic is routed to the stable version within 30 seconds.
-   - Monitor error rates and latency for 10 minutes.
-   - If metrics stabilize, declare rollback complete.
-
-4. **Post-Rollback Actions**:
-   - Log incident in the Incident Management System (ServiceNow).
-   - Set rolled-back version pods to 0 replicas (but do not delete).
-   - Schedule a root cause analysis (RCA) meeting within 2 business days.
-   - Update MLflow Registry: rolled-back version moved to "Archived" stage with rollback annotation.
-
-#### 5.5.3 Rollback Runbook Template
-
-Each model repository must contain a `rollback-runbook.md` with the following minimum content:
-
-```markdown
-# Rollback Runbook: <Model Name>
-
-## Stable Version
-- Version: <version>
-- Container Image: <ECR URI>
-- Last Known Good Deployment: <timestamp>
-
-## Rollback Commands
-### ALB-Based (us-east-1 production)
-\```bash
-aws elbv2 modify-rule --rule-arn arn:aws:elasticloadbalancing:us-east-1:... \\
-  --actions Type=forward,TargetGroupArn=<STABLE-TG-ARN>,Weight=100
-\```
-
-### Istio-Based (eu-west-1 production)
-\```bash
-kubectl apply -f /runbooks/<model-name>/rollback-virtualservice.yaml
-\```
-
-## Rollback Verification
-- Datadog dashboard: [link]
-- Health check endpoint: curl https://<endpoint>/health
-- Expected latency: <baseline>ms at p99
-
-## Post-Rollback
-- Notify: #ml-production-announcements
-- Create ServiceNow incident
-- Disable canary deployment pipeline for this version
-```
-
-### 5.6 Model Decommissioning
-
-#### 5.6.1 Decommissioning Criteria
-
-A model version endpoint shall be decommissioned when:
-- The version has been fully superseded (0% traffic) for ≥ 30 days.
-- The business line owner submits a written decommissioning request via ServiceNow.
-- A critical security vulnerability (CVSS ≥ 9.0) is identified in the model serving stack and cannot be patched within the SLA window.
-
-#### 5.6.2 Decommissioning Procedure
-
-1. **Approval**: Obtain VP of Engineering and Chief AI Officer (if clinical/financial) approval via the Model Production Promotion Request form (check "Decommissioning" box).
-
-2. **Notification**: Announce decommissioning to `#ml-production-announcements` and affected product teams at least 14 days prior for production endpoints.
-
-3. **Traffic Drain**: Set traffic weight to 0% and monitor for 7 days to confirm no residual traffic.
-
-4. **Resource Reclamation**:
-   ```bash
-   # Remove Kubernetes resources
-   kubectl delete namespace ml-production/<model-name>-v<version>
-
-   # OR: Delete SageMaker endpoint
-   aws sagemaker delete-endpoint --endpoint-name <endpoint-name>
-   aws sagemaker delete-endpoint-config --endpoint-config-name <config-name>
-   ```
-
-5. **Artifact Retention**: Model artifacts and inference logs are retained per Meridian's Data Retention Policy (SOP-DATA-009):
-   - Model artifacts: 7 years for clinical models, 5 years for financial models, 2 years for others.
-   - Inference logs: 3 years minimum; longer if required by clinical audit or financial compliance.
-
-6. **Registry Update**: Set MLflow Registry stage to "Decommissioned" with annotation including decommissioning date, reason, and approver.
+**Step 3: Resource Decommissioning**
+1. MLOps Engineer scales the deprecated deployment to zero replicas.
+2. After 30 days of zero traffic, the Kubernetes Deployment and Service resources are deleted via Terraform.
+3. Model artifacts remain in the MLflow Registry indefinitely with the `deprecated` tag applied.
 
 ---
 
 ## 6. Controls and Safeguards
 
-### 6.1 Access Controls
+### 6.1 Technical Controls
 
-| Resource | Access Mechanism | Authorization Level | Approval Required |
-|----------|-----------------|--------------------|--------------------|
-| MLflow Model Registry (promote to Production) | MLflow REST API / UI | Write access limited to MLE role + CAIO | RBAC via Okta SSO |
-| Inference endpoint (modify configuration) | kubectl / AWS Console | ml-sre role only | MFA required |
-| ECR image repository (push production images) | AWS IAM | ml-build-service-account | Pipeline-only, no human users |
-| Terraform state (modify infrastructure) | Git-based PR merge | platform-engineering role | PR review by 2 approvers |
-| Model artifact S3 buckets | AWS IAM | Read: ml-serving-role; Write: ml-training-role only | Read-only for production serving |
-| Inference logs and prediction data | Datadog / S3 | Read: ml-operators, compliance; Write: none for human users | Access reviewed quarterly |
-| A/B test configuration | Git repository | MLE + Product Manager | PR review required |
-
-### 6.2 Network Controls
+#### 6.1.1 Network Segmentation
 
 | Control | Implementation | Verification |
 |---------|---------------|--------------|
-| Inference endpoints in private subnets | All production inference services in private VPC subnets; ALB in public subnet only | AWS Config rule: `subnet-auto-assign-public-ip-disabled` |
-| Service-to-service authentication | mTLS between services within the mesh (Istio STRICT mode in production) | Istio peer authentication policy audit |
-| Egress filtering | Inference pods restricted to required egress destinations only via NetworkPolicy | Kubernetes NetworkPolicy validation in CI |
-| DDoS protection | AWS Shield Advanced on all public-facing ALBs; WAF rate limiting rules | Monthly DDoS simulation test |
-| API authentication | Kong API Gateway with OAuth2 client credentials; all inference APIs require valid bearer token | Automated penetration test quarterly |
+| VPC isolation | All inference endpoints exist within `meridian-prod-vpc` (10.100.0.0/16) | AWS Config rule `VPC_FLOW_LOGS_ENABLED` |
+| Subnet segmentation | Model serving pods run in private subnets only; ALBs in public subnets with restricted security groups | Monthly network configuration review |
+| Security groups | EKS node groups accept traffic only from ALB security group on port 8080 | AWS Firewall Manager continuous monitoring |
+| Egress filtering | EKS node groups permit outbound only to MLflow Registry (VPC endpoint), Datadog (VPC endpoint), and required AWS APIs (VPC endpoints) | VPC Flow Log analysis, reviewed weekly |
 
-### 6.3 Data Protection Controls
+#### 6.1.2 Authentication and Authorization
 
-| Control | Implementation |
-|---------|---------------|
-| PHI in inference requests/responses | TLS 1.2+ in transit; PHI fields marked in schema; audit logging enabled for all PHI access |
-| Inference cache data | Redis cache for PHI-carrying data must encrypt at rest (Redis Enterprise with encryption) and set TTL ≤ 1 hour |
-| Log sanitization | PHI/PII must be masked or redacted in application logs; Datadog log pipelines configured with PHI scrubbing rules |
-| Cross-region data transfers | Clinical inference data for EU patients must remain in eu-west-1; cross-region replication blocked at network policy level |
+| Control | Implementation | Scope |
+|---------|---------------|-------|
+| Consumer authentication | OAuth 2.0 client credentials via Okta; tokens validated at ALB | All external inference consumers |
+| Service-to-service authentication | mTLS within Istio service mesh | All inter-service inference calls |
+| Registry access | IAM roles scoped to specific model groups; no cross-group access without exception | MLflow Model Registry |
+| EKS pod identity | IRSA (IAM Roles for Service Accounts) per deployment | Each model serving deployment |
 
-### 6.4 Integrity Controls
+#### 6.1.3 Encryption
 
-| Control | Implementation | Frequency |
-|---------|---------------|-----------|
-| Model artifact signing | Cosign signatures verified at container build and deployment admission time (OPA/Kyverno policy) | Every deployment |
-| Inference output validation | Schema validation on all prediction responses; responses failing schema trigger alert + logged sample | Continuous |
-| Drift monitoring | Reference distribution comparison for selected models (Evidently AI integration) | Daily batch job |
-| Immutable deployment tags | Git SHA and build timestamp baked into container labels; verification at pod startup | Every deployment |
+| Data State | Encryption Standard | Key Management |
+|------------|---------------------|----------------|
+| Inference data in transit | TLS 1.3 (external), mTLS 1.3 (internal mesh) | AWS Certificate Manager (public), Meridian Internal CA (mesh) |
+| Inference data at rest (logs) | AES-256-GCM | AWS KMS CMK `meridian-inference-logs` |
+| Model artifacts at rest | SSE-KMS | AWS KMS CMK `meridian-model-artifacts` |
+| Container images at rest | AES-256 (ECR default) | AWS-managed key |
+
+#### 6.1.4 Access Logging
+
+All production inference endpoints shall emit structured access logs to the centralized `meridian-inference-logs` CloudWatch Log Group. Each log entry shall minimally contain:
+
+| Field | Description |
+|-------|-------------|
+| `timestamp` | ISO-8601 with millisecond precision, UTC |
+| `request_id` | UUIDv4 generated at ALB ingress |
+| `consumer_id` | OAuth client ID extracted from bearer token |
+| `model_name` | MLflow registered model name |
+| `model_version` | SHA-256 hash of model artifact |
+| `inference_duration_ms` | Total pipeline execution time in milliseconds |
+| `response_status` | HTTP status code returned |
+| `input_schema_version` | Schema version identifier |
+| `trace_id` | Datadog trace correlation ID |
+
+### 6.2 Administrative Controls
+
+#### 6.2.1 Change Management
+
+All changes to production serving infrastructure shall be managed through the Meridian Change Management process:
+
+| Change Type | Approval Required | Change Window |
+|-------------|-------------------|---------------|
+| New model version deployment | MLOps Lead + Product Owner | Any time; business hours preferred |
+| Traffic split modification | MLOps Lead | Any time for rollback; business hours for split adjustments |
+| Infrastructure IaC modification | SRE Lead + VP of Engineering | Scheduled maintenance windows only |
+| Security group modification | Security Engineering Lead | Emergency: anytime; Non-emergency: maintenance windows |
+
+#### 6.2.2 Quarterly Infrastructure Review
+
+The AI/ML Engineering team, in coordination with SRE, shall conduct a quarterly review of all production inference infrastructure. The review shall address:
+
+- Capacity planning and utilization trends
+- Latency SLA compliance across all endpoints
+- Security vulnerability remediation status for serving images
+- Dependency currency (base image, libraries, runtimes)
+- Cost attribution per model endpoint
+- Archival or decommissioning candidates
+
+The review output is documented in Confluence under `Quarterly Inference Infrastructure Review <YYYY-QN>`.
 
 ---
 
 ## 7. Monitoring, Metrics, and Reporting
 
-### 7.1 Monitoring Architecture
+### 7.1 Key Performance Indicators
 
-All inference services must emit metrics to Datadog via the Datadog Agent (Kubernetes DaemonSet) or the StatsD sidecar. The following monitoring components are required:
-
-- **Live dashboards**: Datadog dashboards for real-time health monitoring of all production endpoints.
-- **Synthetic checks**: Datadog Synthetic API tests running from multiple geographic locations, calling inference endpoints with authenticated sample requests every 60 seconds.
-- **Alert rules**: Defined in Datadog Monitors and routed to PagerDuty.
-- **Log aggregation**: All inference logs forwarded to Datadog Log Management, retained for 30 days hot, 1 year cold (S3 archive).
-
-### 7.2 Key Performance Indicators (KPIs)
+The following KPIs define the operational health of the model serving infrastructure:
 
 | KPI | Definition | Target | Measurement Window |
-|-----|-----------|--------|-------------------|
-| Availability | (Total minutes - Downtime minutes) / Total minutes × 100 | ≥ 99.9% | Monthly, per endpoint |
-| Inference Latency (p50) | 50th percentile end-to-end latency from request receipt to response | < Target × 0.7 | Rolling 24 hours |
-| Inference Latency (p99) | 99th percentile end-to-end latency | Per Section 4.3, PS-011 | Rolling 5 minutes |
-| Throughput (RPS) | Requests per second processed successfully | Per capacity plan | Peak hour |
-| Error Rate | (5xx responses + timeout errors) / Total requests × 100 | < 1% | Rolling 1 hour |
-| Deployment Success Rate | Successful deployments / Total deployment attempts × 100 | ≥ 95% | Quarterly |
-| MTTR | Mean time from incident detection to resolution | < 30 minutes for P1, < 4 hours for P2 | Quarterly |
-| Cold Start Latency | Time from pod scheduling to first successful inference | < 60 seconds | Per deployment |
-| Model Staleness | Days since last model retraining or validation | < 90 days for clinical models | Monthly scan |
+|-----|------------|--------|---------------------|
+| **Inference Availability** | (Total requests - Failed requests) / Total requests | ≥ 99.9% | Rolling 30 days |
+| **Inference Latency (p99)** | 99th percentile of round-trip response time | Per product line (Section 1.3) | Rolling 7 days |
+| **Inference Success Rate** | HTTP 2xx responses / Total requests | ≥ 99.9% | Rolling 30 days |
+| **Deployment Success Rate** | Successful deployments / Total deployment attempts | ≥ 95% | Rolling 90 days |
+| **Mean Time to Rollback** | Duration from rollback decision to 100% traffic on stable version | ≤ 5 minutes | Rolling 90 days |
+| **Container Image Vulnerability SLA** | Time from Critical CVE publication to remediation in production | ≤ 48 hours | Per incident |
+| **Cold Start Latency** | Time from pod scheduling to first successful inference response | ≤ 120 seconds | Rolling 30 days |
+| **Resource Utilization Efficiency** | GPU memory utilization for GPU workloads | ≥ 60% average | Rolling 30 days |
 
-### 7.3 Required Dashboards
+### 7.2 Dashboard Requirements
 
-Each production model must have the following Datadog dashboards provisioned:
+The following dashboards shall be maintained in Datadog:
 
-1. **Real-Time Health Dashboard** (per model):
-   - Request rate (RPS) — time series
-   - Error rate (%) — time series with threshold line at 5%
-   - p50/p95/p99 latency — time series with target threshold lines
-   - Active replicas count
-   - CPU/Memory/GPU utilization per pod
-   - Health check status (up/down) per AZ
+| Dashboard Name | Primary Audience | Refresh Interval | Key Visualizations |
+|----------------|-----------------|------------------|-------------------|
+| `[Prod] Model Inference - Overview` | MLOps, SRE, Product Owners | 1 minute | Aggregate latency heatmaps, availability by endpoint, top-N error types |
+| `[Prod] Model Inference - Per Endpoint` | AI/ML Engineers, Product Owners | 30 seconds | Per-model latency distributions, throughput, error rates, traffic split visualization |
+| `[Prod] Model Serving - Infrastructure` | SRE, Platform Engineering | 1 minute | Node CPU/GPU/memory, pod restart counts, network throughput, disk I/O |
+| `[Prod] Model Registry - Deployment Audit` | Compliance, Security | Near-real-time | Deployment event log, version transitions, traffic routing history |
+| `[Prod] Model Inference - Cost Attribution` | Engineering Management, Finance | 1 hour | Per-endpoint compute cost estimate, GPU utilization cost efficiency |
 
-2. **Business Metrics Dashboard** (per model):
-   - Prediction volume by category/class
-   - Prediction confidence score distribution
-   - Fallback invocation count (if fallback enabled)
-   - A/B test metrics (if applicable)
+### 7.3 Reporting Cadence
 
-3. **Infrastructure Dashboard** (shared, cluster-wide):
-   - Cluster node utilization
-   - GPU allocation and utilization
-   - Pending pod count
-   - ECR image pull latency
+| Report | Frequency | Audience | Prepared By |
+|--------|-----------|----------|-------------|
+| Inference SLA Compliance Report | Monthly | Product Owners, VP of Engineering | MLOps Lead |
+| Infrastructure Capacity Forecast | Monthly | VP of Engineering, Infrastructure | SRE Lead |
+| Model Deployment Log | Continuous (dashboard) | AI/ML Engineering | Automated (Datadog) |
+| Cost Attribution Analysis | Monthly | Engineering Directors, Finance | SRE Lead |
+| Quarterly Infrastructure Review | Quarterly | Chief AI Officer, VP of Engineering | MLOps Lead + SRE Lead |
+| Security Vulnerability Report | Weekly | Security Engineering, MLOps | Security Team (automated scan) |
 
-### 7.4 Alert Configuration
+### 7.4 Alert Thresholds
 
-| Alert Name | Condition | Severity | Notification Channel | Runbook |
-|-----------|----------|----------|---------------------|---------|
-| High Error Rate | Error rate > 5% for 5 minutes | P1 | PagerDuty + Slack #ml-incident-response | RUNBOOK-AIML-ERR |
-| Critical Latency | p99 > 3x target for 5 minutes | P1 | PagerDuty + Slack #ml-incident-response | RUNBOOK-AIML-LAT |
-| Endpoint Unavailable | Health check failing for > 2 minutes | P1 | PagerDuty + Slack #ml-incident-response | RUNBOOK-AIML-AVAIL |
-| GPU Utilization Imbalance | GPU utilization variance > 30% across pods | P3 | Slack #ml-ops | RUNBOOK-AIML-GPU |
-| Deployment Stalled | Deployment not completed within 15 minutes | P2 | Slack #ml-production-announcements | RUNBOOK-AIML-DEPLOY |
-| Near Quota Limit | GPU/resource quota usage > 80% | P3 | Slack #platform-engineering | RUNBOOK-AIML-QUOTA |
-| Stale Model Detected | Last retraining date > 90 days (clinical models) | P2 | Slack #ml-model-stewardship | RUNBOOK-AIML-STALE |
-| Prediction Drift Detected | Distribution drift p-value < 0.001 vs. baseline | P2 | Slack #ml-model-stewardship | RUNBOOK-AIML-DRIFT |
-| Shadow Model Anomaly | Shadow prediction divergence > 20% from production | P3 | Slack #ml-model-stewardship | N/A (investigation only) |
+Alerts are configured in Datadog and routed to PagerDuty for on-call SRE and MLOps personnel:
 
-### 7.5 Reporting Cadence
-
-| Report | Audience | Frequency | Owner |
-|--------|----------|-----------|-------|
-| Inference SLA Dashboard | VP of Engineering, Customer Operations | Weekly (automated email) | SRE Lead |
-| Model Performance Review | Chief AI Officer, Model Stewards | Monthly | VP of Engineering |
-| Capacity Planning Report | VP of IT Operations, CFO | Monthly | Platform Engineering Lead |
-| SOC 2 Control Evidence Package | Chief Compliance Officer, External Auditors | Quarterly | CISO |
-| Incident Summary and MTTR Report | VP of Engineering, CISO | Quarterly | SRE Lead |
+| Alert Name | Trigger Condition | Severity | Notification Channel |
+|------------|-------------------|----------|---------------------|
+| `inference-endpoint-down` | Health check failure for 2 consecutive intervals (30s) | Critical | PagerDuty: SRE + MLOps |
+| `inference-latency-spike` | p99 latency exceeds product line threshold for 5 consecutive minutes | Warning → Critical at 10 min | PagerDuty: MLOps; Slack: #prod-model-alerts |
+| `inference-error-rate-spike` | Error rate > 1% for 3 consecutive minutes | Critical | PagerDuty: MLOps + SRE |
+| `model-container-restart-loop` | > 5 restarts in 15 minutes for any pod | Warning | PagerDuty: MLOps |
+| `gpu-underutilization` | GPU utilization < 30% for > 24 hours | Low | Slack: #prod-model-alerts |
+| `container-image-cve` | Critical CVE in any active serving image | High | PagerDuty: Security + MLOps |
+| `traffic-routing-drift` | Actual traffic split deviates > 2 percentage points from configuration | Warning | PagerDuty: MLOps |
 
 ---
 
 ## 8. Exception Handling and Escalation
 
-### 8.1 Exception Types
+### 8.1 Exception Request Procedure
 
-The following categories of exceptions to this SOP may be requested:
+Situations requiring deviation from the standards defined in this SOP shall be managed via the formal Exception Request process. An Exception Request is required under any of the following circumstances:
 
-| Exception Type | Example | Approval Authority | Maximum Duration |
-|---------------|---------|-------------------|-----------------|
-| Single-AZ deployment | Dev/test environment or batch job | VP of Engineering | 90 days (renewable) |
-| Unscanned container deployment | Emergency hotfix requiring immediate deployment | CISO (emergency approval), VP of Engineering | 24 hours; must be scanned within that window |
-| Elevated latency SLO | Model known to require longer inference time (e.g., large 3D imaging model) | Chief AI Officer + VP of Engineering | Permanent with documented justification |
-| Manual deployment | Jenkins pipeline failure requiring manual kubectl apply | VP of Engineering | Per incident |
-| Skip shadow deployment | Low-risk model with proven stability record | VP of Engineering | Permanent with risk acceptance |
-| Extended A/B test | Comparative study requiring longer evaluation | VP of Engineering + Chief AI Officer | Additional 30 days |
+- Deployment of a model without completion of the full shadow/canary progression
+- Serving a model on infrastructure not conforming to the defined instance family specifications
+- Exceeding maximum permitted latency thresholds for a defined period
+- Use of non-standard base images for serving containers
+- Deployment of models without the mandated access logging
+- Operating without a configured rollback target
+- Bypassing required security scanning for emergency patches
 
-### 8.2 Exception Request Process
+### 8.2 Exception Request Workflow
 
-1. Requester submits an exception request via ServiceNow using the "SOP Exception Request" form.
-2. The request must include:
-   - Specific SOP section(s) for which exception is sought.
-   - Business justification.
-   - Risk assessment and compensating controls.
-   - Proposed duration.
-   - Alternative compliance approach.
-3. The designated approval authority reviews within 2 business days (or within 1 hour for emergency exceptions).
-4. Approved exceptions are:
-   - Logged in the Exception Register (maintained by Chief Compliance Officer).
-   - Annotated in the affected model's MLflow Registry entry.
-   - Reviewed at the next AI Governance Committee meeting.
-5. Expired exceptions that are not renewed revert to full SOP compliance automatically.
+**Step 1: Documentation**
+The requestor creates a "Serving Infrastructure Exception Request" in ServiceNow using form template `SERV-EXC-018`. The request must include:
 
-### 8.3 Incident Escalation Path
+| Field | Required Detail |
+|-------|-----------------|
+| Exception Type | Category from list defined in 8.1 |
+| SOP Reference | Specific policy statement or procedure from which deviation is sought |
+| Justification | Business, technical, or clinical rationale |
+| Risk Assessment | Identified risks and proposed mitigations |
+| Duration | Start date, end date, or "permanent" with justification |
+| Rollback Plan | How the exception will be reversed |
 
-| Level | Trigger | Escalation Target | Response Time |
-|-------|--------|-------------------|--------------|
-| L1 - Initial Detection | Alert fires or user report | On-call SRE | Acknowledge within 5 minutes |
-| L2 - Team Escalation | SRE unable to resolve within 15 minutes | SRE Lead + Model Steward | Join incident channel within 10 minutes |
-| L3 - Management Escalation | Incident unresolved at 30 minutes; or P1 incident confirmed | VP of Engineering | Join incident bridge within 15 minutes |
-| L4 - Executive Escalation | P1 incident > 1 hour; or customer-facing impact confirmed | CISO, Chief AI Officer | Notified immediately; join within 30 minutes |
-| L5 - Crisis Management | PHI breach confirmed; regulatory notification required | General Counsel, Chief Compliance Officer, CEO | Crisis management protocol activated |
+**Step 2: Technical Review**
+The MLOps Lead reviews the exception request and assesses:
+- Technical feasibility of the proposed alternative
+- Impact on observability and incident response capability
+- Security implications
 
-### 8.4 Emergency Change Procedure
+**Step 3: Approval Authority**
+Exception approval authority is determined by severity and duration:
 
-In the event of a Severity 1 incident requiring an emergency model update or configuration change:
+| Exception Duration | Risk Level | Approver |
+|--------------------|------------|----------|
+| ≤ 24 hours | Low technical risk | MLOps Lead alone |
+| ≤ 7 calendar days | Medium risk | MLOps Lead + Security Engineering Lead |
+| ≤ 30 calendar days | High risk | VP of Engineering |
+| > 30 calendar days or permanent | Any | VP of Engineering + Chief AI Officer + Chief Information Security Officer |
 
-1. The on-call SRE declares an emergency change in the `#ml-incident-response` channel.
-2. The VP of Engineering (or CISO for security emergencies) provides verbal approval, documented in the incident channel.
-3. The emergency change is implemented; all actions are logged.
-4. Within 24 hours of resolution, a retrospective ServiceNow change request must be filed documenting the change, justification, and approval.
-5. Any SOP violations during the emergency change are noted but not penalized if properly documented.
+**Step 4: Tracking and Expiry**
+Approved exceptions are tracked in the ServiceNow "Active Exceptions" dashboard. All time-limited exceptions shall automatically generate a notification to the requestor and approver 48 hours before expiration. Expired exceptions must be either renewed through the same workflow or remediated immediately.
+
+### 8.3 Escalation Path for Inference Incidents
+
+When an inference-related incident occurs that cannot be resolved by standard procedures, the following escalation hierarchy shall be followed:
+
+```
+Level 1: MLOps Engineer on-call (Initial response < 15 minutes)
+    ↓ Unresolved after 30 minutes
+Level 2: Senior MLOps Engineer + SRE on-call
+    ↓ Unresolved after 60 minutes
+Level 3: MLOps Lead + SRE Lead + Affected Product Owner
+    ↓ Unresolved after 120 minutes
+Level 4: VP of Engineering + Chief AI Officer
+    ↓ Unresolved after 240 minutes
+Level 5: CTO + Executive Incident Response Team
+```
 
 ---
 
 ## 9. Training Requirements
 
-### 9.1 Required Training Courses
+### 9.1 Required Training Modules
 
-| Training Module | Target Audience | Frequency | Delivery Method | Provider |
-|----------------|-----------------|-----------|----------------|----------|
-| SOP-AIML-018: Model Serving Procedures | All ML Engineers, SRE | Annually + upon revision | E-learning + hands-on lab | Internal L&D / AI/ML Engineering |
-| Production Deployment and Rollback Workshop | ML Engineers, SRE, Platform Engineers | Annually | Instructor-led simulation | VP of Engineering team |
-| Inference Security and PHI Handling | All personnel with production inference access | Annually | E-learning + assessment | CISO / Security Engineering |
-| Incident Response for AI/ML Services | SRE, SRE Lead, Model Stewards | Bi-annually | Tabletop exercise | SRE Lead + CISO |
-| Datadog Monitoring and Alert Management | ML Engineers, SRE | Upon onboarding + annually | Self-paced + certification | Datadog University (internal account) |
-| Kubeflow and SageMaker Operations | ML Engineers, Platform Engineers | Upon tool version upgrade | Hands-on workshop | VP of Engineering team |
+All personnel with responsibilities defined in Section 3 shall complete the following training:
+
+| Training Module | Course Code | Frequency | Target Audience | Delivery Method |
+|-----------------|-------------|-----------|-----------------|-----------------|
+| Model Serving Architecture Overview | ML-OPS-101 | Annually | All AI/ML Engineers, MLOps, SRE | LMS + Live Workshop |
+| Production Deployment Procedures | ML-OPS-201 | Annually | MLOps Engineers, SRE | LMS + Hands-on Lab |
+| Incident Response for Inference | SRE-IR-018 | Quarterly refresher | SRE, MLOps on-call | Simulated incident drill |
+| Secure Model Serving Practices | SEC-ML-301 | Annually | All AI/ML Engineers, MLOps | LMS |
+| Traffic Routing and Rollback | ML-OPS-202 | Semi-annually | MLOps Engineers | Hands-on Lab |
+| Inference Monitoring and Alerting | OBS-ML-101 | Annually | SRE, MLOps | LMS + Dashboard walkthrough |
 
 ### 9.2 Training Tracking and Compliance
 
-- All training completions are tracked in Meridian's Learning Management System (Workday Learning).
-- Training compliance is reviewed quarterly by the Chief Human Resources Officer and reported to the AI Governance Committee.
-- Personnel who are non-compliant with required training shall have their production access suspended until training is completed.
-- Training materials are version-controlled alongside this SOP; when SOP-AIML-018 is revised, training materials must be updated within 30 days.
+- Completion of required training shall be tracked in the Meridian Learning Management System (Workday Learning).
+- Personnel who have not completed required annual training by their training anniversary date shall have their production deployment access temporarily suspended until compliance is achieved.
+- The AI/ML Engineering management team shall review training compliance during quarterly team meetings.
+- Training materials shall be reviewed and updated by the SOP Owner within 30 days of any major version change to this SOP.
 
 ### 9.3 Onboarding Requirements
 
-New hires in roles covered by this SOP must complete the following before being granted production access:
-
-1. SOP-AIML-018 e-learning module (with passing score ≥ 80% on assessment).
-2. Shadow a senior team member through at least one production deployment and one rollback drill.
-3. Complete the Datadog monitoring certification.
-4. Obtain sign-off from their direct manager and the VP of Engineering.
+New team members in roles with production inference responsibilities shall complete all required training modules before being granted:
+- Access to the `prod-model-serving` ECR repository
+- `kubectl` write access to production EKS clusters
+- PagerDuty on-call rotation inclusion
+- Merge permissions to the `meridian-istio-config` repository
 
 ---
 
 ## 10. Related Policies and References
 
-### 10.1 Meridian Internal SOPs
+### 10.1 Internal Meridian SOPs
 
 | SOP ID | Title | Relationship |
-|--------|-------|-------------|
-| SOP-AIML-012 | Model Development Lifecycle | Precedes model serving; defines training and experimentation standards |
-| SOP-AIML-015 | Model Validation and Approval | Defines validation criteria; outputs validated models for serving |
-| SOP-AIML-022 | Model Monitoring and Drift Detection | Complements this SOP with detailed drift detection procedures |
-| SOP-DATA-005 | Feature Store and Training Data Management | Defines feature pipelines consumed at inference time |
-| SOP-DATA-009 | Data Retention and Disposal Policy | Governs retention of inference logs, predictions, and model artifacts |
-| SOP-SEC-007 | Container Security Standards | Defines base image hardening, scanning, and vulnerability management |
-| SOP-SEC-012 | Incident Response and Management | Overarching incident response framework; invoked by this SOP |
-| SOP-INFRA-003 | Kubernetes Cluster Operations | Infrastructure standards for EKS clusters hosting inference workloads |
-| SOP-INFRA-008 | Disaster Recovery and Business Continuity | DR procedures for mission-critical inference services |
-| SOP-COMP-001 | SOC 2 Control Framework | Maps SOC 2 trust services criteria to operational controls |
-| SOP-COMP-005 | Model Risk Management (SR 11-7) | Governance for financial models under SR 11-7 |
-| SOP-CLIN-022 | Clinical AI Validation Protocol | Clinical-specific validation requirements before production deployment |
+|--------|-------|--------------|
+| SOP-AIML-001 | Model Governance Framework | Governs model lifecycle from development through decommissioning; this SOP operationalizes the deployment and operations phase |
+| SOP-AIML-002 | Environment Management for AI/ML | Defines development, staging, and production environment configurations |
+| SOP-AIML-015 | Model Training Pipeline Operations | Governs the upstream processes that produce model artifacts served under this SOP |
+| SOP-AIML-022 | Model Explainability and Interpretability | Defines requirements for explanation generation that may accompany inference responses |
+| SOP-AIML-024 | Bias Monitoring and Fairness Assessment | Governs ongoing fairness evaluation of production models |
+| SOP-DATA-009 | Feature Store Management | Governs the feature engineering infrastructure that feeds inference pipelines |
+| SOP-SEC-017 | Container Security Standards | Defines image scanning and vulnerability management requirements |
+| SOP-SEC-023 | Production Access Control | Defines access management for production systems |
+| SOP-INFRA-004 | Kubernetes Cluster Operations | Governs the EKS platform hosting serving workloads |
+| SOP-INFRA-011 | Incident Management and Response | Defines incident response procedures invoked during inference outages |
 
-### 10.2 External Standards and Frameworks
+### 10.2 External Standards and References
 
-| Standard | Reference | Applicability |
-|----------|-----------|---------------|
-| NIST AI RMF 1.0 | AI 100-1 | Adopted voluntarily; risk management framework for all AI systems |
-| NIST SP 800-53 Rev. 5 | Security and Privacy Controls | Reference for security control selection |
-| ISO 27001:2022 | Information Security Management | Meridian is certified; Annex A controls mapped to this SOP |
-| HITRUST CSF v11 | Healthcare Security Framework | Meridian HITRUST Certified; control inheritance applies |
-| SOC 2 Trust Services Criteria | Security, Availability, Confidentiality | Annual SOC 2 Type II audit scope includes inference infrastructure |
-| CIS Kubernetes Benchmark v1.7 | Container Security | EKS clusters must achieve ≥ 90% CIS benchmark compliance |
-| FDA 510(k) | Premarket Notification | Applies to diagnostic imaging AI products with FDA clearance |
-| EU MDR 2017/745 | Medical Device Regulation | Applies to CE-marked clinical AI products |
+| Reference | Version / Date | Applicability |
+|-----------|----------------|---------------|
+| NIST SP 800-53 Rev 5 | 2020 | Security controls framework informing Sections 6 and 7 |
+| ISO/IEC 27001:2022 | 2022 | Information security management, particularly access controls and encryption |
+| AWS Well-Architected Framework - Machine Learning Lens | 2024 | Architectural best practices for cloud ML serving |
+| Istio Documentation v1.19 | 2024 | Traffic management configuration reference |
+| MLflow Documentation v2.6.0 | 2024 | Model registry and serving reference |
 
-### 10.3 Key Internal Resources
+### 10.3 Internal Tools and Systems Referenced
 
-| Resource | Location | Owner |
-|----------|----------|-------|
-| MLflow Model Registry | `https://mlflow.meridian.health` | AI/ML Engineering |
-| Model serving runbooks repository | `github.com/meridian-health/runbooks-ml-serving` | SRE Team |
-| Terraform infrastructure repository | `github.com/meridian-health/meridian-infra` | Platform Engineering |
-| Production deployment Jenkins pipelines | `https://jenkins.meridian.health/job/ml-serving/` | Platform Engineering |
-| Datadog dashboards (ML Serving) | Datadog Dashboard List → "ML Serving" | SRE Team |
-| PagerDuty escalation policies | PagerDuty → Escalation Policies → "ML Serving" | SRE Lead |
-| ServiceNow change management | `https://servicenow.meridian.health/change` | IT Operations |
+| System | Purpose | Owner |
+|--------|---------|-------|
+| MLflow (Meridian Model Registry) | Model artifact storage and versioning | AI/ML Engineering |
+| Datadog APM + LangSmith | Observability, tracing, and monitoring | SRE + AI/ML Engineering |
+| PagerDuty | Incident alerting and on-call management | SRE |
+| ServiceNow | Incident tracking and exception management | IT Service Management |
+| Confluence (KB space: COPS-KB) | Runbooks, templates, and documentation | AI/ML Engineering |
+| GitLab (`meridian-istio-config`) | GitOps traffic routing configuration | MLOps |
+| GitLab (`meridian/serving-images`) | Container image source of truth | MLOps |
+| AWS ECR (`prod-model-serving`) | Production container image registry | Platform Engineering |
+| AWS EKS (`meridian-prod-us-east`, `meridian-prod-eu-west`) | Kubernetes serving infrastructure | Platform Engineering |
+| Okta | Identity provider for inference consumer authentication | Security Engineering |
 
 ---
 
 ## 11. Revision History
 
-| Version | Date | Author | Changes | Approver |
-|---------|------|--------|---------|----------|
-| 1.0 | 2021-03-15 | David Park (VP of Engineering) | Initial release; established basic containerized serving standards for Meridian SaaS Platform | David Park |
-| 1.1 | 2021-09-22 | ML Engineering Team | Added GPU support specifications; introduced canary deployment patterns; expanded health check requirements | David Park |
-| 2.0 | 2022-06-10 | Dr. Marcus Rivera (CAIO) | Major revision: incorporated HealthPay Financial Services models; added SR 11-7 awareness; introduced A/B testing framework; added Model Registry stage enforcement | David Park |
-| 2.1 | 2023-01-18 | SRE Team | Added Infrastructure-as-Code mandate; introduced automatic rollback triggers; expanded monitoring and alerting section with PagerDuty integration details | David Park |
-| 3.0 | 2024-11-05 | Dr. Marcus Rivera (CAIO), David Park | Comprehensive revision: added shadow deployment requirements; refined risk-based deployment strategies; added model decommissioning procedures; introduced MLflow Model Registry as authoritative artifact store; aligned with NIST AI RMF adoption; strengthened SOC 2 controls mapping | David Park |
-| 3.1 | 2025-02-14 | Dr. Marcus Rivera (CAIO) | Minor revision: updated GPU instance types to reflect AWS availability; added LangSmith tracing integration for AI observability; clarified PHI handling for EU data subjects in eu-west-1; added quarterly capacity planning report requirement | David Park |
-| 3.2 | 2025-05-18 | Dr. Marcus Rivera (CAIO) | Updated effective date per annual review cycle; refined cold start latency measurement methodology; added Cosign artifact signing requirement (PS-008); updated training module references to Workday Learning; revised decommissioning retention periods to align with SOP-DATA-009 v2.1; added emergency change procedure (Section 8.4) | David Park |
-
----
-
-**Document Status: Active**
-
-**Next Scheduled Review: 2027-02-25**
-
-**Questions regarding this SOP should be directed to the owner: Dr. Marcus Rivera, Chief AI Officer (m.rivera@meridian.health)**
-
----
-
-*© 2025 Meridian Health Technologies, Inc. All rights reserved. This document contains proprietary and confidential information intended solely for authorized Meridian personnel. Distribution or reproduction outside of authorized channels is prohibited.*
+| Version | Date | Author | Approver | Description of Changes |
+|---------|------|--------|----------|------------------------|
+| 1.0 | 2023-08-15 | James Okonkwo (MLOps Lead) | Dr. Marcus Rivera | Initial publication. Established baseline serving architecture on EKS with Istio, shadow/canary deployment model, and latency SLAs per product line. |
+| 1.1 | 2023-12-04 | Priya Sharma (Senior MLOps Engineer) | James Okonkwo | Minor revision. Added asynchronous inference architecture pattern (Section 5.1.2). Updated GPU instance selection guidelines for Clinical AI workloads from g4dn to g5 series. Corrected health check endpoint port specification. |
+| 2.0 | 2024-08-22 | James Okonkwo, Thomas Lindström | David Park | Major revision. Migrated traffic routing from NGINX-based custom solution to Istio service mesh. Introduced GitOps workflow for routing configuration. Added mTLS requirement for inter-service communication. Expanded deployment gating procedures with formal shadow validation criteria. Added exception handling process and training requirements sections. Updated all references to MLflow v3.0. |
+| 2.0.1 | 2025-01-15 | James Okonkwo | Dr. Marcus Rivera | Hotfix revision. Corrected instance type table for Credit Scoring workload (c6i.large → c6i.2xlarge). Added LangSmith integration reference. Updated container image base version to 3.4.0 to address CVE-2024-12345. Clarified TLS terminology throughout. |
+| 2.1 | 2025-05-20 | Dr. Elena Vasquez (Director of ML Engineering), James Okonkwo | David Park | Scheduled revision. Added granular instance selection guidelines and justification table (Section 5.1.3). Formalized cold start measurement requirements. Updated escalation paths with named roles. Added new KPIs: Container Image Vulnerability SLA and Resource Utilization Efficiency. Expanded monitoring dashboard specifications. Updated all cross-references to align with SOP numbering reorganization. Incorporated feedback from Q1 2025 infrastructure review. |

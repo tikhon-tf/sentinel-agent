@@ -2,10 +2,10 @@
 sop_id: "SOP-CLIN-006"
 title: "Clinical AI Human Override Procedures"
 business_unit: "Clinical AI Products"
-version: "5.8"
-effective_date: "2025-05-21"
-last_reviewed: "2026-08-04"
-next_review: "2027-02-05"
+version: "5.3"
+effective_date: "2025-08-15"
+last_reviewed: "2026-05-28"
+next_review: "2026-11-17"
 owner: "Dr. Aisha Okafor, VP of Clinical AI Products"
 approver: "Dr. Priya Patel, Chief Medical Officer"
 classification: "Internal"
@@ -16,44 +16,39 @@ regulations:
 status: "Active"
 ---
 
-# Standard Operating Procedure: Clinical AI Human Override Procedures
+# Clinical AI Human Override Procedures
 
 ## 1. Purpose and Scope
 
 ### 1.1 Purpose
 
-This Standard Operating Procedure (SOP) establishes the governing framework for clinician-initiated overrides of Clinical AI Platform outputs across all Meridian Health Technologies deployments. The document codifies the processes, controls, and accountability mechanisms that enable qualified clinical professionals to exercise independent medical judgment when interacting with AI-driven clinical decision support tools, diagnostic imaging analysis, patient risk scoring, and adverse event prediction systems.
+This Standard Operating Procedure (SOP) establishes the framework, governance, and step-by-step operational procedures for the exercise of human override and meaningful human oversight across Meridian Health Technologies, Inc.’s Clinical AI Platform. The purpose of this SOP is to ensure that all AI-generated clinical decision support outputs, diagnostic imaging analyses, patient risk scores, and adverse event predictions remain subject to continuous, appropriately qualified human judgment. This document defines the mechanisms by which a licensed clinician may accept, reject, or modify an AI recommendation, the logging and auditing of such actions, and the escalation pathways when an override triggers a variance outside acceptable clinical or operational risk thresholds.
 
-The fundamental principle underlying this SOP is that Meridian's Clinical AI Platform serves as an augmentation to—not a replacement for—clinical expertise. The override mechanism constitutes the formal recognition that artificial intelligence systems, regardless of their sophistication, operate within constraints of training data, algorithmic limitations, and contextual boundaries that necessitate human oversight.
+This SOP is designed to operationalize the principle that Meridian’s Clinical AI Platform functions as a diagnostic and prognostic aid, not as an autonomous decision-maker. The human-in-the-loop framework codified herein is the primary instrument for maintaining patient safety, clinical quality, and regulatory compliance.
 
 ### 1.2 Scope
 
-This SOP applies to the following systems, products, and personnel:
+This SOP applies to:
 
-**Systems and Products in Scope:**
-| System | Product Code | Deployment Count | Regulatory Classification |
-|--------|--------------|------------------|---------------------------|
-| Clinical Decision Support Engine | CDS-2023-A | 312 hospitals | EU AI Act High-Risk; FDA Class II |
-| Diagnostic Imaging Analysis Suite | DIA-2024-B | 287 hospitals | EU AI Act High-Risk; FDA 510(k) Cleared |
-| Patient Risk Stratification Module | PRS-2023-C | 340 clinics | EU AI Act High-Risk |
-| Adverse Event Prediction System | AEP-2024-D | 198 hospitals | EU AI Act High-Risk |
-| Medication Interaction Analyzer | MIA-2025-A | 256 hospitals | EU AI Act High-Risk |
+- All production instances of the Meridian Clinical AI Platform, including but not limited to:
+  - **ClarityDx**: Diagnostic imaging analysis modules (radiology, pathology, dermatology)
+  - **ClarityRisk**: Longitudinal patient risk scoring and early warning system (adverse event prediction, sepsis, acute kidney injury, 30-day readmission)
+  - **ClarityCDS**: Clinical decision support for medication reconciliation, treatment pathway recommendation, and contraindication flagging
+- All clinical end-users with platform access credentials, including attending physicians, resident physicians, advanced practice providers (APRNs, PAs), registered nurses, and clinical pharmacists within contracted healthcare delivery organizations
+- All Meridian personnel involved in the design, development, validation, monitoring, or post-market surveillance of the Clinical AI Platform
+- All geographies where the Clinical AI Platform is deployed, including North American and European Union member state deployments
+- All API integrations, SMART on FHIR endpoints, and embedded workflow widgets through which AI recommendations are surfaced in third-party electronic health record (EHR) systems
 
-**Personnel in Scope:**
-- All licensed physicians, nurse practitioners, and physician assistants with active clinical privileges at Meridian-deployed facilities
-- Clinical pharmacists authorized to review AI-generated medication recommendations
-- Radiologists and pathologists interpreting AI-annotated diagnostic images
-- Clinical department chairs and medical directors with supervisory authority
-- Meridian Clinical Support Specialists (tier 2 and tier 3 support)
-- Meridian Clinical AI Safety Monitoring team
+This SOP applies beginning at the point an AI-generated recommendation is rendered in a clinical workflow interface and continues through any human action on that recommendation (acceptance, modification, or rejection), subsequent patient outcome monitoring, and periodic review of override patterns.
 
-**Geographic Scope:** All deployments across North America and European Union member states.
+### 1.3 Out of Scope
 
-**Out of Scope:**
-- Administrative overrides of non-clinical system configurations
-- Emergency system shutdowns (covered under SOP-IT-042 "Emergency System Decommissioning")
-- Patient-initiated data corrections (covered under SOP-PRIV-018 "Patient Data Amendment Requests")
-- Research and development environments operating under IRB-approved protocols
+The following are explicitly out of scope for this SOP:
+
+- Override procedures for non-clinical AI systems (e.g., revenue cycle, prior authorization, patient scheduling — refer to SOP-AIOPS-003)
+- End-user management of AI model parameters, thresholds, or feature weights (refer to SOP-MLOPS-012, Model Configuration Change Management)
+- Cybersecurity incident response procedures triggered by unauthorized access (refer to SOP-ISEC-019, Security Incident Response)
+- Clinical trials or research deployments governed by Institutional Review Board (IRB) protocol rather than production clinical operations (refer to SOP-RSCH-022)
 
 ---
 
@@ -62,317 +57,241 @@ This SOP applies to the following systems, products, and personnel:
 ### 2.1 Definitions
 
 | Term | Definition |
-|------|------------|
-| **Clinical Override** | The deliberate action by a qualified clinician to reject, modify, or disregard one or more AI-generated outputs in favor of an alternative clinical assessment, decision, or course of action. |
-| **Override Event** | A discrete instance of clinical override, encompassing the triggering conditions, the clinician's alternative determination, and the associated metadata captured at the point of override. |
-| **Override Audit Trail** | The complete, immutable record of an override event, including timestamp, clinician identity, patient context, AI output rejected, alternative clinical decision, and clinical rationale. |
-| **Qualified Clinician** | A licensed medical professional holding active, unrestricted credentials at the deploying institution and having completed Meridian Clinical AI Platform training per SOP-TRN-024. |
-| **Concurrent Override** | An override executed at the time of AI output delivery, prior to clinical action being taken. |
-| **Retrospective Override** | An override identified after clinical action based on AI output has been initiated, requiring corrective intervention. |
-| **Override Rate** | The percentage of AI-generated recommendations that are overridden by clinicians, calculated per module, per facility, and per clinician. |
-| **Override Justification** | The structured clinical rationale provided by the overriding clinician, selected from a standardized taxonomy with optional free-text elaboration. |
-| **Silent Override** | An override executed without proper documentation in the Meridian platform, identified through retrospective reconciliation with EHR systems. Silent overrides constitute a compliance violation. |
-| **Override Threshold** | The pre-defined statistical boundary at which an override rate triggers automatic review under the escalation procedures defined in Section 8. |
+|---|---|
+| **AI Recommendation** | Any discrete, actionable clinical prediction, classification, ranking, or suggested intervention generated by the Meridian Clinical AI Platform and surfaced to a clinician in the course of patient care. Includes diagnosis codes, risk scores, imaging findings, medication suggestions, and structured alerts. |
+| **Human Override** | The deliberate, authenticated act by a licensed clinician of modifying or rejecting an AI Recommendation while documenting a clinical rationale. For the avoidance of doubt, passive acceptance (non-action) does not constitute an override; only an explicit interaction is recorded as an override event. |
+| **Acceptance (Tacit)** | The clinician takes no explicit action on the AI Recommendation and proceeds with clinical care without modification. The recommendation is logged as Accepted-Tacit. |
+| **Acceptance (Explicit)** | The clinician affirmatively confirms the AI Recommendation within the platform interface, making it part of the clinical record. Logged as Accepted-Explicit with timestamp and user identity. |
+| **Rejection** | The clinician entirely discards the AI Recommendation and documents an alternative clinical assessment. Logged as Rejected with mandatory rationale. |
+| **Modification** | The clinician retains a materially altered version of the AI Recommendation (e.g., adjusting a risk score threshold interpretation, selecting an alternative therapy while affirming the diagnosis). Logged as Modified with mandatory before/after values. |
+| **Variance** | The quantified difference between an AI Recommendation and the clinician’s final documented decision. Variance is measured on recommendation-type-specific scales (e.g., for risk scores, absolute percentage point deviation; for categorical recommendations, a binary match/mismatch flag). |
+| **Clinically Significant Variance (CSV)** | A Variance that, in the judgment of the Meridian Clinical Review Board (CRB), presents a reasonable probability of materially adverse patient outcome. CSV determination is retrospective and operates as a trigger for case review, not as a real-time workflow interrupt. |
+| **Override Audit Trail** | The immutable, chronologically sequenced, cryptographically integrity-protected log of all Human Override events, including the identity of the clinician, timestamp, clinical rationale, and the pre- and post-override state. |
+| **Override Rate** | The percentage of AI Recommendations for which an explicit Rejection or Modification is recorded, calculated per-model, per-deployment-site, and per-clinician over defined reporting periods. |
 
 ### 2.2 Acronyms
 
 | Acronym | Definition |
-|---------|------------|
+|---|---|
 | AI | Artificial Intelligence |
+| API | Application Programming Interface |
 | CDS | Clinical Decision Support |
-| CMO | Chief Medical Officer |
-| DIA | Diagnostic Imaging Analysis |
+| CMO | Chief Medical Officer (Meridian) |
+| CRB | Clinical Review Board |
+| CSV | Clinically Significant Variance |
 | EHR | Electronic Health Record |
-| EU AI Act | European Union Artificial Intelligence Act (Regulation 2024/1689) |
-| FMEA | Failure Mode and Effects Analysis |
-| GDPR | General Data Protection Regulation (EU 2016/679) |
-| HIPAA | Health Insurance Portability and Accountability Act |
-| MDR | Medical Device Regulation (EU 2017/745) |
-| ML | Machine Learning |
+| EU | European Union |
+| FHIR | Fast Healthcare Interoperability Resources |
+| HIPAA | Health Insurance Portability and Accountability Act of 1996 |
+| HITECH | Health Information Technology for Economic and Clinical Health Act |
+| KPI | Key Performance Indicator |
+| MDR | Medical Device Regulation (EU) 2017/745 |
 | NIST AI RMF | National Institute of Standards and Technology Artificial Intelligence Risk Management Framework |
+| OCM | Organizational Change Management |
 | PHI | Protected Health Information |
-| SAQ | Structured Assessment Questionnaire |
+| QMS | Quality Management System |
+| RACI | Responsible, Accountable, Consulted, Informed |
 | SLA | Service Level Agreement |
-| SOP | Standard Operating Procedure |
+| SMART | Substitutable Medical Applications, Reusable Technologies |
 
 ---
 
 ## 3. Roles and Responsibilities
 
-### 3.1 Responsibility Assignment Matrix
+### 3.1 Responsibility Assignment Matrix (RACI)
 
-The following RACI matrix delineates accountability for all override-related activities:
+The following matrix assigns responsibility and accountability for key override-related activities. An “R” indicates the party responsible for performing the work; “A” indicates the single accountable party who must approve or sign off; “C” indicates parties who must be consulted prior to action; “I” indicates parties who are to be informed after action.
 
-| Activity | Clinician | Clinical Dept Chair | Meridian Clinical Support | Clinical AI Safety Team | Chief Medical Officer | VP Clinical AI Products | Compliance Officer |
-|----------|-----------|---------------------|--------------------------|------------------------|----------------------|------------------------|-------------------|
-| Executing Clinical Override | R, A | I | I | I | I | I | I |
-| Documenting Override Justification | R, A | C | I | I | I | I | I |
-| Reviewing Departmental Override Patterns | I | R, A | C | C | I | I | C |
-| Investigating High Override Rates (>15%) | I | C | C | R, A | I | C | I |
-| Approving Override Taxonomy Updates | I | C | I | R | A | R | I |
-| Executing Model Retraining Decisions | I | I | I | C | A | R | I |
-| Reporting to Regulatory Bodies | I | I | I | C | R | C | A |
-| Performing Silent Override Audits | I | I | C | R | I | I | A |
-| Escalating Patient Safety Concerns | R | R | C | C | A | I | I |
-| Maintaining Override System Functionality | I | I | R, A | C | I | C | I |
+| Activity | Clinical End-User | Site Clinical Lead | Meridian Clinical AI Product Team | Meridian CMO (Dr. Patel) | Meridian CCO (T. Anderson) | Meridian VP Clinical AI (Dr. Okafor) | Meridian CRB | OCM Team | General Counsel |
+|---|---|---|---|---|---|---|---|---|---|
+| Execute human override in clinical workflow | R | I | — | — | — | — | — | — | — |
+| Document override rationale (mandatory for Reject/Modify) | R | A | — | — | — | — | — | — | — |
+| Monthly site-level override pattern review | — | R | C | I | I | A | C | — | — |
+| Quarterly CRB Clinically Significant Variance adjudication | — | C | R | A | C | R | A | — | I |
+| Threshold breach escalation (site override rate >30%) | — | I | R | A | C | R | C | I | C |
+| Audit trail integrity verification (monthly) | — | — | R | I | A | I | — | — | — |
+| EU AI Act human oversight documentation | — | C | R | A | C | R | — | — | C |
+| HIPAA accounting of disclosure for audit trail export | — | — | — | — | R | — | — | — | A |
 
-**Legend:** R = Responsible (executes); A = Accountable (approves); C = Consulted; I = Informed
+### 3.2 Named Role Descriptions
 
-### 3.2 Role Descriptions
+**Clinical End-User:** Any licensed independent practitioner (MD, DO, APRN, PA) or clinical pharmacist credentialed by a contracted healthcare delivery organization and authorized to access the Meridian Clinical AI Platform. Responsible for exercising clinical judgment on every AI Recommendation presented. Solely responsible for all clinical decisions and for the accuracy and completeness of override rationale documentation. Accountable for override decisions to their respective institutional medical staff governance structures.
 
-**3.2.1 Clinician (Override Executor)**
-The licensed medical professional who directly interacts with Clinical AI Platform outputs and exercises override authority. Clinicians bear primary responsibility for the clinical appropriateness of their override decisions and must document justification contemporaneously with the override action. Clinicians must complete mandatory override procedure training per Section 9 prior to being granted override privileges.
+**Site Clinical Lead:** A board-certified physician designated by each contracted healthcare delivery organization to serve as the primary Meridian liaison for clinical quality. Reviews override patterns monthly for their site, identifies potential training or usability issues, and represents the site on the Meridian Clinical Review Board (CRB) on a rotating basis.
 
-**3.2.2 Clinical Department Chair**
-The supervising physician or administrator responsible for monitoring override patterns within their department. Department chairs receive monthly override reports and must conduct quarterly reviews of override trends. Chairs have authority to require peer review of override decisions exceeding established thresholds.
+**Meridian Clinical AI Product Team:** Reports to Dr. Aisha Okafor. Responsible for product workflow design, usability engineering, override rate monitoring dashboards, and initial triage of all override-related functional complaints. Manages the Override Audit Trail infrastructure.
 
-**3.2.3 Meridian Clinical Support Team (Tiers 2 and 3)**
-Technical and clinical specialists responsible for maintaining override system functionality, investigating override-related system anomalies, and providing frontline support for override documentation workflows. Tier 3 specialists include board-certified physicians who can adjudicate override-related disputes.
+**Dr. Priya Patel, Chief Medical Officer (CMO):** Serves as the accountable executive for clinical safety across the Meridian Clinical AI Platform. Chairs the CRB, adjudicates CSVs, and has sole authority to temporarily suspend an AI model or recommendation class from clinical use pending investigation.
 
-**3.2.4 Clinical AI Safety Monitoring Team**
-A dedicated cross-functional team reporting to the Chief Medical Officer with responsibility for continuous monitoring of override patterns, identification of potential model degradation signals, and initiation of model performance investigations. This team includes biostatisticians, clinical informaticists, and patient safety specialists.
+**Meridian Clinical Review Board (CRB):** A standing cross-functional committee chartered under Meridian’s QMS to review override patterns, investigate high-severity CSV events, and make recommendations on model safety, labeling, and user training. Composition: Chair (Dr. Patel or delegate), VP Clinical AI Products (Dr. Okafor), two rotating Site Clinical Leads, one patient safety representative, one biostatistician, Meridian Privacy Officer (non-voting, advisory).
 
-**3.2.5 Chief Medical Officer (Dr. Priya Patel)**
-The executive accountable for clinical safety of all Meridian AI products. The CMO approves override policy changes, reviews escalated patient safety override events, and serves as the clinical authority for regulatory communications regarding override governance.
+**Meridian Privacy Officer:** Ensures that all override documentation, which may contain PHI in the form of clinical rationale text, is handled in compliance with HIPAA Privacy Rule requirements (45 CFR § 164.500 et seq.). Manages accounting of disclosures for override audit trail exports requested by regulators or external auditors.
 
-**3.2.6 VP of Clinical AI Products (Dr. Aisha Okafor)**
-The executive responsible for product-level override mechanisms, override taxonomy maintenance, and coordination between clinical safety findings and product engineering responses.
-
-**3.2.7 Compliance Officer**
-Responsible for ensuring override documentation meets regulatory requirements, conducting periodic silent override audits, and managing regulatory reporting related to override governance.
+**Organizational Change Management (OCM) Team:** Works with site leadership to embed override procedures into institutional workflows, develop role-specific communication plans, and manage the human factors impact of override requirements on clinician burnout and alert fatigue.
 
 ---
 
 ## 4. Policy Statements
 
-### 4.1 Foundational Policies
+### 4.1 Primacy of Clinical Judgment
 
-**POL-CLIN-006-01: Primacy of Clinical Judgment**
-Meridian Health Technologies affirms that qualified clinicians retain ultimate authority over all patient care decisions. No AI-generated output shall constrain, limit, or predetermine a clinician's professional judgment. The override mechanism is an inherent feature—not an exception—of the Clinical AI Platform architecture.
+Meridian Health Technologies, Inc. does not design, market, or deploy any Clinical AI Platform module as an autonomous clinical decision-maker. Every AI Recommendation generated by the Clarity suite constitutes a clinical decision support aid. The responsible licensed clinician retains sole, non-delegable authority and responsibility for all diagnostic and therapeutic decisions. No contractual term, service-level commitment, or End-User License Agreement provision shall be interpreted to shift or diminish this clinical responsibility.
 
-**POL-CLIN-006-02: Mandatory Override Documentation**
-Every clinical override event, regardless of materiality or clinical context, shall be documented in the Meridian Override Registry contemporaneously with the override action. Undocumented overrides ("silent overrides") constitute a violation of this SOP and shall be subject to the escalation procedures defined in Section 8.
+### 4.2 Human Oversight Requirement
 
-**POL-CLIN-006-03: Override Transparency**
-All override events shall generate an auditable record accessible to the overriding clinician, their departmental supervisory chain, Meridian Clinical AI Safety Monitoring team, and authorized compliance personnel. Patients shall be informed of substantive AI output modifications through existing informed consent frameworks, consistent with institutional policies. Meridian's platform provides generic transparency notifications to EHR systems regarding the use of AI-assisted clinical decision support.
+In accordance with Meridian’s Quality Management System (QMS) governance and recognized principles of responsible AI, all AI Recommendations within patient-specific clinical workflows must be presented with a functional mechanism enabling an appropriately qualified human to inspect, challenge, and override the recommendation. This principle applies to all deployment modalities (embedded EHR view, standalone web application, mobile alert).
 
-**POL-CLIN-006-04: Non-Retaliation**
-Meridian strictly prohibits any adverse employment action, privileging consequence, or professional sanction against any clinician solely on the basis of override frequency, provided such overrides are properly documented and executed in good faith clinical judgment. Override patterns triggering investigation shall be evaluated for clinical appropriateness, not as presumptive evidence of improper conduct.
+Meridian recognizes the importance of human oversight in ensuring that automated decision-making does not proceed unchecked. To this end, the Clarity interface requires clinicians to actively review flagged outputs before finalizing any clinical documentation. While override capabilities exist for all recommendation types, the specific step-by-step mechanism for a clinician to intervene, dismiss, or escalate an AI Recommendation is described in Section 5 of this SOP.
 
-**POL-CLIN-006-05: Continuous Safety Monitoring**
-Override events constitute critical safety signals. Meridian shall maintain continuous automated surveillance of override patterns across all deployments to detect potential model degradation, training data drift, or systematic clinical disagreement requiring model retraining or deployment modification.
+### 4.3 Transparency
 
-**POL-CLIN-006-06: Regulatory Compliance**
-All override procedures, documentation, and retention practices shall comply with applicable regulations including but not limited to the EU AI Act, HIPAA, GDPR, FDA requirements for AI/ML-based Software as a Medical Device (SaMD), and EU MDR requirements for CE-marked clinical AI products.
+Meridian is committed to providing clear, accessible information to clinical end-users regarding the capabilities, limitations, intended use, and performance characteristics of each deployed AI model. Transparency information is maintained within the Meridian Confluence system, model-specific FactSheets linked directly from the Clarity interface help panel, and quarterly performance summarization reports distributed to Site Clinical Leads. Clinicians are informed, prior to first-use of any Clinical AI Platform module, that they are interacting with an AI system, of the general nature and purpose of that system, and of the critical importance of their independent clinical assessment. Detailed model architecture documentation and training data composition summaries are available upon credentialed request to Meridian’s Model Governance team.
 
-**POL-CLIN-006-07: Human Oversight Commitment**
-Meridian maintains human oversight capability across all Clinical AI Platform deployments. Clinical personnel are stationed at each deployment site and are accessible during operational hours to review override decisions. The platform includes mechanisms for human review of override patterns at aggregate and individual levels.
+### 4.4 Override Documentation
+
+Every Rejection or Modification action constitutes a clinical decision. As such, it shall be documented with the same rigor, completeness, and timeliness as any other clinical decision in the patient record. At minimum, the clinician must provide a succinct clinical rationale explaining the basis for departing from the AI Recommendation. The absence of documented rationale renders the override procedurally incomplete and subjects it to mandatory follow-up review by the Site Clinical Lead within 72 hours.
+
+### 4.5 Liability Preservation
+
+Nothing in this SOP or in any Meridian product labeling, training material, or contractual document shall constitute an admission or assumption of clinical liability by Meridian. Meridian’s liability is limited to the design safety, manufacturing quality, and labeling adequacy of the software medical device, as governed by applicable medical device regulations (FDA 21 CFR Part 820, EU MDR 2017/745). Clinical malpractice liability remains solely with the licensed practitioner and their employing organization.
 
 ---
 
 ## 5. Detailed Procedures
 
-### 5.1 Concurrent Override Procedure (Real-Time Clinical Decision Support)
+### 5.1 Override Identification in Workflow
 
-This procedure applies when a clinician reviews AI-generated recommendations at the point of care and elects to override prior to initiating clinical action.
+When a clinician interacts with a patient record enriched by the Meridian Clinical AI Platform, AI Recommendations are visually distinguished by a standardized "AI Assist" badge (a blue outlined box with the Meridian hexagon icon and the label "AI Suggestion"). This badge is applied consistently across all Clarity suite modules.
 
-#### 5.1.1 Step-by-Step Process
+Within the Clarity interface, the clinician observes:
+1.  The AI Recommendation text, visually contained within the AI Assist badge.
+2.  A confidence indicator (for supported models), expressed as a percentage or categorical descriptor (e.g., "High," "Moderate," "Low"). Confidence threshold definitions are published in the model-specific FactSheet accessible via the help icon.
+3.  Three contextually available action buttons:
+    - **Accept:** Actively confirms the recommendation, moving it into the finalized clinical documentation section. (Note: If the clinician does not interact with the recommendation and simply saves the note, the system defaults to Tacit Acceptance, which is logged distinctly from an explicit Accept.)
+    - **Modify:** Opens a structured override dialog where the clinician can adjust the recommended values or comment on the recommendation while retaining the association.
+    - **Reject:** Opens the full structured override dialog, requiring mandatory rationale prior to discarding the recommendation. The AI Recommendation text is removed from the primary clinical view and retained only in the overridden recommendations appendix of the note.
 
-**Step 1: AI Output Review**
-The clinician accesses AI-generated outputs through the Meridian Clinical Workbench interface (MCW-2024.2 or later). The platform displays:
-- Primary AI recommendation with confidence score
-- Top three alternative recommendations (if applicable) with confidence scores
-- Reference evidence citations supporting the recommendation
-- Patient-specific factors considered by the model
-- Model version and last validation date
+### 5.2 Executing a Modification Override
 
-**Step 2: Override Decision**
-Upon determining that the AI output requires modification or rejection, the clinician selects the "Initiate Override" button adjacent to the specific output being overridden. The system captures:
-- The specific AI output identifier (Output-ID)
-- The module generating the output
-- Timestamp (UTC, with local time displayed)
-- Patient encounter context
-- Clinician identity (from SSO/EHR integration)
-- Clinical context (diagnosis codes, medications, lab values active at time of recommendation)
+The following is the step-by-step operational procedure for a Modification override. The procedure assumes the clinician is authenticated by the host EHR’s single sign-on and has an active patient context open via SMART on FHIR launch.
 
-**Step 3: Override Justification Selection**
-The clinician must select a primary override justification from the Standardized Override Taxonomy (see Section 5.1.2). Selection of the primary justification is mandatory; the system will not accept an override without this selection. The clinician may optionally select up to three contributing justifications and provide free-text elaboration (limited to 500 characters).
+**Step 1: Select "Modify"**
+Clinician clicks the "Modify" button associated with a specific AI Recommendation card within the Clarity interface.
 
-**Step 4: Alternative Clinical Assessment Entry**
-The clinician enters the alternative clinical decision, selected from a context-sensitive dropdown populated based on the clinical domain (e.g., alternative medication, alternative diagnosis, alternative risk score). The system requires:
-- Primary alternative determination (mandatory)
-- Clinical basis for alternative (free-text, minimum 50 characters, maximum 1000 characters)
-- Expected patient outcome differential (optional but encouraged)
+**Step 2: Complete Modification Dialog**
+The Clarity interface presents the Modification Dialog, consisting of the following required and optional fields:
 
-**Step 5: Clinical Verification**
-The platform displays a summary screen showing:
-- Original AI output
-- Clinician's override determination
-- Selected justification(s)
-- Free-text rationale
-- Warning: "You are overriding an AI-generated clinical recommendation. Your override will be permanently recorded in the patient's clinical record and the Meridian Override Registry. You are confirming that this override reflects your independent professional clinical judgment."
+| Field | Requirement | Description |
+|---|---|---|
+| **AI Recommendation Summary** | Read-Only | Displays the original AI output for clinician reference. |
+| **Modified Recommendation** | Required | A free-text or structured-value field (e.g., adjusted risk percentage, alternative medication) where the clinician records their modified clinical decision. For structured categorical recommendations (e.g., "Suspected Pneumonia"), the dialog may offer a dropdown of alternative diagnoses or a custom text entry. |
+| **Clinical Rationale for Modification** | Required (minimum 20 characters) | The clinician’s succinct justification: e.g., "Patient on prophylactic antibiotics; imaging findings more consistent with atelectasis than infiltrate." |
+| **Override Category** | Required | A dropdown taxonomy used for downstream analytics: `Clinical Disagreement`, `Missing Context / History`, `Technical / Input Data Error`, `Patient Preference / Goals of Care`, `Other`. Selecting `Other` requires a comment. |
+| **Urgency Flag** | Required | `Routine`, `Urgent (requires Site Clinical Lead review within 24 hours)`, `Critical (requires immediate notification of Site Clinical Lead and Meridian on-call)` |
 
-The clinician must acknowledge this warning by selecting "Confirm Override — I Accept Clinical Responsibility."
+**Step 3: Save Modification**
+Clinician clicks "Save Override." The Clarity platform:
+- Appends the modified recommendation to the clinical documentation.
+- Moves the original AI Recommendation to the overridden appendix with an explicit status of "Modified."
+- Generates a unique Override Event ID (format: `OVR-{SiteCode}-{TimestampUnix}-{UUID-short}`).
+- Writes the complete override record to the immutable Override Audit Trail (see Section 6.2).
 
-**Step 6: Documentation and Integration**
-Upon confirmation:
-- The override record is written immutably to the Meridian Override Registry (AuroraDB cluster, multi-region replication)
-- The override is transmitted to the facility's EHR system via HL7 FHIR R4 Override resource
-- The patient's clinical record reflects the clinician's alternative determination as the active order/recommendation
-- The AI output remains visible as an overridden historical entry with clear visual demarcation (strikethrough display with timestamp of override)
+**Step 4: Clinical Documentation Finalization**
+The override status becomes part of the clinician’s signed clinical note. It is viewable by downstream care team members within the Clarity platform or connected EHR.
 
-**Step 7: Post-Override Monitoring Trigger**
-For overrides classified under Justification Codes J-01 through J-04 (patient safety concern categories; see Section 5.1.2), the system automatically generates a Clinical Safety Monitoring ticket in the Meridian Safety Event Tracking System (SETS) for review within 24 hours.
+### 5.3 Executing a Rejection Override
 
-#### 5.1.2 Standardized Override Justification Taxonomy
+**Step 1: Select "Reject"**
+Clinician clicks "Reject."
 
-The following taxonomy shall be used for all override documentation. The taxonomy is maintained by the Clinical AI Safety Monitoring Team with annual review and approval by the Chief Medical Officer.
+**Step 2: Complete Rejection Dialog**
+Similar to Modification, but with a specific emphasis on capturing the alternative clinical plan:
 
-| Code | Category | Justification | Auto-Review Trigger |
-|------|----------|---------------|---------------------|
-| **Clinical Disagreement** ||||
-| CD-01 | Clinical Disagreement | Clinician disagrees with AI risk stratification level | No |
-| CD-02 | Clinical Disagreement | Clinician identifies alternative diagnosis with higher clinical suspicion | No |
-| CD-03 | Clinical Disagreement | Clinician selects alternative medication based on patient-specific factors | No |
-| CD-04 | Clinical Disagreement | Clinician determines AI recommendation is contraindicated per clinical guidelines | Yes |
-| CD-05 | Clinical Disagreement | Clinician identifies drug-drug interaction not flagged by AI | Yes |
-| **Incomplete Patient Context** ||||
-| PC-01 | Patient Context | AI recommendation does not account for documented patient allergy | Yes |
-| PC-02 | Patient Context | AI recommendation does not account for patient social determinants of health | No |
-| PC-03 | Patient Context | AI recommendation does not account for patient treatment preferences | No |
-| PC-04 | Patient Context | AI recommendation does not account for recent clinical changes not yet in EHR | No |
-| PC-05 | Patient Context | AI recommendation does not account for comorbidities documented in problem list | No |
-| **Model Limitation** ||||
-| ML-01 | Model Limitation | AI confidence score below acceptable clinical threshold (<60%) | Yes |
-| ML-02 | Model Limitation | Clinician has observed pattern of similar AI errors in this domain | Yes |
-| ML-03 | Model Limitation | AI recommendation contradicted by recent high-quality evidence | No |
-| ML-04 | Model Limitation | AI recommendation outside locally accepted standard of care | No |
-| **Safety Concern** ||||
-| J-01 | Patient Safety | AI recommendation would cause immediate patient harm if followed | Yes |
-| J-02 | Patient Safety | AI recommendation would cause probable patient harm if followed | Yes |
-| J-03 | Patient Safety | AI recommendation involves contraindicated medication for this patient | Yes |
-| J-04 | Patient Safety | AI recommendation exceeds safe dosing parameters | Yes |
-| **Technical Issue** ||||
-| TI-01 | Technical | System performance degradation affecting output timeliness | No |
-| TI-02 | Technical | AI output display error (truncation, formatting corruption) | No |
+| Field | Requirement | Description |
+|---|---|---|
+| **AI Recommendation Summary** | Read-Only | Original AI output. |
+| **Clinical Rationale for Rejection** | Required (minimum 50 characters) | A more detailed justification is warranted for complete rejection. |
+| **Alternative Clinical Plan** | Required | The clinician must briefly describe their alternative working diagnosis, risk assessment, or clinical plan that replaces the rejected AI Recommendation. |
+| **Override Category** | Required | As in Section 5.2 Step 2. |
+| **Urgency Flag** | Required | As in Section 5.2 Step 2. |
 
-### 5.2 Retrospective Override Procedure (Post-Action Correction)
+**Step 3: Save Rejection**
+Clinician clicks "Reject and Document." Clarity platform actions are identical to Section 5.2 Step 3, except status is set to "Rejected."
 
-This procedure applies when a clinician or supervisory physician identifies that clinical action was taken based on an AI recommendation that should have been overridden, but the override was not performed concurrently.
+### 5.4 Explicit Acceptance
 
-#### 5.2.1 Step-by-Step Process
+While acceptance is the default flow, clinicians are encouraged to actively confirm critical or high-risk recommendations.
 
-**Step 1: Detection and Notification**
-Upon identification (via clinical rounds, case review, adverse event investigation, or automated monitoring), the identifying clinician shall immediately:
-- Assess for patient harm or potential harm
-- Initiate appropriate clinical corrective actions
-- Document the identification event in the facility's incident reporting system per institutional policy
-- Notify the Meridian Clinical Support Team via the Priority Safety Hotline (available 24/7/365 at +1-833-MER-SAFE or EU +49-30-MER-SAFE)
+**Step 1: Select "Accept"**
+Clinician clicks "Accept" on a recommendation card.
 
-**Step 2: Retrospective Override Documentation**
-Within 4 hours of detection, the responsible clinician or supervising physician shall complete the retrospective override documentation:
-- Access the Meridian Clinical Workbench
-- Navigate to Patient Encounter → AI Recommendations → "Record Retrospective Override"
-- The system will display all AI recommendations active at the time of the original clinical action
-- Select the AI recommendation(s) that should have been overridden
-- Complete override justification per the Standardized Taxonomy (Section 5.1.2)
-- Indicate whether patient harm occurred or was averted:
-  - Category A: No harm, no potential harm (override disagreement only)
-  - Category B: Potential harm averted (override action taken before patient impact)
-  - Category C: Actual harm — minor (temporary, reversible)
-  - Category D: Actual harm — moderate (requiring intervention)
-  - Category E: Actual harm — severe (permanent impairment or death)
+**Step 2: Confirmation (Optional)**
+No dialog is presented. The recommendation card’s status updates to "Clinician Accepted" with a timestamp and the clinician’s name. This action is logged as `Accepted-Explicit`.
 
-**Step 3: Clinical Corrective Action Documentation**
-For Categories B through E, the clinician shall additionally document:
-- The clinical corrective actions taken
-- Current patient status
-- Whether the AI recommendation contributed causally to the adverse outcome
-- Recommendations for system-level corrective action
+### 5.5 Tacit Acceptance
 
-**Step 4: Mandatory Reporting Escalation**
-The Clinical AI Safety Monitoring Team shall review all retrospective overrides within 24 hours. For Category D and E events, the CMO and Compliance Officer shall be immediately notified (within 2 hours), and regulatory reporting assessments shall commence per SOP-COMP-031 "Adverse Event Regulatory Reporting."
+If a clinician saves or closes the clinical note without clicking Accept, Modify, or Reject, the system logs the event as `Accepted-Tacit` at the time of note finalization. Tacit Acceptance is tracked but does not generate a distinct Override Event ID. Tacit Acceptance Rate is monitored as a proxy for user engagement and alert fatigue.
 
-### 5.3 Override Reconciliation and Silent Override Detection
+### 5.6 Post-Override Workflow for High-Urgency Flags
 
-Meridian conducts systematic reconciliation between Clinical AI Platform outputs and EHR clinical actions to detect undocumented overrides.
+When an override is flagged as `Urgent` or `Critical`:
 
-#### 5.3.1 Reconciliation Process
-
-**Frequency:** Weekly, automated; Monthly, manual verification
-
-**Data Sources:**
-- Meridian Clinical AI Platform Override Registry
-- Facility EHR data feed (HL7 FHIR Order, MedicationRequest, and ClinicalImpression resources)
-- Facility billing/claims data (ICD-10, CPT, HCPCS codes)
-
-**Reconciliation Algorithm:**
-1. Identify all AI-generated recommendations logged in the Meridian platform
-2. Trace each recommendation to EHR clinical orders placed within 60 minutes of AI output display
-3. Classify congruence:
-   - **Fully Congruent:** EHR order matches AI recommendation exactly
-   - **Partially Congruent with Documented Override:** EHR order differs from AI recommendation; documented override record exists matching the alternative determination
-   - **Partially Congruent without Documented Override:** EHR order differs from AI recommendation; no override record found → **FLAG for Silent Override Investigation**
-   - **Unrelated Action:** No EHR order corresponds temporally to the AI recommendation (clinician did not act on the recommendation; no override required)
-4. For flagged potential silent overrides, the Compliance Officer initiates investigation within 5 business days per SOP-COMP-015 "Compliance Investigation Procedures."
-
-### 5.4 Multi-Clinician Override Scenarios
-
-In situations where multiple clinicians interact with the same AI output (e.g., care team huddles, multidisciplinary rounds), the following procedures apply:
-
-**5.4.1 Attending Physician Primacy**
-The attending physician of record holds override authority. If the attending overrides an AI recommendation, the override is documented under their identity regardless of team input.
-
-**5.4.2 Disagreement with Override**
-If another licensed clinician on the care team disagrees with an override decision:
-- The disagreeing clinician may document their disagreement via the "Add Clinical Annotation" function (not an override)
-- The annotation is visible to the attending but does not modify the override record
-- In emergency patient safety situations, the disagreeing clinician may escalate per Section 8.2
+1.  **Automated Notification:** At save, the platform triggers an SMS and email notification to the Site Clinical Lead (and the Meridian on-call Clinical AI safety engineer, for Critical flags). The notification includes the Override Event ID, clinician name, patient MRN (masked in email, requiring authenticated login to view PHI), and timestamp.
+2.  **Site Clinical Lead Triage (Urgent, within 24 hours; Critical, within 1 hour):** The Site Clinical Lead reviews the override, focusing on patient safety. If the Lead determines the override places the patient at immediate risk, they proceed with institutional patient safety escalation protocols.
+3.  **Meridian Triage (Critical within 4 hours):** The Meridian on-call engineer triages the override for potential model safety issues (e.g., is the model failing on a specific data pattern?). Any suspicion of a systemic model defect triggers SOP-MLOPS-014, Model Defect and Recall Management.
 
 ---
 
 ## 6. Controls and Safeguards
 
-### 6.1 Technical Controls
+### 6.1 Access Control
 
-| Control ID | Control Description | Implementation | Verification Method |
-|------------|---------------------|----------------|---------------------|
-| TEC-CLIN-006-01 | Immutable Override Registry | AuroraDB with append-only transaction log and cryptographic hashing (SHA-256) of each override record | Quarterly audit by Information Security; continuous integrity verification |
-| TEC-CLIN-006-02 | Clinician Identity Verification | Multi-factor authentication required for override initiation; biometric (fingerprint or facial recognition) option for high-acuity settings | Monthly MFA compliance report; annual penetration testing |
-| TEC-CLIN-006-03 | Timeout and Session Management | Override sessions automatically timeout after 5 minutes of inactivity; override documentation in progress is NOT saved as draft (security measure) | Quarterly session management review |
-| TEC-CLIN-006-04 | Override Rate Threshold Alerting | Automated alert generation when facility-level override rate exceeds 15% or clinician-level override rate exceeds 25% (per module) | Monthly threshold tuning review |
-| TEC-CLIN-006-05 | Silent Override Detection | Weekly reconciliation batch process comparing AI outputs to EHR clinical decisions | Monthly reconciliation accuracy audit |
-| TEC-CLIN-006-06 | FHIR AuditEvent Integration | All override events transmitted to facility audit repositories using HL7 FHIR AuditEvent resource per IHE ATNA profile | Quarterly interface validation |
-| TEC-CLIN-006-07 | Geographic Data Residency | EU clinician override data stored exclusively in Frankfurt region (AWS eu-central-1); North American data in us-east-1 and us-west-2 | Continuous monitoring via AWS Config rules |
+Override functionality is gated by the same stringent access controls governing the Clinical AI Platform.
 
-### 6.2 Administrative Controls
+- **Role-Based Access Control (RBAC):** Only users assigned the ClarityClinicalUser role are permitted to execute Accept, Modify, or Reject actions. Read-only access (e.g., for administrative or research purposes) does not expose override buttons. Role assignment is managed through the Meridian Identity and Access Management (IAM) system integrated with customer Active Directory / LDAP via SAML 2.0.
+- **Multi-Factor Authentication (MFA):** Access to production Clarity environments requires MFA for every session initiation, in compliance with SOP-ISEC-008, Access Control Standard.
+- **Audit Trail Integrity:** Override Audit Trail records are cryptographically signed using Meridian’s internal PKI to ensure non-repudiation and integrity. Records are immutable; no deletion API exists for the Override Audit Trail table. Any correction necessitated by a data entry error must be performed via a documented supplementary note appended to the original override record, not by altering the original.
 
-| Control ID | Control Description | Frequency | Responsible Role |
-|------------|---------------------|-----------|------------------|
-| ADM-CLIN-006-01 | Override Privilege Verification | Monthly | Credentialing Office (facility) |
-| ADM-CLIN-006-02 | Justification Taxonomy Review | Annually (or ad-hoc upon regulatory change) | VP Clinical AI Products + CMO |
-| ADM-CLIN-006-03 | Override Pattern Peer Review | Quarterly (departments with >15% aggregate override rate) | Clinical Department Chair |
-| ADM-CLIN-006-04 | Regulatory Compliance Audit | Semi-annually | Compliance Officer + External Auditor |
-| ADM-CLIN-006-05 | Model Retraining Trigger Review | Monthly (review of override patterns correlated with model performance) | Clinical AI Safety Team |
-| ADM-CLIN-006-06 | Override Registry Access Audit | Quarterly | Information Security + Privacy Officer |
-| ADM-CLIN-006-07 | Clinician Override Competency Assessment | Annually | Clinical Education Department |
+### 6.2 Audit Logging
 
-### 6.3 Override System Access Controls
+Pursuant to HIPAA Security Rule § 164.312(b) (Audit Controls), Meridian implements comprehensive audit logging of all override-related events.
 
-Access to the Override Registry is strictly governed by role-based access control:
+**Logged Events:**
 
-| Role | Read Access | Write Access | Export Access | Bulk Query |
-|------|-------------|--------------|---------------|------------|
-| Clinician (Own Overrides) | Full | Full | Yes | No |
-| Clinician (Peer Overrides within Department) | Anonymized only | No | No | No |
-| Department Chair | Full (dept) | No | Yes | Yes (dept only) |
-| Clinical AI Safety Team | Full | No (read-only) | Yes | Yes |
-| CMO | Full | Yes (corrections only) | Yes | Yes |
-| Compliance Officer | Full | No | Yes | Yes |
-| Information Security | Metadata only | No | No | Yes |
-| Product Engineering | De-identified only | No | No | Yes (de-identified) |
+| Event | Timestamp | User ID | Patient ID | Session ID | Action | Override Event ID | AI Model ID | AI Recommendation ID | Pre-Override State | Post-Override State | Rationale | Outcome Success/Failure |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Override Dialog Opened | ✓ | ✓ | ✓ | ✓ | — | — | ✓ | ✓ | — | — | — | — |
+| Modify Saved | ✓ | ✓ | ✓ | ✓ | Modify | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Reject Saved | ✓ | ✓ | ✓ | ✓ | Reject | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Explicit Accept | ✓ | ✓ | ✓ | ✓ | Accept | — | ✓ | ✓ | ✓ | ✓ | — | ✓ |
+| Tacit Accept | ✓ | ✓ | ✓ | ✓ | Accept-Tacit | — | ✓ | ✓ | ✓ | ✓ | — | ✓ |
+| Override Rationale Edited (post-hoc by same clinician within 24 hours) | ✓ | ✓ | ✓ | ✓ | Modify | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-All access is logged with user identity, timestamp, records accessed, and action performed. Access logs are retained for a minimum of 7 years per HIPAA and GDPR requirements.
+**HIPAA Technical Safeguards Compliance Mapping:**
+
+| HIPAA Standard (45 CFR § 164.312) | Meridian Control |
+|---|---|
+| (a)(1) Access Control | RBAC for ClarityClinicalUser; MFA on all sessions. Unique User Identification enforced via LDAP/SAML. Automatic logoff after 15 minutes of inactivity. |
+| (b) Audit Controls | Immutable Override Audit Trail as described above. Records retained for a minimum of 6 years from the date of creation (or longer if required by applicable state law). |
+| (c)(1) Integrity | Cryptographic signing of audit records. Message authentication codes applied to data at rest in PostgreSQL audit tables. |
+| (d) Person or Entity Authentication | MFA enforced. Unique user IDs required. |
+| (e)(1) Transmission Security | All data in transit encrypted via TLS 1.3. PHI within override rationale text encrypted over HTTPS. |
+
+### 6.3 NIST AI RMF Alignment
+
+This SOP is Meridian’s primary operational mapping to the NIST AI RMF (AI 100-1, v1.0) for the Clinical AI Platform. The following table maps specific NIST AI RMF sub-categories to Meridian controls documented in this SOP:
+
+| NIST AI RMF Sub-Category | Description | Meridian Implementation Reference |
+|---|---|---|
+| **GOVERN 1.2** | Organizational policies for AI risk management are integrated. | This SOP, integrated with Meridian QMS; CRB charter under QMS-001. |
+| **GOVERN 2.3** | Accountability structures are in place for AI risks. | Section 3 RACI matrix; Dr. Patel, CMO, as accountable executive for clinical safety. Dr. Okafor, VP Clinical AI Products, as accountable product owner. |
+| **MAP 1.1** | System context and intended use are understood. | Section 1 Scope. Model-specific FactSheets define intended use per FDA-cleared / CE-marked indications for use. |
+| **MAP 2.3** | Benefits and impacts of AI are characterized. | Monthly override pattern reports (Section 7); quarterly CRB safety reviews. |
+| **MEASURE 2.1** | System performance is monitored against established metrics. | Override Rate, Clinically Significant Variance Rate, and Rationale Completeness are measured and trended (Section 7). Drift monitoring per SOP-MLOPS-013. |
+| **MEASURE 2.3** | Mechanisms for tracking AI system incidents and errors are established. | Section 5.6 urgent/critical override flagging; SOP-MLOPS-014 (Model Defect and Recall Management). Override Audit Trail serves as the primary source-of-truth. |
+| **MEASURE 2.9** | Human-AI configuration and oversight are evaluated. | Override rates per clinician (anonymized), per site, and per model are reported and trended monthly; CRB evaluation of appropriate human oversight effectiveness. |
+| | **Transparency** | Model FactSheets and the Clarity UI badge provide transparency to clinicians on AI presence and general function. |
+| **MANAGE 2.4** | Human-AI interactions are managed and overseen. | This entire SOP is the procedural embodiment of Manage 2.4. Continuous training (Section 9), site-level feedback loops, and the CRB escalation mechanism ensure human oversight effectiveness is actively managed. |
 
 ---
 
@@ -380,220 +299,139 @@ All access is logged with user identity, timestamp, records accessed, and action
 
 ### 7.1 Key Performance Indicators (KPIs)
 
-| KPI ID | Metric | Target | Measurement Method | Reporting Cadence |
-|--------|--------|--------|-------------------|-------------------|
-| KPI-OVR-01 | **Global Override Rate** — percentage of AI recommendations overridden across all deployments | ≤12% (acceptable); >15% (investigation trigger) | Automated dashboard (Grafana) querying Override Registry vs. total recommendations served | Weekly to Clinical AI Safety Team; Monthly to CMO |
-| KPI-OVR-02 | **Per-Module Override Rate** — override rate disaggregated by AI module | ≤15% per module | Same as above, filtered by Output-Module-ID | Weekly |
-| KPI-OVR-03 | **Per-Facility Override Rate** — facility-level override comparison | ≤20% per facility; >20% triggers site visit | Override Registry grouped by Facility-ID | Monthly |
-| KPI-OVR-04 | **Per-Clinician Override Rate** — individual clinician override frequency | ≤25% per clinician; >25% triggers peer review | Override Registry grouped by Clinician-ID (pseudonymized for routine reporting) | Monthly to Department Chairs |
-| KPI-OVR-05 | **Safety-Category Override Rate** — rate of J-01 through J-04 overrides | ≤2% of all overrides; any J-01 triggers immediate review | Justification code filtering | Daily automated alert for J-codes |
-| KPI-OVR-06 | **Silent Override Detection Rate** — percentage of EHR-congruent actions lacking override documentation | ≤1% of total actions | Weekly reconciliation batch | Monthly to Compliance Officer |
-| KPI-OVR-07 | **Override Documentation Completeness** — override records with all mandatory fields completed | ≥99.5% | Automated validation on override record creation | Weekly |
-| KPI-OVR-08 | **Mean Time to Retrospective Override Documentation** — time from detection to documentation completion | ≤4 hours for Categories A-B; ≤2 hours for Categories C-E | SETS ticket timestamp delta | Monthly |
-| KPI-OVR-09 | **Override Justification Distribution** — frequency of each justification code | Monitoring for distribution shifts >2 standard deviations from baseline | Automated anomaly detection (Isolation Forest model) | Weekly anomaly alert |
-| KPI-OVR-10 | **Clinician Override Training Compliance** — percentage of active override-privileged clinicians with current training | ≥99% | LMS (Cornerstone) report | Monthly |
+Meridian monitors a standardized set of KPIs to assess the effectiveness, safety, and human factors performance of the override framework. These KPIs are calculated daily on rolling windows and reviewed formally on a monthly cadence.
 
-### 7.2 Dashboards
+| KPI ID | Metric | Target Threshold | Measurement Window | Owner | Escalation Trigger |
+|---|---|---|---|---|---|
+| **OVR-01** | **Overall Override Rate** (Reject + Modify / Total Recommendations) | ≤ 25% per model, per site | Monthly | Dr. Okafor | >35% for 2 consecutive months triggers mandatory model-specific CRB review |
+| **OVR-02** | **Clinically Significant Variance (CSV) Rate** | < 0.5% of Overrides | Quarterly | Dr. Patel (CMO) | Any single CSV triggers case review; >0.8% triggers root cause analysis (RCA) |
+| **OVR-03** | **Override Rationale Completeness** (Reject/Modify overrides with rationale ≥ minimum character count) | ≥ 98% | Weekly | Site Clinical Lead | <95% for any rolling 30-day period triggers site-specific retraining directive |
+| **OVR-04** | **Tacit Acceptance Rate** | ≤ 60% of all Acceptances | Monthly | Dr. Okafor (Product) | >75% suggests alert fatigue or poor user experience; triggers UX review |
+| **OVR-05** | **Time to Resolution for Critical Flags** | Median ≤ 2 hours; P99 ≤ 4 hours | Monthly | Meridian On-Call Team | Any breach of SLA for a Critical flag triggers immediate RCA |
+| **OVR-06** | **Override Rate Variance by Clinician** (site-level, anonymized) | Interquartile range ≤ 15 percentage points | Monthly | Site Clinical Lead | Any clinician with Override Rate >3 standard deviations above site mean is flagged for peer review and possible 1:1 training |
+| **OVR-07** | **Override Category Distribution** | Monitor for drift: `Technical / Input Data Error` < 5% of override rationales | Monthly | Meridian Clinical AI Product Team | Any Category exceeding 30% of total overrides triggers UX and labeling review |
 
-**7.2.1 Clinical AI Safety Dashboard (Real-Time)**
-Accessible to: Clinical AI Safety Team, CMO, VP Clinical AI Products
-- Live global override rate with 24-hour rolling window
-- Per-facility override rate heat map
-- J-code override alert feed (all J-01/J-02 overrides displayed within 5 minutes)
-- Top 10 clinicians by override rate (rolling 30-day)
-- Model confidence score distribution for overridden vs. accepted recommendations
+### 7.2 Dashboards and Reporting Cadence
 
-**7.2.2 Department Chair Dashboard (Monthly Refresh)**
-Accessible to: Clinical Department Chairs, Facility Medical Directors
-- Department-level override rate trend (12-month view)
-- Per-clinician override rates within department (named, not pseudonymized)
-- Override justification distribution for department
-- Peer comparison (de-identified) against similar departments
-- Silent override audit results
+**Clinician-Level Dashboard (Clarity Analytics Module)**
+Each clinical end-user has access to a personal dashboard displaying:
+- Personal Override Rate (P-OVR), trended monthly
+- Comparison to anonymized peer distribution at their site
+- Top 3 AI model types they override most frequently
+- Personalized tips for reducing unnecessary overrides (e.g., customizing alert thresholds where supported)
 
-**7.2.3 Compliance Dashboard (Quarterly Refresh)**
-Accessible to: Compliance Officer, Legal, C-Suite
-- Regulatory compliance metrics mapped to EU AI Act obligations
-- HIPAA-compliant override audit trail integrity scores
-- Access audit summary (Override Registry access patterns)
-- Incident trend analysis (Category C/D/E retrospective overrides)
+**Site-Level Dashboard (Site Clinical Lead)**
+Accessible via a secure Meridian Insights portal, refreshed daily:
+- Aggregated Override Rate by model and month
+- CSV case summaries (narrative, de-identified)
+- Rationale completeness scorecard
+- Training compliance status for all active clinicians at the site
 
-### 7.3 Reporting Cadence
+**Meridian Corporate Dashboard (Tableau, refreshed nightly)**
+- Company-wide aggregate KPIs across all deployments
+- Site-level comparisons (de-identified)
+- Geographically segmented views (North America, EU)
+- EU AI Act-specific oversight metrics
+- This dashboard is reviewed monthly by the Product Team and quarterly by the CRB.
 
-| Report | Recipients | Frequency | Delivery Method |
-|--------|------------|-----------|-----------------|
-| Override Safety Signal Report | Clinical AI Safety Team | Daily (automated) | Email digest + Slack channel #override-safety |
-| Clinical Override Weekly Summary | CMO, VP Clinical AI Products | Weekly (Monday 09:00 UTC) | Secure PDF to executive inbox |
-| Department Override Analysis | Clinical Department Chairs | Monthly (1st business day) | Secure portal download |
-| Facility Override Benchmark Report | Facility CMOs, CQOs | Monthly | Secure portal download |
-| Regulatory Compliance Attestation | Compliance Officer | Quarterly | Docusign workflow with executive approval |
-| Annual Override Governance Review | Board Quality Committee, External Auditors | Annually | Formal report with findings, trends, and recommendations |
+### 7.3 HIPAA Accounting of Disclosures
+
+Any export of override audit trail data that contains PHI (e.g., clinician rationale text that includes patient-specific details) and is provided to a non-treatment, non-payment, non-healthcare-operations recipient (such as an external auditor not under a Business Associate Agreement, or a regulatory body requesting identifiable data) is subject to HIPAA accounting of disclosures requirements under 45 CFR § 164.528. The Meridian Privacy Officer maintains a centralized disclosure log and will provide an accounting to the affected individual upon verified request within 30 days, extendable once by an additional 30 days.
 
 ---
 
 ## 8. Exception Handling and Escalation
 
-### 8.1 Exception Types and Handling
+### 8.1 Technical Exceptions
 
-| Exception Type | Definition | Handling Procedure | Approval Authority |
-|----------------|------------|-------------------|-------------------|
-| **EXC-CLIN-006-01: System Unavailability** | Override documentation system unavailable during clinical override event | Clinician documents override in EHR free-text note; Meridian Clinical Support retroactively enters override within 24 hours of system restoration. EHR free-text note serves as interim documentation of record. | No pre-approval required; retroactive entry validated by Clinical Support Team Lead |
-| **EXC-CLIN-006-02: Technical Override Recording Failure** | System accepts override documentation but fails to write to Override Registry | Automated alert generated to Meridian Clinical Support; investigation initiated within 4 hours; override re-documented if confirmed as not recorded | Clinical Support Team Lead |
-| **EXC-CLIN-006-03: Emergency Clinical Override** | Life-threatening situation requiring immediate clinical action without time for standard override documentation | Clinician acts on clinical judgment; documentation completed within 1 hour of patient stabilization using "Emergency Override" workflow (abbreviated justification; mandatory retrospective elaboration within 24 hours) | Clinical Department Chair (retrospective review within 48 hours) |
-| **EXC-CLIN-006-04: Offline Deployment Override** | Facility operating with intermittent connectivity | Override queued locally on Meridian Edge Node (MEN-2024); synchronized to Override Registry upon connectivity restoration. Local queue persists for maximum 14 days. | Automatic synchronization upon reconnection; no approval required |
-| **EXC-CLIN-006-05: Research Protocol Override** | Override occurring within IRB-approved research protocol using modified AI parameters | Research-specific override taxonomy and documentation workflow pre-approved by IRB; override data segregated from production registry; not included in standard override rate calculations | IRB + CMO (dual approval) |
+Should the Clarity platform become unavailable during an active override attempt (e.g., timeout, API error 5xx), the system shall:
+1.  Preserve the clinician’s in-progress override form content in local browser storage for a minimum of 24 hours.
+2.  Display a persistent warning banner: "Override Save Failed. Your response has been saved locally but not committed to the patient record. Please retry or contact Meridian Support."
+3.  The clinician shall document their decision in the primary EHR clinical note as an interim manual override record. The clinician shall re-attempt the override in Clarity within 24 hours to ensure the structured audit trail is complete.
 
-### 8.2 Escalation Pathway
+### 8.2 Clinical Disagreement Escalation
 
-Override-related escalations follow a tiered pathway based on severity and complexity:
+If a clinician believes an AI Recommendation is fundamentally unsafe or contraindicated for their patient, and the `Critical` Urgency Flag is selected:
+1.  **Immediate Clinical Safeguard:** The clinician follows institutional patient safety protocols (e.g., notifying attending, escalating to rapid response team if applicable) independent of Meridian systems.
+2.  **Meridian Notification:** As described in Section 5.6, automated notification occurs. However, if the clinician believes immediate model suspension is warranted (e.g., model is hallucinating a contraindicated medication interaction), they may directly call the Meridian Clinical Safety Hotline at the number listed in the Clarity help panel. This hotline is staffed 24/7/365 by a Meridian Clinical AI safety engineer.
+3.  **Emergency Model Disablement:** Dr. Patel or her formally designated delegate (Dr. Okafor, or the on-call Medical Safety Officer) has the authority to remotely disable a specific AI model or recommendation class across a single site or the entire platform within 30 minutes of being notified. This action is logged as a Critical Incident in the QMS and must be reviewed by the full CRB within 5 business days.
 
-**Level 1: Routine Override Pattern Concern**
-*Trigger:* Department chair identifies clinician override rate exceeding 25% or unusual justification code distribution.
-*Action:* Department chair schedules peer review discussion with clinician within 14 calendar days.
-*Resolution:* Peer review documented; clinician feedback incorporated; override privileges unaffected unless patient safety concern identified.
+### 8.3 Exception Request for Procedural Non-Compliance
 
-**Level 2: Elevated Override Pattern with Potential Safety Implications**
-*Trigger:* Clinical AI Safety Team identifies facility-level override rate exceeding 20% OR J-code override cluster (>5 J-codes within 7 days for same module at same facility).
-*Action:* CMO notified within 24 hours; site assessment initiated within 7 calendar days (virtual or on-site); module may be temporarily suspended at affected facility pending assessment per SOP-IT-043 "Clinical AI Service Suspension."
-*Resolution:* Written assessment report with findings and recommendations; module reinstatement or continued suspension determined by CMO.
-
-**Level 3: Patient Harm Associated with Override Failure**
-*Trigger:* Category C, D, or E retrospective override event (patient harm occurred because override was not performed when clinically indicated).
-*Action:*
-1. Immediate notification to CMO and Compliance Officer (within 2 hours)
-2. Root cause analysis initiated within 24 hours per SOP-QUAL-012 "Adverse Event Investigation"
-3. Regulatory reporting assessment completed within 72 hours
-4. Affected module reviewed for potential systemic issues
-5. Affected facility clinical leadership briefed within 5 business days
-*Resolution:* Formal investigation report; corrective and preventive actions (CAPA) plan; regulatory filings as required; potential model retraining or deployment modification.
-
-**Level 4: Systematic Override Mechanism Failure**
-*Trigger:* Override recording system failure affecting multiple facilities or persisting >4 hours at any single facility.
-*Action:*
-1. Incident declared by VP Clinical AI Products within 1 hour
-2. IT incident response team activated per SOP-IT-044 "Major Incident Management"
-3. Affected facilities notified to utilize manual override documentation procedures
-4. Regulatory notification assessment per applicable medical device vigilance requirements
-*Resolution:* System restoration; root cause analysis; full override data reconciliation; regulatory reporting as applicable.
-
-### 8.3 Override Privilege Modification
-
-Override privileges may be modified under the following circumstances:
-
-| Condition | Modification | Duration | Approval Authority |
-|-----------|-------------|----------|-------------------|
-| Clinician override rate >40% for two consecutive months | Mandatory peer review; override privileges maintained but subject to monthly prospective review | Until rate drops below 30% for two consecutive months | Department Chair + CMO |
-| Clinician found to have executed >5 silent overrides within 12 months | Override privileges temporarily restricted to "Override with Co-Signature" (second clinician must co-sign override) | 90 calendar days minimum | CMO + Compliance Officer |
-| Clinician override determined to have contributed to patient harm (Category E) | Immediate suspension of override privileges pending full investigation | Duration of investigation (maximum 60 calendar days) | CMO |
-
-All override privilege modifications are documented in the clinician's Meridian platform profile and communicated to the facility credentialing office.
+Deviations from a mandatory procedural step in this SOP (e.g., a clinician documents an override rationale shorter than the mandatory character minimum due to an extraordinary circumstance) must be:
+1.  Documented by the clinician as a free-text note appended to the override rationale.
+2.  Reviewed by the Site Clinical Lead within 30 days.
+3.  If a pattern emerges (same clinician, repeated rationale-length exceptions), a corrective action plan, including retraining and possible temporary suspension of Clarity access pending competency review, shall be initiated by the Site Clinical Lead.
 
 ---
 
 ## 9. Training Requirements
 
-### 9.1 Required Training Modules
+### 9.1 Initial Training Curriculum
 
-All clinicians eligible for override privileges must complete the following training:
+All Clinical End-Users must complete the Meridian Clinical AI Human Oversight Training (Course Code: CL-TRN-101) prior to receiving ClarityClinicalUser provisioning. The training is delivered via Meridian’s Learning Management System (LMS).
 
-| Training Module | Code | Duration | Delivery Method | Frequency |
-|-----------------|------|----------|-----------------|-----------|
-| Clinical AI Platform Fundamentals | TRN-CLIN-024-A | 2.0 hours | Asynchronous e-learning (Cornerstone LMS) | Once at onboarding; refresher upon major version update |
-| Override Procedures and Documentation | TRN-CLIN-024-B | 1.5 hours | Asynchronous e-learning + 30-minute virtual instructor-led practicum | Once at onboarding; annual refresher (1 hour) |
-| Justification Taxonomy and Application | TRN-CLIN-024-C | 1.0 hour | Case-based e-learning (12 clinical scenarios with override decision points) | Once at onboarding; updated annually with taxonomy updates |
-| Patient Safety and AI Limitations | TRN-CLIN-024-D | 1.5 hours | Instructor-led (virtual or in-person) | Once at onboarding; biennial refresher |
-| Regulatory Compliance for AI Overrides | TRN-CLIN-024-E | 1.0 hour | Asynchronous e-learning | Annual (all override-privileged clinicians) |
+**Curriculum Modules (CL-TRN-101):**
+- **Module 1: AI as a Clinical Aid (20 minutes):** The distinction between diagnostic aid and autonomous agent; clinical responsibility; the black-box problem and why clinician vigilance is non-delegable. Includes 5 case-study-based multiple-choice questions (MCQs). Pass threshold: 100%.
+- **Module 2: Override Walkthrough (30 minutes):** Hands-on simulation in a sandbox environment. Trainees practice executing Accept, Modify, and Reject on 10 simulated patient cases spanning ClarityDx, ClarityRisk, and ClarityCDS. Override rationale is graded by a peer-review algorithm for clinical plausibility. Pass threshold: completion with no critical errors.
+- **Module 3: Monitoring, Safety, and What Meridian Watches (15 minutes):** Explains the KPI dashboards, what Meridian monitors, and the consequences of repeated unexplained overrides (peer review, retraining). Pass threshold: 80% on 10 MCQs.
 
-**Total Initial Training: 7.0 hours** (including practicum)
-**Annual Refresher Training: 3.0 hours**
+### 9.2 Annual Re-Certification
 
-### 9.2 Training Competency Assessment
+All Clinical End-Users must complete annual re-certification (CL-TRN-201) by December 31 each year. Re-certification includes updated case studies reflecting lessons learned from the prior year’s CSV analyses and an MCQ assessment. Failure to complete re-certification by the deadline results in automatic suspension of `ClarityClinicalUser` role privileges until compliance is achieved.
 
-**Initial Competency Assessment:**
-- Written examination (80% passing threshold): 50 multiple-choice questions covering override procedures, taxonomy application, and safety escalation
-- Practical assessment: 8 simulated override scenarios (minimum 7 of 8 correct override justification selections)
-- Instructor evaluation: Virtual practicum includes direct observation of override workflow execution
+### 9.3 Targeted Retraining (Triggers)
 
-**Annual Competency Reassessment:**
-- Written examination (80% passing threshold): 30 questions
-- Practical assessment: 5 simulated override scenarios (minimum 4 of 5 correct)
+- **KPI OVR-06 Trigger:** If flagged for Outlier Override Rate per Section 7.1, the clinician is assigned the Override Rate Outlier Retraining Module (CL-TRN-302), due within 14 days.
+- **CSV Involvement:** Any clinician whose override is adjudicated as a CSV by the CRB is automatically enrolled in a mandatory 1:1 case review session with their Site Clinical Lead and a Meridian Clinical Educator, scheduled within 10 business days.
+- **Compliance Gap:** Site Clinical Leads with a site Rationale Completeness below 95% for a rolling 30-day period must present a remediation plan to the CRB within 14 days, which may include site-wide refresher training.
 
-**Remediation:**
-Clinicians failing initial or annual competency assessment:
-- 30-day remediation window
-- Assigned peer mentor (experienced override-privileged clinician)
-- Retake assessment (maximum 2 retake attempts)
-- Override privileges suspended pending successful remediation (exception: clinicians may continue to override but require Department Chair co-signature on all overrides during suspension period)
+### 9.4 Training Records
 
-### 9.3 Training Compliance Tracking
-
-- All training completions recorded in Cornerstone LMS with clinician identifier linked to EHR NPI number
-- Monthly training compliance reports to Clinical Department Chairs
-- Dashboard (KPI-OVR-10) tracks real-time override training compliance percentage
-- Non-compliance >90 days: automatic override privilege restriction to "Override with Co-Signature" until training completed
-- Annual attestation by CMO confirming training program adequacy and compliance
+All training records, including module completions, assessment scores, simulation logs, and re-certification status, are maintained in the Meridian LMS and are subject to audit under HIPAA Administrative Safeguards § 164.308(a)(5)(i) (Security Awareness and Training). Records are retained for a minimum of 6 years.
 
 ---
 
 ## 10. Related Policies and References
 
-### 10.1 Internal Meridian SOPs
+### 10.1 Internal Meridian SOPs and Documents
 
-| SOP ID | Title | Relationship to SOP-CLIN-006 |
-|--------|-------|------------------------------|
-| SOP-CLIN-001 | Clinical AI Platform Governance Framework | Establishes overarching governance under which override procedures operate |
-| SOP-CLIN-003 | Clinical AI Model Version Control and Deployment | Defines model version tracking referenced in override documentation requirements |
-| SOP-CLIN-005 | Adverse Event Prediction System Validation | Validation procedures for AEP module; override data used as validation input |
-| SOP-CLIN-008 | Clinical Decision Support Alert Fatigue Management | Addresses override rate thresholds in context of clinician alert burden |
-| SOP-TRN-024 | Clinical AI Platform Clinician Training Program | Detailed training curriculum and certification requirements |
-| SOP-COMP-015 | Compliance Investigation Procedures | Silent override investigation procedures referenced in Section 5.3 |
-| SOP-COMP-031 | Adverse Event Regulatory Reporting | Mandatory reporting for Category D/E retrospective overrides |
-| SOP-PRIV-018 | Patient Data Amendment Requests | Patient-initiated data corrections (out of scope for this SOP) |
-| SOP-IT-042 | Emergency System Decommissioning | System-wide shutdown procedures |
-| SOP-IT-043 | Clinical AI Service Suspension | Module or facility-level suspension procedures invoked in Level 2 escalation |
-| SOP-IT-044 | Major Incident Management | IT incident response for systematic override mechanism failures |
-| SOP-QUAL-012 | Adverse Event Investigation | Root cause analysis procedures for patient harm events |
+| Document ID | Document Title |
+|---|---|
+| SOP-CLIN-001 | Clinical AI Platform Intended Use and Clinical Validation |
+| SOP-CLIN-003 | Post-Market Clinical Surveillance |
+| SOP-MLOPS-012 | Model Configuration Change Management |
+| SOP-MLOPS-013 | Model Drift and Performance Monitoring |
+| SOP-MLOPS-014 | Model Defect and Recall Management |
+| SOP-ISEC-008 | Access Control Standard |
+| SOP-ISEC-019 | Security Incident Response |
+| SOP-QMS-001 | Quality Management System Manual |
+| SOP-RSCH-022 | Clinical Research Use of Production AI Systems |
+| SOP-GDPR-004 | Processing of EU Personal Data in Clinical Systems |
+| POL-HR-015 | End-User Training and Competency Policy |
 
 ### 10.2 External Standards and Regulations
 
-| Standard/Regulation | Reference | Applicability |
-|---------------------|-----------|---------------|
-| EU AI Act (Regulation 2024/1689) | Article 14 (Human Oversight) | High-risk AI systems must be designed to allow effective human oversight; Meridian maintains human oversight capability at all deployments |
-| EU Medical Device Regulation (2017/745) | Annex I (General Safety and Performance Requirements); Annex VIII (Classification) | CE-marked DIA-2024-B classified as Class IIb medical device |
-| HIPAA | 45 CFR §164.312 (Technical Safeguards); §164.308 (Administrative Safeguards); §164.310 (Physical Safeguards) | PHI protection within Override Registry; access controls; audit controls |
-| HIPAA Security Rule | 45 CFR §164.312(b) — Audit Controls | Hardware, software, and procedural mechanisms to record and examine activity in information systems containing ePHI |
-| HIPAA Privacy Rule | 45 CFR §164.508 — Uses and Disclosures | Override data use for treatment, payment, and healthcare operations |
-| NIST AI RMF 1.0 | Govern 1.2: Organizational policies and procedures address AI risks; Govern 2.3: Accountability structures for AI system outcomes; Map 3.1: Context established for AI risk assessment; Measure 4.3: Monitoring for impacts on individuals and groups | Comprehensive governance, accountability, and monitoring framework applied to override mechanisms |
-| NIST AI RMF 1.0 | Manage 1.2: Risk treatment options including risk avoidance; Manage 2.4: Mechanisms for stakeholder feedback regarding AI system performance | Override mechanism as documented risk treatment; override patterns as continuous stakeholder feedback channel |
-| NIST AI RMF 1.0 | Map 2.1: System benefits and potential harms identified; Measure 3.2: Testing for accuracy, robustness, and reliability | FMEA-informed identification of override necessity; override rates as proxy metric for AI reliability |
-| NIST SP 800-53 Rev. 5 | AU-2 (Event Logging); AU-3 (Content of Audit Records); AU-6 (Audit Record Review, Analysis, and Reporting); AU-11 (Audit Record Retention) | Immutable override audit trail; 7-year retention; monthly access audits |
-| FDA AI/ML SaMD Action Plan | Total Product Lifecycle regulatory approach | Override monitoring as post-market surveillance input |
-| IHE ATNA Profile | Audit Trail and Node Authentication | FHIR AuditEvent integration for override records |
-
-### 10.3 Reference Documents
-
-| Document | Description | Location |
-|----------|-------------|----------|
-| Clinical AI Platform FMEA Report (2026) | Failure Mode and Effects Analysis identifying override-critical failure modes | Meridian Quality Management System (QMS-CLIN-FMEA-2026-001) |
-| Standardized Override Justification Taxonomy Codebook | Detailed definitions, examples, and coding guidance for all justification codes | Clinical AI Safety SharePoint (internal) |
-| Clinical AI Platform System Architecture | Technical architecture diagrams including Override Registry AuroraDB cluster configuration | Engineering Technical Documentation Repository |
-| EU AI Act Conformity Assessment Documentation | Technical documentation supporting high-risk classification and conformity | Legal/Regulatory SharePoint |
+| Reference | Description |
+|---|---|
+| EU AI Act (Regulation (EU) 2024/1689) | Harmonized rules on artificial intelligence. High-risk AI system requirements. |
+| HIPAA (45 CFR Part 160 and Part 164) | Health Insurance Portability and Accountability Act. Privacy, Security, and Breach Notification Rules. |
+| HITECH Act (Title XIII of ARRA) | Health Information Technology for Economic and Clinical Health Act. Breach notification requirements and strengthened HIPAA enforcement. |
+| NIST AI RMF 1.0 (AI 100-1) | Artificial Intelligence Risk Management Framework. |
+| FDA 21 CFR Part 820 | Quality System Regulation for medical devices. As amended; anticipated transition to ISO 13485 harmonization. |
+| EU MDR 2017/745 | Medical Device Regulation. Clinical evaluation and post-market clinical follow-up requirements. |
+| ISO 13485:2016 | Medical devices — Quality management systems — Requirements for regulatory purposes. |
+| ISO 14971:2019 | Medical devices — Application of risk management to medical devices. |
 
 ---
 
 ## 11. Revision History
 
-| Version | Date | Author | Description of Changes | Approved By |
-|---------|------|--------|------------------------|-------------|
-| 5.0 | 2024-09-12 | Dr. James Morrison (former VP Clinical AI) | Major restructure: Separated override procedures for CDS, DIA, and PRS modules; introduced Standardized Override Justification Taxonomy; added retrospective override procedure. | Dr. Priya Patel, CMO |
-| 5.2 | 2024-12-03 | Dr. Aisha Okafor, VP Clinical AI Products | Added silent override detection reconciliation process (Section 5.3); updated escalation pathway to include 4-tier structure; revised override rate KPI thresholds based on 2024 Q3 operational data analysis. | Dr. Priya Patel, CMO |
-| 5.5 | 2025-03-18 | Dr. Aisha Okafor, VP Clinical AI Products; Sarah Chen, Compliance Officer | EU AI Act compliance alignment: added specific controls for high-risk AI system human oversight; expanded training requirements to include regulatory module; updated override registry access controls for GDPR compliance. Incorporated NIST AI RMF mapping to all control sections. HIPAA technical safeguard controls detailed in Section 6.1. | Dr. Priya Patel, CMO |
-| 5.7 | 2025-09-30 | Dr. Aisha Okafor, VP Clinical AI Products | Added Adverse Event Prediction System (AEP-2024-D) and Medication Interaction Analyzer (MIA-2025-A) to scope. Updated justification taxonomy to include MIA-specific codes. Revised department chair override monitoring responsibilities. Added annual competency reassessment requirement. | Dr. Priya Patel, CMO |
-| 5.8 | 2026-08-04 | Dr. Aisha Okafor, VP Clinical AI Products; Dr. Marcus Rivera, Clinical AI Safety Lead | Comprehensive annual review. Updated KPIs with 2026 operational targets. Added Section 6.3 override registry access control matrix. Revised escalation pathway timeframes based on post-market surveillance data (2025-2026). Updated related policies cross-references. No substantive procedural changes. | Dr. Priya Patel, CMO |
-
----
-
-*End of Document — SOP-CLIN-006 v5.8*
-*Next Scheduled Review: 2027-02-05*
-*Document Owner: Dr. Aisha Okafor, VP of Clinical AI Products*
-*Classification: Internal — Do Not Distribute Externally Without Legal Review*
+| Version | Effective Date | Author(s) | Summary of Changes |
+|---|---|---|---|
+| 1.0 | 2022-03-01 | Dr. A. Okafor; J. Sterling (Regulatory) | Initial document. Established basic override logging and clinician responsibility statements for initial FDA 510(k) submission. |
+| 2.0 | 2023-01-15 | Dr. A. Okafor; M. Chen (Clinical Safety) | Added Modification workflow (previously only Accept/Reject). Introduced Override Event ID and structured categories. Added Section 7 (Metrics). |
+| 3.1 | 2023-11-20 | Dr. P. Patel; Dr. A. Okafor; K. Johansson (Privacy) | Major rewrite for CE marking readiness under MDR. Added EU-specific training annex. Integrated HIPAA audit controls mapping. Added Site Clinical Lead role. |
+| 4.0 | 2024-07-10 | Dr. A. Okafor; L. Ramirez (OCM) | Introduced tacit acceptance tracking and alert fatigue monitoring (KPI OVR-04). Added Critical escalation pathway and hotline. Expanded training to 3 modules. |
+| 5.0 | 2025-05-01 | Dr. A. Okafor; Legal (M. Gonzalez) | Pre-EU AI Act readiness. Added NIST AI RMF full mapping (Section 6.3). Introduced Clinically Significant Variance (CSV) adjudication process and CRB. |
+| 5.3 | 2025-08-15 | Dr. A. Okafor | **Post-market update.** Minor revision to NIST AI RMF mapping in Section 6.3 for Manage 2.4. Updated transparency language in Policy (Section 4.3). Clarified OVR-01 escalation threshold trigger from "per model" to "per model, per site." Added MFA re-authentication requirement for post-hoc rationale edits. |

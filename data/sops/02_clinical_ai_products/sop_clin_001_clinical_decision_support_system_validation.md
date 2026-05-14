@@ -2,10 +2,10 @@
 sop_id: "SOP-CLIN-001"
 title: "Clinical Decision Support System Validation"
 business_unit: "Clinical AI Products"
-version: "3.3"
-effective_date: "2024-05-05"
-last_reviewed: "2025-05-23"
-next_review: "2025-11-03"
+version: "2.6"
+effective_date: "2025-03-06"
+last_reviewed: "2026-09-10"
+next_review: "2027-03-07"
 owner: "Dr. Aisha Okafor, VP of Clinical AI Products"
 approver: "Dr. Priya Patel, Chief Medical Officer"
 classification: "Internal"
@@ -18,229 +18,174 @@ status: "Active"
 
 # Standard Operating Procedure: Clinical Decision Support System Validation
 
+**SOP ID:** SOP-CLIN-001
+**Version:** 2.6
+**Effective Date:** 2025-03-06
+
+---
+
 ## 1. Purpose and Scope
 
 ### 1.1 Purpose
 
-This Standard Operating Procedure (SOP) establishes the enterprise-wide framework for the rigorous validation of all Clinical Decision Support Systems (CDSS) developed, deployed, or maintained by Meridian Health Technologies, Inc. The purpose of this document is to ensure that every AI-driven clinical tool provides accurate, reliable, clinically meaningful, and equitable outputs that support—rather than supplant—the judgment of licensed healthcare professionals. This SOP operationalizes the principles of Good Machine Learning Practice (GMLP), the NIST AI Risk Management Framework (AI RMF), and applicable international regulations to standardize how Meridian defines, measures, and monitors clinical performance.
-
-This SOP is the authoritative reference for distinguishing between model development completion and clinical readiness. No CDSS model shall be promoted from a development environment to a staging or production environment without documented adherence to the procedures herein.
+This Standard Operating Procedure (SOP) establishes the framework, methodology, and governance for the clinical, technical, and operational validation of all Clinical Decision Support Systems (CDSS) developed, deployed, or maintained by the Clinical AI Products business unit of Meridian Health Technologies, Inc. The purpose is to ensure that every CDSS algorithm and its associated software implementation are safe, effective, clinically meaningful, and compliant with applicable regulatory obligations before clinical deployment and continuously thereafter. This SOP operationalizes Meridian’s commitment to patient safety and evidence-based medicine within the context of machine learning systems.
 
 ### 1.2 Scope
 
-This SOP applies to the **Clinical AI Platform** business unit and extends to any component within the Meridian SaaS Platform that generates patient-specific risk scores, diagnostic suggestions, adverse event predictions, or treatment pathway recommendations.
+This SOP applies to all machine learning models, statistical algorithms, heuristic rules engines, and composite scoring systems that are intended to influence, inform, or direct clinical care decisions made by a qualified healthcare professional. The scope encompasses:
 
-**In-Scope Systems:**
-- Radiological diagnostic imaging analysis models (e.g., ChestXray-AI, NeuroQuant-MS)
-- Patient deterioration and sepsis risk scoring engines (e.g., Meridian Early Warning System)
-- Hospital readmission risk stratification models
-- Adverse drug event prediction systems
-- Clinical trial matching algorithms that process patient PHI
-- Any new CDSS product acquired through merger, acquisition, or partnership
-
-**Out-of-Scope Systems (covered under separate SOPs):**
-- Population-level analytics dashboards that do not generate patient-specific outputs (see SOP-ANL-002)
-- Revenue cycle management and claims automation algorithms (see SOP-FIN-015)
-- Administrative scheduling or staffing prediction tools
-- General-purpose large language models before fine-tuning for clinical use (see SOP-AI-009)
-
-**Regulatory Context:**
-These procedures are designed to satisfy the validation requirements for:
-- **EU AI Act:** High-Risk AI Systems (Annex III, point 2(a) - Medical Devices and In Vitro Diagnostic Medical Devices)
-- **HIPAA:** Privacy and Security Rules pertaining to electronic Protected Health Information (ePHI) used in model training and inference
-- **NIST AI RMF 1.0:** Functions MAP, MEASURE, and GOVERN as adopted by the Meridian AI Governance Committee
-- **FDA:** Quality System Regulation (21 CFR Part 820) and guidance on Clinical Decision Support Software
+| **In Scope** | **Out of Scope** |
+| :--- | :--- |
+| AI-driven patient risk scoring models (e.g., sepsis prediction, 30-day readmission risk). | Pure population health analytics dashboards that do not generate patient-level recommendations (governed by SOP-MED-003). |
+| Diagnostic imaging analysis algorithms, including those with FDA 510(k) clearance and CE marking under EU MDR. | Financial credit scoring models for patient financing, which are governed by HealthPay Financial Services under SR 11-7 (SOP-HPF-001). |
+| Care gap identification algorithms that generate patient-specific alerts. | Administrative claim denial prediction models. |
+| Clinical decision support logic embedded within Meridian’s electronic health record (EHR)-integrated platform, "Meridian ClinicalIQ." | Internal research prototypes that have not been promoted to a production release track. |
+| Any third-party or licensed algorithm integrated into the Clinical AI Products portfolio. | General-purpose large language models (LLMs) not fine-tuned for a specific clinical task. |
 
 ### 1.3 Applicability
 
-This SOP is binding on all full-time employees, contractors, consultants, and third-party vendors who contribute to the design, development, testing, deployment, or monitoring of CDSS models. Compliance is mandatory and subject to audit by the Quality Assurance and Internal Audit teams. Failure to adhere to this SOP may result in disciplinary action, termination of contract, and regulatory non-compliance exposure for the organization.
+All personnel within the Clinical AI Products business unit, the Clinical Affairs department, the Data Science & Machine Learning Engineering group, the Quality Assurance (QA) team, and the Regulatory Affairs department are bound by the procedures herein. This SOP also applies to any contractor or third-party vendor who contributes to the development, labeling, or performance assessment of a CDSS.
 
 ---
 
 ## 2. Definitions and Acronyms
 
-For the purposes of this SOP, the following definitions and acronyms apply. Terms not defined here shall align with the Meridian Corporate Glossary (GLOS-CORP-001) and ISO 9000:2015.
+### 2.1 Acronyms
 
-### 2.1 Definitions
-
-| Term | Definition |
+| Acronym | Definition |
 | :--- | :--- |
-| **Clinical Decision Support System (CDSS)** | Any AI/ML-enabled software system that analyzes patient-specific data to generate a risk score, classification, recommendation, or prediction intended to inform a clinical decision by a qualified healthcare provider. |
-| **Clinical Validation** | The process of demonstrating that a CDSS achieves its intended clinical purpose by producing outputs that are accurate, reliable, and clinically meaningful when compared to an established reference standard in a representative patient population. This is distinct from technical validation (does the code run?) and business validation (does it save money?). |
-| **Gold Standard / Reference Standard** | The best available method for establishing the presence or absence of the target condition. This may include histopathological biopsy results, expert consensus panel adjudication, patient outcomes at 30/60/90 days, or FDA-cleared comparator devices. |
-| **Silent Trial** | A prospective validation methodology wherein the CDSS runs in real-time on live production data and generates predictions, but those predictions are not displayed to clinicians. System outputs are logged and retrospectively compared against clinical outcomes to measure performance without introducing clinical risk. |
-| **Clinical Endpoint** | A precisely defined variable that reflects a clinically meaningful outcome relevant to the CDSS's intended use. Endpoints must be objective, measurable, and verifiable. Examples: 30-day all-cause mortality, ICU transfer within 6 hours, histologically confirmed malignancy. |
-| **Alert Fatigue Threshold** | The maximum rate of false-positive alerts, expressed as alerts per clinician per shift or positive predictive value (PPV), above which clinical users demonstrably ignore or override system warnings. |
-| **Model Drift** | The degradation of a model's performance over time due to changes in the underlying data distribution (data drift), changes in the relationship between input features and the target variable (concept drift), or changes in clinical practice. |
-| **Equitable Performance** | The degree to which a CDSS maintains clinically acceptable performance metrics (e.g., sensitivity, specificity, AUROC) across predefined demographic subpopulations—including but not limited to race, ethnicity, sex, age, primary language, and geographic region—without statistically significant disparity. |
-| **Human-in-the-Loop (HITL)** | A design paradigm obligating that every CDSS output is presented to and reviewable by a qualified human operator with the authority to accept, override, or dismiss the machine's recommendation. |
-| **Technical Documentation** | The collection of documents describing the design, development, and validation of the AI system, maintained to satisfy Annex IV of the EU AI Act. |
+| **AE** | Adverse Event |
+| **AUC** | Area Under the Receiver Operating Characteristic Curve |
+| **AUPRC** | Area Under the Precision-Recall Curve |
+| **CDSS** | Clinical Decision Support System |
+| **CRO** | Contract Research Organization |
+| **CAB** | Clinical Advisory Board |
+| **CMO** | Chief Medical Officer (Dr. Priya Patel) |
+| **FDA** | U.S. Food and Drug Administration |
+| **FMEA** | Failure Mode and Effects Analysis |
+| **GDPR** | General Data Protection Regulation (EU) |
+| **IRB** | Institutional Review Board |
+| **MDR** | Medical Device Regulation (EU) 2017/745 |
+| **NPV** | Negative Predictive Value |
+| **PHI** | Protected Health Information |
+| **PPV** | Positive Predictive Value |
+| **QMS** | Quality Management System |
+| **ROC** | Receiver Operating Characteristic |
+| **RCA** | Root Cause Analysis |
+| **SAE** | Serious Adverse Event |
+| **SOTA** | State-of-the-Art |
+| **SOP** | Standard Operating Procedure |
+| **VP** | Vice President |
 
-### 2.2 Acronyms
+### 2.2 Definitions
 
-| Acronym | Meaning |
-| :--- | :--- |
-| AUROC | Area Under the Receiver Operating Characteristic Curve |
-| AUPRC | Area Under the Precision-Recall Curve (preferred for imbalanced datasets) |
-| CDSS | Clinical Decision Support System |
-| CMO | Chief Medical Officer |
-| ePHI | Electronic Protected Health Information |
-| FMEA | Failure Mode and Effects Analysis |
-| FN | False Negative |
-| FP | False Positive |
-| GMLP | Good Machine Learning Practice |
-| HITL | Human-in-the-Loop |
-| MLflow | Machine Learning Lifecycle Management Platform (Meridian's tracking server) |
-| NIST AI RMF | National Institute of Standards and Technology Artificial Intelligence Risk Management Framework |
-| PPV | Positive Predictive Value (Precision) |
-| QMS | Quality Management System |
-| SOTA | State-of-the-Art |
-| TN | True Negative |
-| TP | True Positive |
+- **Clinical Endpoint:** A precisely defined, clinically meaningful characteristic or variable that reflects how a patient feels, functions, or survives. For a CDSS, the clinical endpoint is the downstream health outcome the algorithm is intended to predict, diagnose, or influence (e.g., 7-day mortality, confirmed diagnosis of acute intracranial hemorrhage).
+- **Gold Standard Comparison:** The process of comparing the CDSS output against a reference standard that is accepted as the best available method for establishing the ground truth. The Gold Standard must be prospectively defined in the validation protocol.
+- **Independent Test Set:** A dataset, temporally or geographically distinct from the training data, that is locked down prior to the final validation run and is used to generate the primary performance results for the validation report. No model retraining or hyperparameter tuning is permitted after the Test Set has been accessed.
+- **Performance Benchmark:** A pre-defined, quantitative minimum performance threshold that must be met or exceeded for an individual metric. For example, a sensitivity benchmark for a diagnostic algorithm might be set at > 0.95 with a lower bound of the 95% confidence interval > 0.90.
+- **Real-World Evidence (RWE):** Data regarding the usage and potential benefits or risks of a CDSS derived from analysis of real-world data (RWD) sources such as electronic health records, claims databases, and patient registries, collected during post-deployment surveillance.
+- **Silent Trial:** A prospective, live-deployment methodology where the CDSS executes and records its recommendations in the background without displaying them to the clinician, while clinical outcomes are concurrently recorded. This enables a direct comparison between CDSS recommendations and actual clinician decisions without introducing algorithmic bias during the evaluation.
 
 ---
 
 ## 3. Roles and Responsibilities
 
-The following matrix delineates the roles and accountabilities for CDSS validation activities. All named roles represent functions; a single individual may serve multiple roles if no conflict of interest exists, as determined by General Counsel.
+The following responsibility assignment matrix (RACI: Responsible, Accountable, Consulted, Informed) defines the governance for CDSS validation activities.
 
-| Role | Accountable (A) | Responsible (R) | Consulted (C) | Informed (I) |
-| :--- | :---: | :---: | :---: | :---: |
-| **VP of Clinical AI Products (Dr. Aisha Okafor)** | A | | C (Design reviews) | I (Release decisions) |
-| **Chief Medical Officer (Dr. Priya Patel)** | | A (Final sign-off) | | |
-| **Clinical Data Science Lead** | | R (Validation protocol design, execution, statistical analysis) | C (Endpoint selection) | I |
-| **Biostatistician (Medical Affairs)** | | R (Sample size calculation, statistical test plan) | | I |
-| **Quality Assurance Manager** | | R (Process adherence audit) | C (Test case verification) | I |
-| **Privacy Officer (Dr. Klaus Weber)** | | | C (Data usage / GDPR Art. 9 compliance) | I |
-| **Regulatory Affairs Specialist** | | R (Submission prep) | C (Risk classification) | I |
-| **Chief AI Officer (Dr. Marcus Rivera)** | | | | I (Quarterly review) |
-| **CISO (Rachel Kim)** | | | C (Data security posture) | I |
-| **Clinical Subject Matter Expert (e.g., Radiologist, Intensivist)** | | R (Gold standard adjudication, clinical significance assessment) | C (Workflow integration) | I |
-
-### 3.1 Detailed Responsibility Descriptions
-
-- **VP of Clinical AI Products:** Holds ultimate accountability for the technical integrity of the CDSS portfolio. Responsible for securing budget and personnel for validation studies. Authorizes the release of models from Development to Staging.
-- **Chief Medical Officer:** Holds final signatory authority on all Clinical Validation Reports. Assesses whether the system poses acceptable clinical risk. Cannot be overridden on matters of patient safety.
-- **Clinical Data Science Lead:** Authors the Validation Plan. Coordinates the extraction of test datasets from Snowflake. Ensures that MLflow tracking servers log all validation metrics and that the experiment lineage is immutable.
-- **Biostatistician:** Determines the minimum sample size required to achieve 80% statistical power with a significance level of α = 0.05 (unless otherwise pre-specified). Selects appropriate frequentist or Bayesian methods for hypothesis testing.
-- **Quality Assurance Manager:** Witnesses validation testing where required by SOP-QA-100. Records and tracks all deviations from this SOP in the Veeva Vault QMS. Approves the closure of validation incidents.
+| Role | Responsibility in Validation | RACI |
+| :--- | :--- | :--- |
+| **VP of Clinical AI Products (Dr. Aisha Okafor)** | Ultimate ownership of the Validation Master Plan; Approver of all Validation Reports prior to CMO sign-off; Resource allocation for validation programs. | Accountable |
+| **Chief Medical Officer (Dr. Priya Patel)** | Final clinical approval of all CDSS for human use; Chairs Safety Review Board; Primary liaison to clinical key opinion leaders. | Accountable, Approver |
+| **Director of Clinical Validation** | Author and executor of the Validation Master Plan; Operational oversight of all pre-deployment clinical studies; Co-author of all validation reports. | Responsible |
+| **Lead Data Scientist (Assigned per CDSS)** | Technical execution of the Gold Standard comparison and statistical analysis; generation of all performance figures and tables; ensures reproducibility of results. | Responsible |
+| **Clinical Data Operations Manager** | Provisioning of de-identified clinical data sets for validation; custody of the Independent Test Set lockbox; data quality assurance. | Responsible |
+| **Biostatistician** | Independent review of the statistical analysis plan (SAP); verification of all reported confidence intervals and p-values; ensures statistical rigor. | Consulted |
+| **Regulatory Affairs Specialist** | Advises on the regulatory pathway (FDA, EU MDR, SaMD framework); translates regulatory requirements into validation plan requirements; manages QMS documentation links. | Consulted |
+| **Head of Information Security (CISO)** | Verifies that the data processing environment meets "HIPAA & GDPR" technical safeguards; Signs off on data governance controls. | Informed |
 
 ---
 
 ## 4. Policy Statements
 
-Meridian Health Technologies, Inc. commits to the following binding policies in the execution of CDSS validation:
+Meridian Health Technologies, Inc. commits to the following foundational policies governing CDSS Validation:
 
-### 4.1 Evidence-Based Clinical Performance
-Every CDSS must demonstrate a statistically significant improvement in at least one pre-registered clinical endpoint compared to standard-of-care decision-making, OR demonstrate non-inferiority with a pre-specified margin (Δ < 0.1 for AUROC comparisons). Purely technical metrics (e.g., F1 score, log-loss) are necessary but insufficient for production release.
-
-### 4.2 Multi-Dataset Validation
-Validation must occur across a minimum of three independent data sources: (1) a retrospective holdout test set from the training data period, (2) a temporally distinct dataset (e.g., data from the 6 months following the training data cutoff), and (3) a geographically distinct dataset (e.g., data from a Meridian customer site not included in training—prioritizing EU sites for CE-marked products).
-
-### 4.3 Human-in-the-Loop Efficacy
-Validation testing must explicitly measure the human-machine team performance, not just algorithmic standalone performance. A silent trial phase of no fewer than 30 calendar days is mandatory prior to go-live display.
-
-### 4.4 Technical Documentation
-Meridian shall maintain comprehensive Technical Documentation in accordance with Annex IV of the EU AI Act for each high-risk AI system. This documentation shall include a general description of the system, detailed elements of the design, and a description of the system's intended purpose. The documentation shall reference the Quality Management System established under ISO 13485.
-
-### 4.5 Performance Benchmarking
-Prior to CE marking or FDA clearance, a formal State-of-the-Art (SOTA) comparison must be conducted, benchmarking Meridian’s model against at least two clinically accepted alternative methods, which may include established clinical scoring rules (e.g., SOFA, APACHE II) or cleared competitor algorithms.
-
-### 4.6 Minimum Necessary Access
-Validation teams shall be granted access only to the minimum necessary ePHI datasets required to perform the validation function. De-identified datasets must be prioritized. Where identification is required for gold standard label generation, a Limited Data Set agreement, as defined by HIPAA, must be executed, and the 18 direct identifiers must be stripped before ingestion into any sandbox environment not managed as a Production-PHI enclave.
-
-### 4.7 Breach Notification
-In the event of a breach of unsecured ePHI utilized within a validation environment, the incident response lead shall coordinate notification. The incident shall be reported to the CISO and Privacy Officer immediately upon discovery. Notifications to affected individuals, the Secretary of Health and Human Services, and prominent media outlets will be executed in accordance with the Incident Response Plan (SOP-SEC-006) and applicable breach notification laws.
+1.  **Clinical Primacy:** A CDSS shall not be deployed for clinical use until an independent, multi-stakeholder validation report demonstrates, with robust statistical certainty, that its performance meets or exceeds all pre-defined clinical endpoints and performance benchmarks. The CDSS is an advisory tool and must not replace the clinical judgment of a qualified healthcare professional.
+2.  **Data Integrity:** All validation activities must be conducted on data sets whose provenance, quality, and integrity are fully documented. The independent test set must be locked and its seal intact before the final validation execution begins.
+3.  **Transparency:** Performance characteristics, including sensitivity, specificity, PPV, NPV, and known limitations regarding confounding variables and demographic subgroups, must be clearly documented in the product's Instructions for Use (IFU) and accompanying technical documentation.
+4.  **Continuous Validation:** Validation is not a one-time event. A comprehensive post-deployment surveillance plan, including silent trials and RWE analysis, must be active throughout the product lifecycle. Any performance drift below benchmark triggers an immediate escalation under Section 8.
+5.  **Fairness and Generalizability:** Validation must be conducted across demographically diverse cohorts to assess for performance disparities. We commit to the principles of the NIST AI Risk Management Framework (AI RMF) to govern the lifecycle of our clinical AI.
+6.  **Regulatory Alignment:** All validation activities shall be conducted in alignment with EU AI Act requirements for high-risk AI systems, relevant harmonized standards, and the documentation principles of the NIST AI RMF.
 
 ---
 
 ## 5. Detailed Procedures
 
-This section is the authoritative operational guide for executing CDSS Validation. The lifecycle is divided into six Gates, each with mandatory entry/exit criteria logged in the Veeva Vault QMS and the MLflow experiment registry.
+This section outlines the end-to-end procedural workflow, from defining the validation blueprint to the final approval gate.
 
-### 5.1 Gate 1: Validation Strategy and Endpoint Analysis (Duration: ~10 Business Days)
+### 5.1 Validation Study Blueprint Definition (Phase 0)
 
-**Trigger:** Model card complete and retrospective testing metrics (AUROC > 0.75) achieved on the Engineering holdout set.
+At least 90 days before the anticipated validation start date, the Director of Clinical Validation must convene a Study Design Workshop. The mandatory outputs of this workshop are:
 
-**Procedure Steps:**
+- **Clinical Endpoint Definition Document (CEDD):** A formal document defining the primary and secondary clinical endpoints. This document must be signed off by the Chief Medical Officer (CMO) and the Biostatistician.
+- **Statistical Analysis Plan (SAP):** A comprehensive plan detailing the statistical tests, sample size justifications (power analysis, >80% power), methods for handling missing data, and corrections for multiplicity.
+- **Gold Standard Annotation Guide (GSAG):** A detailed, operational manual for how the ground truth will be established. If a panel of three independent clinical experts is used for adjudication (e.g., for diagnostic algorithms), a majority-vote or consensus methodology must be specified.
 
-1.  **Initiation:** The Clinical Data Science Lead opens a new Validation Initiative record in the QMS (Veeva Vault, Doc Type: "Validation Plan"). The record is linked to the specific model version ID in the MLflow Model Registry.
-2.  **Stakeholder Kick-off:** A 60-minute meeting is convened with the Clinical Data Science Lead, Biostatistician, and the designated Clinical Subject Matter Expert (SME). Minutes are recorded in the QMS record.
-3.  **Target Condition Definition:** The Clinical SME formally defines the clinical condition being predicted. *Example: For NeuroQuant-MS, the target condition is "Radiologically Isolated Syndrome (RIS) confirmed by McDonald 2017 criteria at 6-month follow-up MRI."* This definition is locked and version-controlled.
-4.  **Endpoint Hierarchy Establishment:** The team establishes a Primary Endpoint (weighted 60% in overall assessment) and at least two Secondary Endpoints (weighted 20% each).
-    - *Primary Endpoint Example:* Sensitivity > 0.90 with specificity floor of > 0.75.
-    - *Secondary Endpoint Example:* Mean time to clinical alert < 45 seconds from PACS data ingestion.
-5.  **Reference Standard Selection:** The SME identifies the Gold Standard. If the Gold Standard is invasive (e.g., biopsy), a surrogate standard may be proposed via a formal Exception Request (see Section 8).
+**Template: Clinical Endpoint SMART Criteria**
+Each primary endpoint must conform to the following:
+- **Specific:** Clearly defines the target condition (e.g., "Acute ischemic stroke visible on non-contrast CT").
+- **Measurable:** Outlines the measurement methodology (e.g., "Area under the ROC Curve for pixel-level lesion segmentation").
+- **Actionable:** The CDSS output is directly linked to a definable clinical action (e.g., "Prioritization on the radiologist's worklist").
+- **Realistic:** The benchmark is based on a literature review of current SOTA clinician performance.
+- **Time-bound:** Specifies the timeframe for the prediction window (e.g., "Prediction of onset within the subsequent 6 hours").
 
-**Exit Criteria:** Completed "Validation Strategy Template" (FRM-CLIN-101) signed by the Biostatistician and Clinical SME.
+### 5.2 Data Curation and Lockbox Procedure (Phase 1)
 
-### 5.2 Gate 2: Statistical Test Plan and Data Procurement (Duration: ~15 Business Days)
+The Clinical Data Operations Manager is the point-of-contact for the data lockbox. The procedure is as follows:
+1.  **Data Acquisition:** Source data is extracted from the Meridian Data Lake (M-DL) based on a pre-approved protocol that defines inclusion/exclusion criteria.
+2.  **De-identification:** All data must undergo a PHI scrubbing process using the Meridian De-ID Pipeline v4.2. A post-scrub audit report must be generated and reviewed by the Data Privacy Officer.
+3.  **Hold-out Set Creation:** The scrubbed data is randomly partitioned into a "Historical Training Set" (accessible to the ML team for internal iteration) and a "Prospective Validation Set." The latter is stored in a read-only, access-controlled S3 bucket (`s3://meridian-clinical-aq/validation-lockboxes/[CDSS-NAME]/`). Access logging is enabled.
+4.  **Lockbox Ceremony:** A formal "Lockbox Ceremony" is conducted. The Director of Clinical Validation, Biostatistician, and the CISO confirm the integrity of the data by verifying the SHA-256 hash of the locked dataset. The hash is entered into the Meridian Asset Registry.
 
-**Procedure Steps:**
+### 5.3 Gold Standard Comparison: Clinical Reader Study (Phase 2)
 
-1.  **Sample Size Calculation:** The Biostatistician uses the locked endpoint definitions from Gate 1 to programmatically compute the required sample size in R (using the `pwr` package). Script and output must include:
-    - Alpha level: 0.05 (adjusted for multiplicity if secondary endpoints gate primary).
-    - Desired Power: 0.80 (or 0.90 depending on risk classification).
-    - Expected Effect Size: Based on preliminary research or internal pilot data.
-2.  **Diversity Mandate Compliance:** The sample cohort definition must specify stratified sampling based on the Meridian Equity Schema (race, ethnicity, sex, age decile [18-90+]). No single demographic cell shall constitute more than 60% of the test cohort unless clinically justifiable (e.g., prostate cancer model).
-3.  **Data Source Identification:** The team identifies candidate datasets in Snowflake using the `CDSS_VALIDATION_CATALOG` view.
-    - **Temporal Holdout:** Partition where `inference_date > training_end_date`.
-    - **Geographic Holdout:** Partition where `site_id NOT IN (training_site_ids)` – explicitly targets at least one EU member state hospital.
-4.  **Data Quality (DQ) Check:** Execute the `DQ-CLIN-101` automated script. Fail the pipeline immediately if:
-    - Missingness > 5% in critical features.
-    - Duplicate patient records detected.
-    - Feature drift (Population Stability Index > 0.25) detected compared to the original training set.
-5.  **De-identification and Authorization:** For data leaving the production Snowflake environment (e.g., to an on-prem GPU cluster), apply the HIPAA Safe Harbor method. The Privacy Officer (Dr. Weber) must approve the authorization checklist (FRM-CSEC-005) before data transfer.
+For all diagnostic and screening CDSS, a blinded, multi-reader, multi-case (MRMC) reader study is the mandatory methodology for establishing the Gold Standard against which the algorithm will be compared.
 
-**Exit Criteria:** "Statistical Analysis Plan (SAP)" document locked and digitally co-signed by Biostatistician and Clinical Data Science Lead.
+**Procedure:**
+1.  **Reader Selection:** Three board-certified clinical specialists, not Meridian employees, are engaged as independent readers from a pre-approved CRO. Reader qualifications must be documented.
+2.  **Blinding:** Readers are blinded to all clinical outcomes, original reports, and the output of the CDSS. They review only the de-identified source data (e.g., images, structured lab panels).
+3.  **Anchoring:** For each case in the `Prospective Validation Set`, each reader records their diagnostic assessment using a standardized, structured reporting template on the Meridian Annotation Platform (MAP).
+4.  **Panel Adjudication:** Where all three readers are concordant, their assessment becomes the Gold Standard label. Discordant cases are adjudicated in a virtual panel session chaired by the CMO or delegate. The session is audio-recorded and the transcript is archived. The final label is the Adjudicated Gold Standard.
+5.  **Data Preparation:** Adjudicated labels are locked and delivered to the Lead Data Scientist.
 
-### 5.3 Gate 3: Retrospective Clinical Validation
+### 5.4 Algorithmic Performance Execution (Phase 3)
 
-**Procedure Steps:**
+This is the execution phase where the CDSS is run against the lockbox. The Lead Data Scientist executes the following steps strictly:
 
-1.  **Blinded Inference:** Run inference using the frozen model binary (as stored in the Meridian Model Registry) against the curated cohort. The execution environment must be isolated and tracked in MLflow for audit trail completeness.
-2.  **Ground Truth Adjudication:** For cases where the Gold Standard differs from the "soft label" in the EHR, escalate to the Clinical Adjudication Panel (see Section 6.1).
-3.  **Confusion Matrix Generation:** Generate the standard confusion matrix (TP, TN, FP, FN). Compute AUROC, AUPRC, PPV, Negative Predictive Value (NPV), and Likelihood Ratios (+LR, -LR).
-4.  **Calibration Analysis:** Generate a calibration curve (reliability diagram). If Brier Score > 0.25 for risk prediction models, a Platt Scaling recalibration must be applied to the inference pipeline artifact.
-5.  **Subgroup Performance Analysis:** Disaggregate metrics according to the Meridian Equity Schema. A warning flag shall be logged by the system if a disparity ratio (Min AUROC / Max AUROC) < 0.8 for any sensitive attribute.
+1.  **Code Freeze:** The production branch of the CDSS repository (e.g., `clinicaliq/ sepsis-predictor v3.1.0_prod`) is tagged and frozen in a read-only state in Bitbucket.
+2.  **Containerization:** A Docker container is built from the frozen codebase, including the exact pre-trained model weights file. The container's SHA-256 digest is recorded and entered into the validation report.
+3.  **Validation Run:** The container is executed against the locked `Prospective Validation Set` in a clean-room AWS environment (`EC2 instance: validation-runner`) that has no outbound internet access. Output scores and predictions are logged to an append-only S3 log bucket (`s3://meridian-audit-logs/clinical-validation/[CDSS-NAME]/[YYYY-MM-DD]/`).
+4.  **Output Lock:** The raw output file is immediately locked and handed off to the Biostatistician for independent analysis.
 
-**Exit Criteria:** "Retrospective Validation Report" (TEMPL-CLIN-105) generated with automated statistical outputs.
+### 5.5 Statistical Analysis and Report Generation (Phase 4)
 
-### 5.4 Gate 4: Silent Trial Protocol (Prospective Validation)
+The Biostatistician independently analyzes the raw CDSS output against the Adjudicated Gold Standard labels.
+- **Performance Benchmarks:** The CDSS must meet *all* pre-defined benchmarks. For example, a sepsis prediction CDSS might have:
+    - **Sensitivity:** > 0.85 (with a 95% CI lower bound > 0.80)
+    - **Specificity:** > 0.80 (with a 95% CI lower bound > 0.75)
+    - **Lead Time:** Median alert generation precedes clinical onset by at least 4 hours.
+    - **Calibration:** Brier score < 0.10 with a calibration-in-the-large < 0.1.
+- **Sensitivity Analysis:** Evaluation across key demographic subgroups (age, sex, race, geographic strata) must be performed. If performance degrades for a specific subgroup (absolute difference in AUC > 0.05), this must be prominently flagged and investigated as a potential systematic bias.
+- **Technical Documentation:** The output of this phase is the Final Validation Report (FVR), which includes all Annex IV documentation elements for EU AI Act compliance.
 
-**Procedure Steps:**
+### 5.6 Final Sign-Off and Gate Release (Phase 5)
 
-1.  **Engineering Deployment for Silent Mode:** The validated model is deployed to the production Kubernetes cluster (`meridian-prod-us-east`). The `clinical_display_flag` environment variable is explicitly set to `FALSE`.
-2.  **Real-Time Data Pipeline Registration:** The model subscribes to the production HL7 FHIR R4 stream. Every patient encounter that meets the inclusion criteria triggers an inference event.
-3.  **Shadow Logging:** Inference results (risk score, class label, confidence interval) are written to the `silent_trial_results` Apache Kafka topic with strict message ordering. No data is rendered in the Epic or Cerner EHR interfaces.
-4.  **Duration Monitoring:** The silent trial shall run for a minimum of 30 calendar days, collecting a minimum sample size equivalent to 70% of the SAP target. In the event of a significant software release of the Meridian Gateway API, the silent trial duration resets.
-5.  **Mid-Point Utility Check:** At Day 15, the team analyzes the distribution of risk scores. If >85% of risk scores fall into the "indeterminate" category, the model is paused, labeling it as having "Low Clinical Utility," and returned to Step 1 (Development).
+The FVR and a "Deployment Readiness Checklist" must be approved in sequence:
+1.  Director of Clinical Validation (Responsible)
+2.  Biostatistician (Statistical Validity Sign-off)
+3.  VP of Clinical AI Products (Business Owner Approval)
+4.  Chief Medical Officer (Final Clinical Authorization)
 
-**Exit Criteria:** Prospective data collection complete, with Kafka topic backlog consumed and validated against EHR structured query language (SQL) audit tables. A data completeness report > 98% must be achieved.
-
-### 5.5 Gate 5: Clinical Utility and Human-in-the-Loop (HITL) Simulation
-
-**Procedure Steps:**
-
-1.  **Clinician Review Panel Assembly:** Recruit a panel of 5 practicing clinicians representative of the intended user base. This panel must be independent of the model development team.
-2.  **Retrospective Case Mix Construction:** The Biostatistician constructs a balanced review packet containing 200 cases:
-    - 100 cases where the model prediction was correct.
-    - 50 cases where the model prediction was incorrect.
-    - 50 random negative controls.
-3.  **HITL Efficacy Testing:** Clinicians review the cases *without* AI assistance first, documenting their assessment. Then, the AI output is revealed. The changes in clinician diagnostic accuracy are measured.
-4.  **Alert Fatigue Assessment:** A Likert-scale survey (1-5) is administered after each of the 200 cases, asking, "I found the AI alert to be clinically helpful." If the inter-rater reliability (Fleiss' Kappa) for helpfulness falls below 0.6, the UX of the alert presentation in the EHR must be revised.
-5.  **Harm Analysis:** A Failure Mode and Effects Analysis (FMEA) is executed by the panel to identify top-ten failure modes, focusing specifically on false negatives that could cause patient harm due to omission.
-
-**Exit Criteria:** A mean helpfulness score > 3.5, Fleiss' Kappa > 0.6, and a documented FMEA with no open catastrophic (Severity 5) findings.
-
-### 5.6 Gate 6: Final Release Authorization and Documentation
-
-**Procedure Steps:**
-
-1.  **Collation of the Validation Report:** The Clinical Data Science Lead compiles Gates 1-5 into the "Summary of Safety and Clinical Performance" (SSCP).
-2.  **CMO Final Review:** Dr. Priya Patel reviews the complete dossier. The CMO documents the clinical risk-benefit justification in Veeva Vault.
-3.  **Artifact Freezing:** All datasets, model binaries, MLflow experiments, scripts, and logs are tagged with the release version (`v3.3.0`) and moved to immutable cloud storage (AWS S3 Glacier Instant Retrieval) for regulatory retention.
-4.  **Technical Documentation Update:** The Technical Documentation package is updated to reflect the validation results. The documentation describes the system's intended purpose, its intended users, and the logic of the algorithm.
+Upon CMO approval, a signed, non-repudiable artifact is stored in the Meridian Document Management System (MDMS), and the CDSS is approved for clinical deployment by the DevOps team. No CDSS shall be released to a production branch without this artifact.
 
 ---
 
@@ -248,86 +193,88 @@ This section is the authoritative operational guide for executing CDSS Validatio
 
 ### 6.1 Technical Controls
 
-| Control Category | Control ID | Control Description |
+| Control | Implementation | Purpose |
 | :--- | :--- | :--- |
-| **Data Isolation** | TAC-01 | Validation datasets used in Gate 3 shall be logically isolated from the model training lakehouse via Snowflake’s `VALIDATION_SCHEMA` role-based access controls. No service account with write access to the model store shall have write access to the validation raw data. |
-| **Immutability** | TAC-02 | All MLflow experiment tracking and artifacts logged during validation runs shall be tagged with `immutable: true`. The `mlflow.admin.delete_experiment` permission is rescinded for all non-CISO personnel in production. |
-| **Model Versioning** | TAC-03 | Only models registered in the MLflow Model Registry with a `stage/production` tag and a passed Validation Gate checklist may be deployed. The CI/CD pipeline (GitLab CI) programmatically queries MLflow before building the inference container. |
-| **PHI Masking in Logs** | TAC-04 | Patient identifier columns (e.g., MRN, Name, DoB) are programmatically masked to `*****` in all predictive model log streams via a Fluentd filter. Any unmasked PHI in logs triggers an automatic PagerDuty Critical alert. |
+| **Data Lockbox Integrity** | SHA-256 hashing; Immutable S3 bucket logging via AWS CloudTrail. | Ensures that the Independent Test Set has not been tampered with post-lockbox ceremony. |
+| **Container Integrity** | Docker image signing using Cosign; SHA-256 digest stored in the immudb artifact registry. | Guarantees that the exact, frozen model binary is what was validated and what gets deployed. |
+| **Environment Segregation** | Validation runs are executed in an isolated AWS sub-account (`prod-validation`) with no network connectivity to the production EHR-integrated environment (`prod-ehr`). | Prevents data leakage between training/validation and live clinical environments. |
+| **Access Logs** | All access to the lockbox S3 bucket and the validation-runner EC2 instance is logged to `s3://meridian-audit-logs`. Access is restricted by IAM roles to only the Lead Data Scientist and Biostatistician during the active run phase. | Provides an immutable audit trail for regulatory review. |
+| **PHI De-ID** | Meridian De-ID Pipeline v4.2, achieving strict statistical anonymization under GDPR standards as verified by the Data Privacy Officer. | Ensures PHI is not inadvertently processed where it is not needed, aligning with data minimization principles. |
 
 ### 6.2 Administrative Controls
 
-| Control Category | Control ID | Control Description |
-| :--- | :--- | :--- |
-| **Adjudication Panel** | ADC-01 | A Clinical Adjudication Panel (CAP), comprising three independently licensed Meridian-employed physicians, shall resolve disagreements in the reference standard. Majority vote determines the final label. |
-| **Segregation of Duties** | ADC-02 | The Data Scientist who trained the model is strictly prohibited from executing the Gate 3 validation testing or approving the SAP. The role of "Validation Execution" is assigned only to persons in the Quality Assurance or independent Clinical Data Science sub-team. |
-| **Access Controls for ePHI** | ADC-03 | Validation engineers shall access de-identified datasets in the `deid_clinical_research` environment. Access to identifiable data is restricted to the Clinical Adjudication Panel and requires MFA using a FIDO2 hardware token. |
+- **Access Review:** Quarterly review of all accounts with `ReadWrite` permissions to `meridian-clinical-aq` AWS Organisations Service Control Policies (SCPs). Unauthorized access triggers an incident response process as per SOP-CLIN-003.
+- **Separation of Duties:** The Lead Data Scientist who executes the validation run must not be the Biostatistician who analyzes the output. The Biostatistician reports directly to the VP of Clinical AI, not to the Lead Data Scientist's line manager.
+- **Vendor Risk Management:** Any CRO or external clinical reader panel is subject to an annual SOC 2 Type II review and a HIPAA Business Associate Agreement (BAA). Their annotation platform must also meet our data governance standards.
 
 ---
 
 ## 7. Monitoring, Metrics, and Reporting
 
-### 7.1 Production Monitoring (Post-Deployment Surveillance)
+Post-deployment, the CDSS is in a state of continuous surveillance.
 
-Following a successful Go-Live, the CDSS enters ongoing surveillance. The Meridian Observability Platform (Grafana stack) shall provide real-time dashboards for the following Key Performance Indicators (KPIs):
+### 7.1 Post-Market Monitoring Plan
 
-| KPI Category | Specific Metric | Threshold (Critical) | Threshold (Warning) |
+A Post-Market Clinical Follow-up (PMCF) plan, or its equivalent for a non-device CDSS, must be filed within 30 days of deployment. This plan details the silent trial protocol and real-world evidence gathering. Metrics are tracked on the Clinical AI Product Dashboard.
+
+### 7.2 Key Performance Indicators (KPIs)
+
+| Metric | Definition | Target | Alert Limit |
 | :--- | :--- | :--- | :--- |
-| **Operational Health** | Prediction API Latency (p99) | > 2000 ms | > 1000 ms |
-| **Data Drift** | Feature PSI (Population Stability Index) | > 0.30 | > 0.15 |
-| **Feature Health** | Percentage of null values in a critical feature | > 25% | > 10% |
-| **Clinical Efficacy** | Surrogate Model AUROC (measured via silent trial) | Drop > 0.10 from baseline | Drop > 0.05 from baseline |
-| **Adoption** | Alert Acceptance Rate (Clinician accepts suggestion) | < 30% | < 50% |
-| **System Diversity** | Demographic disparity in inference volume vs. census | χ² p < 0.001 | χ² p < 0.05 |
+| **Algorithmic Drift** | Deviation of the in-production CDSS output distribution from the lockbox test set distribution, measured by Population Stability Index (PSI). | PSI < 0.10 | PSI > 0.25 triggers an automatic alert to the Clinical Engineering SWAT team. |
+| **Clinician Override Rate** | Percentage of CDSS recommendations that are acknowledged but not acted upon by the clinician. Monitored by CDSS and site. | < 20% | > 50% site-specific override rate triggers a targeted field service visit to assess usability or local workflow integration. |
+| **Unanticipated AEs** | Rate of patient adverse events where a CDSS-related failure was a contributing factor. | 0 | Any unanticipated AE triggers a full-blown RCA under SOP-CLIN-004. |
+| **Bias & Fairness** | Monthly evaluation of the model's F1 score parity across protected demographic subgroups (race, sex, geographic). | F1 difference < 0.05 | An F1 difference > 0.05 across any subgroup initiates an immediate re-validation study sub-analysis. |
 
-### 7.2 Reporting Cadence
+### 7.3 Reporting Cadence
 
-- **Weekly:** Automated reports on data drift and feature health delivered to the MLOps Team and Clinical Data Science Lead.
-- **Monthly:** Model performance reports (PSI, feature drift, alert acceptance) distributed to the VP of Clinical AI Products and Product Managers.
-- **Quarterly:** Comprehensive CDSS Portfolio Efficacy Report presented to the Chief Medical Officer and Chief AI Officer. This report shall discuss performance trends across all monitored subpopulations and assess aggregate clinical value.
+- **Monthly:** Automated PSI and override rate report to the Product Manager and Director of Clinical Validation.
+- **Quarterly:** Comprehensive Post-Market Surveillance Report, including a fairness and bias review, presented to the Clinical Advisory Board (CAB).
+- **Annually:** Complete re-validation or equivalency study, the formal output of which triggers the next document review cycle for this SOP.
 
 ---
 
 ## 8. Exception Handling and Escalation
 
-### 8.1 Exception Request Process
+### 8.1 Exception Handling
 
-Deviations from any mandatory step in this SOP require a formal Exception Request. The process is as follows:
+Any request for a deviation from the procedures in this SOP must be formally documented using the `CDSS-Validation-Exception-Request` form in the Meridian GRC Portal. The request must detail:
+- The specific procedural step for which deviation is sought.
+- A robust, evidence-based rationale, including compensating controls.
+- An assessment of any resultant safety or regulatory risk.
 
-1.  **Submission:** The requestor must complete the "Validation Exception Form" (FRM-QA-201) in Veeva Vault. The form must detail:
-    - The specific Section/Gate from which deviation is sought.
-    - A technical or clinical justification for non-compliance.
-    - A compensating control or alternative validation methodology proposed.
-    - Risk assessment describing the safety impact of the deviation.
-2.  **Review:** The Exception Request is reviewed by the Quality Assurance Manager and the Biostatistician. They may request additional data.
-3.  **Approval Matrix:**
-    - **Low Risk Exception:** (e.g., extension of temporal holdout by 30 days) Approval required: VP of Clinical AI Products.
-    - **Medium Risk Exception:** (e.g., waiving a geographic holdout site) Approval required: VP of Clinical AI Products + Chief Medical Officer.
-    - **High Risk Exception:** (e.g., deviating from primary endpoint or reducing sample size below power requirements) Approval required: Chief Medical Officer + Chief AI Officer + General Counsel. This exception must be reported to the Board Audit and Compliance Committee.
+**Exception Approval Matrix:**
 
-### 8.2 Escalation Protocol for Live Model Drift
+| Risk Level | Approving Authority |
+| :--- | :--- |
+| Low (e.g., minor documentation template change) | Director of Clinical Validation |
+| Medium (e.g., using a modified SAP after lockbox ceremony) | VP of Clinical AI Products |
+| High (e.g., deploying a model that missed a secondary performance benchmark) | Chief Medical Officer (CMO) |
 
-If a production CDSS breaches a Critical Threshold detailed in Section 7.1:
+No exception may proceed if the CMO determines it presents an unacceptable clinical risk.
 
-1.  **Automatic Page:** A PagerDuty incident is created and assigned to the Director of Clinical Engineering.
-2.  **Immediate Action:** The Director of Clinical Engineering shall, within 4 hours, determine whether to place the model into "Shadow Mode" (prediction disabled in the EHR view) using the global LaunchDarkly kill switch.
-3.  **CMO Notification:** The CMO must be notified within 8 hours of a confirmed Critical Threshold breach.
-4.  **Remediation Loop:** A Root Cause Analysis (RCA) utilizing a standardized "Five Whys" template must be initiated within the QMS within 48 hours.
+### 8.2 Escalation Procedure
+
+The escalation path for critical validation failures or post-deployment safety events is:
+1.  **Immediate Triage:** The discovering party (Data Scientist, Clinical Lead) immediately places a 24/7 page to the VP of Clinical AI Products and the Director of Clinical Validation.
+2.  **Emergency CAB:** Within 4 hours, the CMO must be briefed. Within 24 hours, an emergency Clinical Advisory Board meeting is convened.
+3.  **Immediate Safety Action:** The CAB has the authority to recommend to the CMO to disable a specific CDSS feature flag, take a site offline, or issue an urgent field safety notice. The CMO's decision is final and executable by the on-call SRE team.
+4.  **Incident Retrospective:** A formal RCA must be completed within 14 days. Findings are reported to regulatory bodies by the Regulatory Affairs department. A data breach impacting PHI will trigger the Breach Response Protocol, which requires prompt notification to the relevant authorities in accordance with applicable timelines.
 
 ---
 
 ## 9. Training Requirements
 
-All personnel identified in the roles and responsibilities matrix (Section 3) must complete and document the following training:
+All personnel listed in Section 3 must complete the following training prior to commencing any validation activity.
 
-| Training Module | Audience | Method | Frequency | Owner |
+| Training Module Code | Title | Description | Frequency | Assigned Role |
 | :--- | :--- | :--- | :--- | :--- |
-| **ISEC-001: HIPAA & Data Privacy in Clinical Research** | All Validation Personnel | LMS (Workday) | Annual | Privacy Officer |
-| **CLTR-105: GMLP & Clinical Validation SOP** | Clinical Data Science, Biostatistics, QA | Instructor-Led + LMS Exam | Initial (before first access), then biennial | VP of Clinical AI |
-| **HITL-210: Clinical Review Panel Operations** | Adjudication Panel Members | Hands-on Workshop (Veeva Vault) | Initial, then on version change | Clinical Data Science Lead |
-| **BIA-101: Algorithmic Bias & Equity Principles** | All Clinical AI Staff | E-Learning | Annual | VP of Diversity & AI Ethics |
+| **T-CLIN-001** | SOP-CLIN-001 Proficiency | A role-specific deep dive on the procedures of this SOP. Must pass an end-of-module quiz with 100% accuracy. | Upon assignment; Annually thereafter. | All Section 3 Roles |
+| **T-REG-005** | AI Regulation & Safety | Covers EU AI Act, NIST AI RMF, FDA SaMD guidance, and Meridian's ethical AI principles. | Upon assignment; Annually thereafter. | All Section 3 Roles |
+| **T-DATA-002** | Advanced PHI & Data Governance | Covers the practical steps of de-identification, data lockbox procedure, and compliance with data use agreements. | Annually | Clinical Data Ops Manager, Lead Data Scientist, Biostatistician |
+| **T-GCP-001** | Good Clinical Practice (GCP) Refresher | Standard GCP training for the conduct of clinical studies and handling of clinical data. | Every 2 years | Director of Clinical Validation, Biostatistician |
 
-Training records shall be maintained in Workday. The Quality Assurance Manager is responsible for auditing training compliance quarterly. Validators who are non-compliant with any mandatory training module shall have their access to the Snowflake `VALIDATION_SCHEMA` temporarily revoked until compliance is achieved.
+Training completion is tracked in the Workday Learning Management System. The VP of Clinical AI Products reviews team compliance monthly. A score of less than 100% on role-critical training locks system access until remediation is complete.
 
 ---
 
@@ -335,33 +282,35 @@ Training records shall be maintained in Workday. The Quality Assurance Manager i
 
 ### 10.1 Internal Meridian Policies
 
-| Document ID | Title | Relationship |
-| :--- | :--- | :--- |
-| SOP-AI-009 | General Purpose AI Model Development | Defines development lifecycle pre-validation. |
-| SOP-SEC-006 | Information Security Incident Response | Governs breach notification and escalation processes. |
-| SOP-PRV-003 | De-identification and Anonymization of Clinical Data | Defines the technical methodology used in Gate 2. |
-| SOP-DQ-022 | Data Quality Assurance for Clinical Data Warehouses | Defines the DQ checks mandated in Gate 2. |
-| SOP-FIN-015 | Revenue Cycle Algorithm Validation | Analogous validation SOP for financial (non-clinical) models. |
-| SOP-HR-100 | Disciplinary and Corrective Action Policy | Consequences of non-compliance. |
-| GLOS-CORP-001 | Meridian Corporate Glossary | Enterprise definition of terms. |
+| SOP ID | Title |
+| :--- | :--- |
+| SOP-CLIN-002 | CDSS Risk Management and FMEA Procedure |
+| SOP-CLIN-003 | CDSS Data Governance and Access Control Standard |
+| SOP-CLIN-004 | CDSS Post-Market Surveillance and Adverse Event Handling |
+| SOP-CLIN-005 | Clinical Algorithm Change Management and Versioning |
+| SOP-DS-001 | Model Development and Coding Standard |
+| SOP-REG-001 | Regulatory Submission Document Control |
+| SOP-IS-001 | Information Security Incident Response Plan |
+| SOP-QA-005 | Quality Management System Audit Process |
 
-### 10.2 External References
+### 10.2 External Standards and Regulations
 
-- ISO 13485:2016 - Medical devices — Quality management systems
-- ISO 14971:2019 - Medical devices — Application of risk management
-- Good Machine Learning Practice for Medical Device Development (GMLP) Guiding Principles
-- CONSORT-AI and SPIRIT-AI reporting guidelines
-- ITU-T/WHO FG-AI4H deliverables
+- **IEC 62304:** Medical device software — Software life cycle processes.
+- **ISO 13485:2016:** Medical devices — Quality management systems.
+- **EU AI Act:** Regulation (EU) 2024/1689, specifically Title III Chapter 5 for high-risk AI systems. Our QMS is intended to align with Article 17 requirements, and technical documentation is structured to address the elements detailed in our internal template.
+- **EU MDR 2017/745:** For CDSS products classified as medical devices.
+- **NIST AI RMF 1.0:** AI Risk Management Framework. We utilize this framework to map and govern our AI portfolio, actively working to inventory all high-risk systems and profile their risk impacts.
+- **HIPAA Privacy and Security Rules:** 45 CFR Part 160 and Subparts A and E of Part 164.
 
 ---
 
 ## 11. Revision History
 
-| Version | Date | Author | Description of Change |
+| Version | Date | Author | Description of Changes |
 | :--- | :--- | :--- | :--- |
-| 1.0 | 2021-09-12 | J. Hendricks | Initial SOP creation for ChestXray-AI v1. |
-| 2.0 | 2022-11-15 | A. Okafor | Major revision: Introduced Gates 1-6 lifecycle, added RACI matrix, and mandated silent trials. |
-| 3.0 | 2023-06-01 | L. Kim (QA) | Integration with Veeva Vault QMS; added mandatory diversity stratification; removed waterfall validation terminology. |
-| 3.1 | 2023-10-20 | M. Dubois | Clarified de-identification standards for EU patient data; added CE marking prerequisites per EU MDR transition period. |
-| 3.2 | 2024-01-10 | A. Okafor | Updated escalation protocol contact points (replaced retired CSO role); added Kafka topic naming convention for silent trial logs. |
-| 3.3 | 2025-05-23 | A. Okafor | Scheduled review cycle update; refined "Monitoring" Section 7.1 thresholds; added explicit SOTA benchmarking clause in Section 4.5; updated Technical Documentation linkage to reflect ISO 13485 integration for EU AI Act readiness; updated training ID references. |
+| 1.0 | 2021-11-15 | Dr. A. Okafor | Initial release. Covered internal retrospective validation only. |
+| 1.1 | 2022-05-22 | Dr. A. Okafor | Minor revision. Clarified data de-identification requirements post-audit. |
+| 2.0 | 2023-07-10 | M. Chen (Reg. Affairs) | Major revision. Aligned with new EU MDR requirements; Introduced Lockbox Ceremony and MRMC reader study methodology. |
+| 2.4 | 2024-04-14 | J. Smith (Clin. Ops) | Introduced silent trial methodology and post-market surveillance KPIs. |
+| 2.5 | 2024-10-01 | Dr. A. Okafor | Added NIST AI RMF references and fairness metrics; Updated container signing procedure. |
+| 2.6 | 2025-03-06 | Dr. A. Okafor | Refined EU AI Act documentation references; Updated escalation and breach notification language; Added Bias & Fairness to quarterly CAB review. |

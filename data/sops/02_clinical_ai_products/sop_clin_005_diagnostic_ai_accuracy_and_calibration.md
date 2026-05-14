@@ -2,10 +2,10 @@
 sop_id: "SOP-CLIN-005"
 title: "Diagnostic AI Accuracy and Calibration"
 business_unit: "Clinical AI Products"
-version: "3.8"
-effective_date: "2024-06-03"
-last_reviewed: "2025-02-11"
-next_review: "2025-08-19"
+version: "4.6"
+effective_date: "2024-06-26"
+last_reviewed: "2025-11-09"
+next_review: "2026-05-05"
 owner: "Dr. Aisha Okafor, VP of Clinical AI Products"
 approver: "Dr. Priya Patel, Chief Medical Officer"
 classification: "Internal"
@@ -15,245 +15,312 @@ regulations:
 status: "Active"
 ---
 
+# Standard Operating Procedure: Diagnostic AI Accuracy and Calibration
+## SOP-CLIN-005 | Version 4.6
+
+---
+
 ## 1. Purpose and Scope
 
 ### 1.1 Purpose
 
-This Standard Operating Procedure (SOP) establishes the framework, methodologies, and operational cadence for ensuring the analytical accuracy, clinical validity, and statistical calibration of all diagnostic artificial intelligence (AI) models deployed within the Clinical AI Platform at Meridian Health Technologies, Inc. The primary objective of this document is to mandate a continuous evidence-generation lifecycle that ensures model outputs are not only statistically robust but also clinically safe and generalizable across diverse patient populations. This SOP defines the mechanisms by which Meridian ensures that sensitivity, specificity, positive predictive value (PPV), negative predictive value (NPV), and expected calibration error (ECE) remain within pre-specified clinical acceptance criteria throughout the model’s operational lifecycle.
+This Standard Operating Procedure (SOP) establishes the framework and mandatory processes for ensuring, measuring, and maintaining the accuracy and statistical calibration of all diagnostic and clinical decision support Artificial Intelligence (AI) models developed, deployed, or maintained by the Clinical AI Products business unit of Meridian Health Technologies, Inc. ("Meridian"). The purpose is to guarantee that model outputs are statistically reliable, clinically safe, and interpretable by qualified clinicians, thereby mitigating risks of misdiagnosis, delayed treatment, or inappropriate clinical pathway selection.
 
 ### 1.2 Scope
 
-This SOP applies to all personnel involved in the design, development, validation, deployment, and post-market surveillance of machine learning algorithms classified as "Diagnostic AI" or "Patient Risk Scoring" within the **Clinical AI Products** business unit, under the leadership of Dr. Marcus Rivera, Chief AI Officer, and Dr. Aisha Okafor, VP of Clinical AI Products. This includes:
+This SOP applies to:
 
-- **Product Coverage:** All AI/ML models holding FDA 510(k) clearance (e.g., Pneumothorax Detection v4.2, Chest X-ray Triage v2.1) and CE-marked models under EU MDR (e.g., CT Stroke Volume Quantification v3.0). This SOP also extends to "Software as a Medical Device" (SaMD) algorithms in pre-submission phases.
-- **Platform Coverage:** Models deployed on the `Meridian-AI-Engine` inference platform, including real-time, batch, and on-premise containerized deployments at customer sites.
-- **Data Scope:** Calibration and accuracy monitoring apply to ground-truth comparison against radiologist-adjudicated labels in the Meridian Clinical Data Lake (MCDL) and silent trial emulations.
-- **Exclusions:** This SOP does not cover the credit risk scoring models within HealthPay Financial Services, nor the population health risk stratification algorithms in MedInsight Analytics that are explicitly non-diagnostic and not regulated as medical devices.
+- **All personnel** within the Clinical AI Products division, including data scientists, machine learning (ML) engineers, clinical validators, product managers, and quality assurance specialists.
+- **All AI systems** classified as Class II or Class III medical devices under FDA regulations, high-risk AI systems under the EU AI Act (Annex III), or any system whose output directly informs a clinical decision, including but not limited to:
+    - Diagnostic imaging analysis models (radiology, pathology, ophthalmology).
+    - Patient risk scoring algorithms (sepsis prediction, readmission risk, mortality risk).
+    - Adverse event prediction systems.
+    - Clinical deterioration early warning systems.
+- **All phases of the AI model lifecycle**, from initial development and pre-clinical validation through deployment, post-market surveillance, and decommissioning.
+- **All deployment environments**, including cloud-based inference endpoints on the Meridian SaaS Platform (AWS us-east-1, eu-west-1) and on-premise containerized deployments at client sites.
+
+This SOP is subsidiary to the overarching AI Governance Framework and operates in conjunction with SOP-SOFT-002 (Medical Device Software Lifecycle) and SOP-DATA-001 (Clinical Data Integrity and Management).
+
+---
+
+## 2. Definitions and Acronyms
+
+| Term | Definition |
+| :--- | :--- |
+| **Accuracy** | The proportion of correct predictions (both true positives and true negatives) among the total number of cases examined. |
+| **Adverse Event** | Any untoward medical occurrence in a patient or clinical trial subject administered a diagnostic test, which does not necessarily have a causal relationship with the test itself. |
+| **AUC-ROC** | Area Under the Receiver Operating Characteristic Curve; a performance metric measuring a model's ability to distinguish between classes across all thresholds. |
+| **Calibration** | The agreement between observed outcomes and model-predicted probabilities. A perfectly calibrated model that predicts a 20% risk will see the event occur in exactly 20% of similar cases. |
+| **Calibration Curve (Reliability Diagram)** | A graphical plot of observed event frequency versus predicted probability, used to visually assess calibration. |
+| **Calibration-in-the-Large (CITL)** | A calibration metric assessing whether predicted probabilities are systematically too high or too low. |
+| **Clinical Decision Support (CDS)** | A system that provides clinicians, staff, patients, or other individuals with knowledge and person-specific information, intelligently filtered or presented at appropriate times, to enhance health and health care. |
+| **Confidence Interval (CI)** | A range of values that is likely to contain the true value of an unknown population parameter (e.g., 95% CI for AUC). |
+| **Data Drift** | A change in the statistical properties of the model's input features over time. |
+| **Concept Drift** | A change in the statistical relationship between the model's input features and the target outcome over time. |
+| **Expected Calibration Error (ECE)** | A primary metric summarizing calibration performance by computing the weighted average of the absolute difference between accuracy and confidence across prediction bins. |
+| **Ground Truth** | The definitive, verified clinical outcome, as determined through chart review by a qualified clinical panel, adjudicated diagnosis, or confirmed biomarker, against which model predictions are compared. |
+| **Human Oversight** | The mechanisms by which a qualified human clinician reviews, interprets, and can act upon AI model outputs. |
+| **Negative Predictive Value (NPV)** | The probability that a subject with a negative screening test truly does not have the disease. |
+| **Positive Predictive Value (PPV)** | The probability that a subject with a positive screening test truly has the disease. |
+| **Sensitivity (Recall)** | The proportion of actual positives that are correctly identified by the model. |
+| **Specificity** | The proportion of actual negatives that are correctly identified by the model. |
+| **Subgroup** | A subset of the patient population, defined by protected or clinically significant attributes (e.g., age decile, biological sex, ethnicity, comorbidity status, insurance type). |
 
 ---
 
 ## 3. Roles and Responsibilities
 
-The following matrix delineates the responsibilities for the execution and oversight of this SOP.
+The following RACI matrix defines the roles and responsibilities for the lifecycle of a diagnostic AI model. No single individual may hold contradictory roles (e.g., Developer and Independent Validator) for the same model.
 
-| Role | Designation | Responsibility |
-|---|---|---|
-| **Executive Sponsor** | Dr. Priya Patel, Chief Medical Officer | Ultimate authority on clinical safety and off-label use risks; approves high-risk calibration exceptions. |
-| **SOP Owner** | Dr. Aisha Okafor, VP of Clinical AI Products | Maintains SOP relevance; authorizes deviations; oversees the Strategic AI Accuracy Review (SAAR). |
-| **Algorithm Owners** | Lead MLEs (Machine Learning Engineers) | Responsible for the technical calibration of specific model fingerprints; executing retraining runs; maintaining the `Model Fingerprint Registry`. |
-| **Clinical Validation Lead** | Director of Biostatistics & Clinical Evidence | Designs and executes silent prospective trials; authorizes the statistical analysis plan (SAP); signs off on subgroup calibration analyses. |
-| **MLOps Engineering** | MLOps Team Lead | Maintains the `Meridian-AI-Engine` monitoring infrastructure; manages the automated drift detection pipelines; ensures data logging integrity. |
-| **Data Curation** | Clinical Data Operations Lead | Ensures the quality, diversity, and integrity of ground-truth labels in the Meridian Clinical Data Lake (MCDL); manages adjudication queues. |
-| **Quality Assurance (QA)** | Regulatory QA Manager | Independent review of calibration documentation prior to regulatory submissions (e.g., 510(k) Specials, MDR Technical File updates). |
+| Activity / Task | VP Clinical AI (Dr. Aisha Okafor) | Lead Data Scientist | Clinical Validation Lead | Quality Assurance (QA) | Chief Medical Officer (Dr. Priya Patel) | Medical Advisory Board |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Protocol Development** | A | R | C | I | I | I |
+| **Model Training** | I | R | C | I | I | I |
+| **Pre-Clinical Accuracy Testing** | I | R | C | I | I | I |
+| **Independent Clinical Validation** | I | I | R | A | C | C |
+| **Calibration Assessment** | I | C | R | A | I | I |
+| **Equity & Fairness Assessment** | A | R | R | I | I | C |
+| **Risk Classification per EU AI Act** | A | C | C | I | I | I |
+| **Approval for Clinical Use** | A | I | C | I | R | C |
+| **Post-Market Monitoring Review** | A | C | C | R | I | I |
+| **Exception Approval** | R | I | I | I | A | I |
 
-### 2.2 Acronyms
+**Key:**
+- **R** = Responsible (The Doer)
+- **A** = Accountable (The Approver)
+- **C** = Consulted (Two-way communication)
+- **I** = Informed (One-way communication)
 
-| Acronym | Definition |
-|---|---|
-| **AUROC** | Area Under the Receiver Operating Characteristic curve |
-| **AUPRC** | Area Under the Precision-Recall Curve |
-| **ECE** | Expected Calibration Error |
-| **FN / FP** | False Negative / False Positive |
-| **HITL** | Human-in-the-Loop |
-| **MCDL** | Meridian Clinical Data Lake |
-| **NPV** | Negative Predictive Value |
-| **PPV** | Positive Predictive Value |
-| **PSI** | Population Stability Index |
-| **SAAR** | Strategic AI Accuracy Review |
-| **SAP** | Statistical Analysis Plan |
-| **TN / TP** | True Negative / True Positive |
+### 3.1 Key Role Descriptions
+
+- **VP of Clinical AI Products:** Holds ultimate accountability for the business unit's compliance with this SOP. Approves all model release candidates and exception requests.
+- **Lead Data Scientist:** Responsible for the technical execution of model development, including adherence to training protocols, data splitting, and code review.
+- **Clinical Validation Lead:** An independent function, separate from the Core Development Team, responsible for designing and executing the prospective or retrospective clinical validation study against ground truth. Must hold a relevant clinical license (e.g., M.D., Pharm.D.).
+- **Medical Advisory Board:** An external panel of three to five practicing clinicians from diverse geographic and clinical settings, which serves as the final arbiter of clinical safety and advises on post-market adverse events.
 
 ---
 
 ## 4. Policy Statements
 
-Meridian Health Technologies maintains the following high-level policy commitments to govern the accuracy and calibration of diagnostic AI:
+Meridian Health Technologies adheres to the following mandatory policies for all diagnostic AI systems:
 
-- **POL-005.1: Calibration-as-Safety.** A well-calibrated model is a prerequisite for clinical safety. Probabilistic outputs must reflect the true empirical likelihood of the predicted condition. An overconfident misdiagnosis constitutes a significant patient safety hazard.
-- **POL-005.2: Performance Guarantee.** All actively marketed Clinical AI models must maintain a per-subgroup sensitivity and specificity within 5% absolute margin of their FDA-cleared or CE-marked labeling claims.
-- **POL-005.3: Lifecycle Monitoring.** Accuracy and calibration are not static properties. Continuous, automated monitoring shall be active for every deployed model instance to detect silent performance decay.
-- **POL-005.4: Silent Trial Integrity.** Prospective silent trials provide the highest tier of evidence for post-market performance. Tampering with silent trial configurations, unblinding, or premature analysis without Clinical Validation Lead authorization is strictly prohibited.
-- **POL-005.5: Data Integrity.** No calibration analysis shall be performed on data that has not passed the `MCDL-Data-Quality-Gate` (refer to SOP-DATA-019 for data pipeline validation).
-- **POL-005.6: Risk Stratification.** All diagnostic AI models shall be assigned a criticality tier (Tier 1: Acute/Triage, Tier 2: Diagnostic Aid, Tier 3: Workflow Optimization). Accuracy monitoring SLAs are tier-dependent.
-- **POL-005.7: Subgroup Transparency.** Performance metrics must be transparently reported not just globally, but for key demographic and clinical subgroups as defined in the model-specific Statistical Analysis Plan (SAP).
+- **4.1 Pre-Clinical Hold:** No AI model or updated model version shall be deployed to a clinical environment, even for silent or shadow mode evaluation, without formal release authorization from the Chief Medical Officer and the VP of Clinical AI Products upon successful completion of independent clinical validation.
+- **4.2 Performance Thresholding:** Every diagnostic AI model must be designed and validated against pre-specified, clinically justified minimum performance thresholds for sensitivity, specificity, and PPV/NPV, established in the Clinical Performance Protocol (see Section 5.1).
+- **4.3 Calibration as a Gate:** No model shall be released if the Expected Calibration Error (ECE) exceeds 0.05 (5%) on the held-out test set and independent validation cohort. Calibration curves must be reviewed visually and approved as a primary release criterion.
+- **4.4 Subgroup Reporting Mandate:** A Subgroup Analysis Report is a mandatory component of the full validation package for every model release (see Section 5.8).
+- **4.5 Transparency and Interpretability:** All outputs presented to a clinician must include confidence scores presented in natural language or intuitive visual formats (e.g., "Based on a cohort of N similar patients..."), not raw logarithmic probabilities.
+- **4.6 Continuous Monitoring:** Every deployed AI model is subject to continuous, automated technical monitoring for data drift and periodic (monthly) clinical monitoring against ground truth, as detailed in Section 7.
+- **4.7 Human Control:** AI-generated diagnostic outputs are advisory. The licensed healthcare professional at the point of care remains wholly and solely responsible for all clinical interpretations and decisions.
 
 ---
 
 ## 5. Detailed Procedures
 
-### 5.1 Model Fingerprinting and Baseline Registration
+This section outlines the end-to-end procedure, from protocol definition through deployment and monitoring.
 
-Upon completion of internal clinical validation but prior to any regulatory submission or customer deployment, every PRSA must undergo a formal fingerprinting process to establish the performance baseline.
+### 5.1 Clinical Performance Protocol (Template: FRM-CLIN-005-01)
 
-**Procedure Steps:**
-1.  **Hold-out Locking:** The Algorithm Owner, in conjunction with the Clinical Data Operations Lead, permanently locks the hold-out test dataset. This dataset must be temporally and geographically distinct from the training and validation sets.
-2.  **Baseline Metric Calculation:** Execute the `baseline-metrics-runner` pipeline against the locked hold-out set to calculate the following:
-    - AUROC, AUPRC
-    - Sensitivity, Specificity, PPV, NPV at the operating threshold
-    - Calibration curve (reliability diagram) binned by decile
-    - Expected Calibration Error (ECE)
-3.  **Fingerprint Record:** Log the SHA-256 hash of the model weights, the environment configuration, the dataset version hash, and the full metric output into the `Model Fingerprint Registry` (Snowflake table: `CLINICAL_AI.MODEL_REGISTRY.FINGERPRINT_BASELINES`).
-4.  **Threshold Lock:** The clinical operating threshold (e.g., the specificity target corresponding to 95% sensitivity) is locked and tagged as the `clinical-op-point` in the MLflow model registry.
+Before any model training or data analysis begins, the Lead Data Scientist and Clinical Validation Lead must co-author a Clinical Performance Protocol. This protocol is a locked, version-controlled document in Meridian’s Quality Management System (Greenlight QMS). The template `FRM-CLIN-005-01` must include the following sections:
 
-### 5.2 Prospective Validation: Silent Trial
+1.  **Clinical Statement:** A narrative description of the intended clinical use, patient population, and clinical workflow.
+2.  **Ground Truth Definition:** A precise, reproducible definition of the gold standard for diagnosis. For example: "Pneumonia is defined by Board-Certified Radiologist chest x-ray interpretation AND positive sputum culture."
+3.  **Minimum Performance Thresholds:** A table of statistically derived, clinically justified minimum values, including:
+    - Lower bound of the 95% CI for Sensitivity must be > 0.85.
+    - Lower bound of the 95% CI for Specificity must be > 0.80.
+    - Expected Calibration Error (ECE) < 0.05.
+4.  **Adjudication Strategy:** How conflicting data points will be resolved by the Ground Truth Adjudication Panel.
+5.  **Subgroup Definitions:** A pre-specified list of subgroups for analysis (see Section 5.8).
 
-Prior to obtaining a CE marking or initial launch at a new clinical site, or upon any major model version upgrade, a silent trial must be executed.
+### 5.2 Data Split and Management
 
-**Procedure Steps:**
-1.  **Trial Design & SAP:** The Clinical Validation Lead drafts a Silent Trial Protocol and Statistical Analysis Plan (SAP) using the template `CLIN-FORM-005-A`. This SAP must pre-specify primary and secondary endpoints, subgroup analysis plans (e.g., by sex, age bands [18-40, 41-65, 65+], and relevant co-morbidities), and stopping rules for safety.
-2.  **Integration:** MLOps deploys the "shadow mode" container to the target clinical site's PACS/DICOM router. The model ingests live clinical data, generates predictions, and stores them in an encrypted local log, but **no results are displayed to clinicians**.
-3.  **Ground Truth Adjudication:** Concurrently, the patient cases are routed to the adjudication queue. Two independent radiologists from the Meridian Clinical Network provide blinded reads. In cases of discordance, a third senior subspecialty radiologist provides the tie-breaking ground-truth label.
-4.  **Lock & Analyze:** Upon reaching the pre-specified sample size, the Clinical Validation Lead locks the dataset. The Algorithm Owner runs the `validation-report-generator` to compare silent trial performance against the baseline fingerprint.
-5.  **Pass/Fail Gate:** If the lower bound of the 95% Confidence Interval for sensitivity and specificity falls below the acceptance criteria defined in the SAP, the model is blocked from go-live. The Executive Sponsor must be notified within 24 hours via the `SAAR-Alert` channel.
+1.  The Core Development Data Set must be partitioned into three, strictly walled-off segments using a deterministic, cryptographic, patient-level hashing function to prevent data leakage:
+    - **Training Set:** Used for model weight optimization (~60% of data).
+    - **Tuning/Calibration Set:** Used for hyperparameter tuning and threshold calibration (~15% of data).
+    - **Internal Hold-Out Test Set:** Sequestered data, not used in any training or tuning activity (~25% of data).
+2.  The Snowflake Data Governance team (Data Platform unit) is responsible for executing and certifying this split. The hash key is stored in HashiCorp Vault and is not accessible to the Core Development Team.
+3.  An **Independent Validation Data Set**, external to the Core Development Data Set and ideally sourced from a different clinical site or geographically distinct patient records, must be acquired. This is the gold standard for the independent validation in Section 5.4.
 
-### 5.3 Post-Market Continuous Monitoring (Live Environment)
+### 5.3 Pre-Clinical Accuracy and Calibration Assessment
 
-All active diagnostic models undergo continuous, automated metric computation.
+Upon completion of model training on the Training and Tuning sets, the Lead Data Scientist will unlock the Internal Hold-Out Test Set. The following process is mandatory:
 
-1.  **Real-time Data Ingestion:** The `Meridian-Observability-Bus` streams live inference payloads (input features) and model outputs (logits, probabilities, final class labels) to a dedicated, HIPAA-compliant Kafka topic.
-2.  **Opportunistic Labeling:** The `MCDL-Label-Connector` attempts to link every inference event to a subsequent confirmed clinical outcome (e.g., pathology report, procedure code, subsequent imaging study confirming or ruling out the finding) within a 30-day lookback window.
-3.  **Windowed Metric Calculation:** Every 24 hours, a scheduled Spark job calculates a 7-day and 30-day rolling window of key metrics (Sensitivity, Specificity, ECE, PSI) on the "opportunistically labeled" cohort. This is considered a Tier-2 monitoring signal.
-4.  **Threshold Breach Alerts:** If the 7-day rolling sensitivity or specificity drops by >5% absolute percentage points compared to the registered baseline, a `P2 - Degraded Accuracy` incident is automatically created in PagerDuty and routed to the MLOps and Algorithm Owner teams.
-5.  **Quarterly Deep Dive (Silent Re-Emulation):** Every calendar quarter, the Clinical Validation Lead selects a stratified random sample of 5,000 cases from the previous quarter's opportunistic log. These are pushed to the adjudication queue for formal dual-reader ground truth assignment. This constitutes the gold-standard "re-emulation" analysis. The formal Quarterly Calibration Report is generated from this process using the template `CLIN-FORM-005-B`.
+1.  **Inference Execution:** Run inference on the full Internal Hold-Out Test Set.
+2.  **Metric Calculation:** Compute the following using the Meridian Clinical ML Observability Platform (currently based on a customized MLflow and LangSmith stack):
+    - Sensitivity, Specificity, PPV, NPV, AUC-ROC.
+    - All metrics must be reported with 95% confidence intervals (CIs), calculated via bootstrapping with 2,000 resamples.
+    - ECE and Maximum Calibration Error (MCE).
+3.  **Calibration Curve Generation:** Generate and save the calibration curve (reliability diagram) with 95% CIs per bin.
+4.  **Technical Gate Review:** The Lead Data Scientist and a peer reviewer conduct a Technical Gate Review, logging results in the `Technical Validation Report`. If ECE > 0.05, the model immediately fails and must be re-calibrated. Accepted techniques include Platt Scaling or Isotonic Regression, which must be performed on the *Tuning/Calibration Set* only.
 
-### 5.4 Calibration and Reliability Curve Analysis
+### 5.4 Independent Clinical Validation
 
-Probability calibration shall be assessed using reliability diagrams.
+After a model passes the Technical Gate Review, the Clinical Validation Lead, acting independently from the Core Development Team, executes the pre-registered Clinical Validation Study.
 
-**Procedure Steps:**
-1.  **Prediction Bucketing:** Predictions from the re-emulation cohort are split into deciles (0.0-0.1, 0.1-0.2, ..., 0.9-1.0).
-2.  **Fraction of Positives:** For each bin, compute the true fraction of positive cases.
-3.  **ECE Calculation:** Calculate ECE as the weighted average of the absolute difference between the mean predicted probability and the true fraction of positives for each bin. The weight is the proportion of samples in the bin.
-4.  **Mitigation Trigger:** If ECE exceeds 0.05 (5%), the Algorithm Owner must initiate a recalibration protocol. This typically involves applying Platt Scaling or Isotonic Regression on a recent validation cohort, followed by a regression test suite against the locked hold-out set to ensure discrimination (AUROC) has not been harmed.
+1.  **Study Execution:** Run inference on the Independent Validation Data Set.
+2.  **Ground Truthing:** For a statistically representative sample of the predictions (stratified by predicted probability decile and score strata), the Clinical Validation Lead will blind-chart-review against the Ground Truth Definition via the Adjudication Panel.
+3.  **Statistical Analysis:** Calculate final clinical sensitivity, specificity, PPV, and NPV with 95% CIs.
+4.  **Calibration-in-the-Large (CITL) and Calibration Slope** must be checked.
+5.  A paired statistical test will formally compare the performance on the Internal Test Set and the Independent Validation Set. A significant degradation (p<0.05) triggers an automatic failure review.
+6.  The **Validation Report** (`FRM-CLIN-005-02`) is authored by the Clinical Validation Lead and reviewed by QA, and forms the basis of the release decision.
 
-### 5.5 Subgroup Performance Analysis
+### 5.5 Human Factors and Oversight Integration
 
-Global metrics can obscure material, clinically significant performance degradation in patient subgroups.
+Every Diagnostic AI product must undergo a Human Factors and Oversight Integration evaluation before release. This evaluation, managed by the Product Management and UX Research teams in partnership with the Clinical Validation Lead, will:
+1.  Define the specific UI presentation of model outputs, including confidence intervals and clinically actionable phrasing.
+2.  Define the intended decision-making workflow. For example: "Clinician views image -> Clinician forms preliminary impression -> Clinician activates AI Assist -> Model output is overlaid -> Clinician documents final interpretation, including a required field for 'AI Concordance (Agree/Disagree with clinically meaningful difference)'."
+3.  Validate the "time-to-decision" and "cognitive error rate" in a simulated clinical environment.
 
-**Procedure Steps:**
-1.  **Mandatory Subgroups:** The `validation-report-generator` and Quarterly Calibration Report (Form `CLIN-FORM-005-B`) must always break down performance for the following subgroups, provided the subgroup sample size n > 50 to satisfy statistical power minimums:
-    - **Biological Sex:** Male, Female.
-    - **Age Bands:** 18-44, 45-64, 65-80, 80+.
-    - **Imaging Device Vendor:** Siemens, GE, Philips, Canon.
-    - **Key Co-morbidity:** Diabetic vs. Non-diabetic (for applicable models).
-2.  **Disparity Threshold:** If the absolute difference in Sensitivity or Specificity between any two subgroups within a protected characteristic category (e.g., Male vs. Female) exceeds 3%, the Algorithm Owner must log a `PERF-DISPARITY-1` finding.
-3.  **Root Cause Analysis (RCA):** An RCA must be completed within 14 calendar days of the finding. The RCA must determine if the cause is pre-analytical (data shift), analytical (model bias), or post-analytical (labeling bias in ground truth).
-4.  **Remediation:** If identified as model bias, a targeted re-training or fine-tuning intervention using a re-balanced dataset must be scoped and executed within 45 days.
+### 5.6 Release Authorization
+
+The final release package is a version-controlled bundle in Greenlight QMS, containing:
+1.  Approved Clinical Performance Protocol (`FRM-CLIN-005-01`).
+2.  Technical Validation Report.
+3.  Independent Clinical Validation Report (`FRM-CLIN-005-02`).
+4.  Subgroup Analysis Report (`FRM-CLIN-005-03`).
+5.  A signed Release Authorization form, bearing the digital signatures of the VP of Clinical AI Products (Accountable) and the Chief Medical Officer (Approver).
+
+### 5.7 Silent Mode and Phased Rollout
+
+All new models must undergo a mandatory **14-day Silent Mode** deployment at initial client sites. During this phase, the model performs inference in the background but its outputs are not displayed to the clinician. The primary goal is to validate:
+- Real-world model latency and stability.
+- Real-world feature distribution against the training data (Data Drift analysis).
+- Silent Mode monitoring data is reviewed daily by the MLOps team, and a summary report is generated at the end of the 14-day period. Any critical drift event pauses the rollout.
+
+### 5.8 Subgroup Analysis (Equity and Fairness Reporting)
+
+A formal Subgroup Analysis Report (`FRM-CLIN-005-03`) is a required component of the validation package.
+
+1.  **Methodology:** For each pre-specified subgroup (defined in Section 5.1), model performance metrics (AUC-ROC, Sensitivity, Specificity, ECE) must be calculated alongside their 95% confidence intervals.
+2.  **Analysis:** Subgroups with meaningfully lower performance (defined as a statistically significant difference from the overall population mean at p<0.05, or a clinically significant absolute difference of >5% in sensitivity/specificity) must be flagged.
+3.  **Content of Report:**
+    - A detailed table of performance metrics per subgroup.
+    - Flagged subgroups and an investigational root-cause analysis (e.g., small sample size, pathophysiological variance).
+    - An actionable mitigation plan if the flag is sustained upon investigation. This may include mandatory label clarification in the product UI stating the limitations for that sub-cohort, restricting use, or an immediate re-training initiative.
 
 ---
 
 ## 6. Controls and Safeguards
 
+The following technical and administrative controls are mandatory for all production clinical AI systems.
+
 ### 6.1 Technical Controls
 
-| Control ID | Control Description | Implementation |
-|---|---|---|
-| **TEC-005.01** | **Immutable Audit Logging:** Every model prediction payload, including the `model_version`, `fingerprint_hash`, `input_hash`, `prediction_score`, and `threshold_result`, must be immutably logged to a blockchain-backed ledger. | Applied via the `Meridian-Audit-Sidecar` container injected into every inference pod. |
-| **TEC-005.02** | **A/B Canary Deployment:** No new model version shall receive 100% of inference traffic immediately. Traffic must be split 5%/95% (New/Old) for a minimum of 72 hours to validate operational stability and preliminary metric parity. | Configured in `Istio` virtual service routing rules. |
-| **TEC-005.03** | **Input Data Validation:** Incoming DICOM headers and pixel data must pass the `CLIN-DATA-SCHEMA-V2` validator. Non-conformant studies are rejected before inference and logged as `SOP-DATA-PROTOCOL-019` exceptions. | Performed by the `Meridian-Input-Validator` sidecar. |
-| **TEC-005.04** | **Operating Point Safeguard:** The clinical operating point threshold in the model serving layer is immutable. A change to this threshold requires a security-incident-level change control ticket. | Enforced via HashiCorp Vault secret management for threshold parameters. |
+| Control ID | Control Name | Description |
+| :--- | :--- | :--- |
+| **TC-01** | **Input Integrity Guard** | All input features to the model are validated against the training data schema. Invalid input (e.g., an incorrect imaging series type, out-of-range lab value) is rejected; the model explicitly returns an `INPUT_VALIDATION_ERROR` status instead of an erroneous prediction. |
+| **TC-02** | **Confidence Thresholding** | Models are configured with a low-confidence threshold. Any prediction where the class probability does not exceed the threshold (e.g., >0.65) is suppressed and a `LOW_CONFIDENCE` status is returned, along with a message: "Analysis indeterminate. Insufficient confidence to provide a specific assessment. Rely on standard clinical examination." |
+| **TC-03** | **Data Drift Sentinel** | An automated sentinel process continuously compares the statistical distribution of incoming inference features against the baseline established by the training set. Uses the Two-Sample Kolmogorov-Smirnov test for continuous features and Chi-squared test for categorical features. Drift is declared at p<0.001. |
+| **TC-04** | **Adversarial Input Filter** | An input preprocessing step screens for anomalous pixel patterns or metadata that could indicate a corrupted or adversarially crafted input designed to fool the model. |
+| **TC-05** | **Immutable Audit Log** | Every single model inference generates an immutable audit log entry stored in a HIPAA-compliant log on the Meridian SaaS Platform. The entry contains: a unique inference ID, a hashed patient ID, model ID and version, input feature hash, predicted probabilities, final rendered output string, and timestamp. |
 
-### 6.2 Administrative and Procedural Controls
+### 6.2 Administrative Safeguards
 
-| Control ID | Control Description | Cadence |
-|---|---|---|
-| **ADM-005.01** | **Strategic AI Accuracy Review (SAAR):** A formal governance meeting to review the Quarterly Calibration Reports, open RCA findings, subgroup disparity logs, and decommissioning timelines. | Quarterly |
-| **ADM-005.02** | **Labeling Reconciliation:** Adjudication discordance rates between primary readers must be tracked. If discordance exceeds 15%, the Clinical Data Operations Lead must reassess the adjudication protocol. | Monthly |
-| **ADM-005.03** | **SOP Deviation Logging:** Any departure from the procedures in Section 5 must be logged as an exception. | Per Instance |
+- **Peer Review of Code:** No model training or evaluation code shall be committed to the `main` branch without a mandatory peer review by another qualified ML engineer. The peer review must specifically verify adherence to data splitting procedures and independent test set usage.
+- **Scheduled Calibration Audits:** On a monthly basis, QA will pull a statistically random sample of a minimum of 200 recent inferences, cross-referencing model output with ultimate clinical outcomes (ground truth) as part of the routine Post-Market Surveillance process.
+- **Access Control:** Access to production model weights and the model registry is restricted exclusively to the MLOps Deployment Team. Data Scientists and Developers have no access privileges to production artifacts.
 
 ---
 
 ## 7. Monitoring, Metrics, and Reporting
 
-### 7.1 Key Performance Indicators (KPIs)
+### 7.1 Real-Time Technical Monitoring
 
-The health of the Clinical AI Platform regarding accuracy and calibration is measured against these core metrics:
+The Meridian MLOps Dashboard tracks the following KPIs for all in-service models on a 15-minute rolling basis:
 
-| KPI | Metric | Target | Monitoring Window |
-|---|---|---|---|
-| **Clinical Discrimination** | AUROC Regression | < 3% absolute drop from baseline | 30-day rolling & Quarterly Re-emulation |
-| **Clinical Sensitivity** | Sensitivity (Recall) | ≥ FDA-cleared label - 5% | 30-day rolling & Quarterly Re-emulation |
-| **Clinical Specificity** | Specificity | ≥ FDA-cleared label - 5% | 30-day rolling & Quarterly Re-emulation |
-| **Model Calibration** | Expected Calibration Error (ECE) | < 0.08 | Quarterly Re-emulation |
-| **Data Stability** | Population Stability Index (PSI) | < 0.2 | 7-day rolling |
-| **Subgroup Equity** | Max pairwise subgroup Δ in F1-score | < 5% | Quarterly Re-emulation |
+| Metric | Alert Threshold | Critical Alert Threshold |
+| :--- | :--- | :--- |
+| Response Latency (p99) | > 500ms | > 1200ms for > 5 minutes |
+| Error Rate (HTTP 5xx) | > 0.1% of requests | > 1% of requests |
+| Low Confidence Rate | > 15% of inferences | > 30% of inferences |
+| Data Drift Severity Score | Score change > 0.5 | Score change > 1.0 |
 
-### 7.2 Dashboards and Reporting
+A Critical Alert triggers an immediate incident (per standard ITIL Incident Management process) and pages the Senior Director of MLOps.
 
-- **Live AI Operations Dashboard (Grafana):** Displays real-time request volume, latency p99, error rates, and the 30-day rolling opportunistic sensitivity/specificity trends. Accessible to MLOps and Clinical Engineering.
-- **Quarterly Accuracy & Calibration Report (PDF):** Generated semi-automatically via the `CLIN-FORM-005-B` template, stored in the `QualityDocs` Veeva Vault system. This is the record of truth for regulatory audits. Distribution includes the SAAR committee, Clinical Risk Management, and the VP of QA.
-- **Model Health Scorecard (Tableau):** A high-level aggregated view of all active models, showing RAG (Red/Amber/Green) status against KPIs. Reviewed by the Clinical AI Leadership team weekly.
+### 7.2 Periodic Clinical Monitoring (Post-Market Surveillance)
 
----
+On a **monthly** basis, for every deployed model, the Clinical Validation Lead will oversee the following:
 
-## 8. Exception Handling and Escalation
+1.  **Retrospective Review:** QA pulls an automated sample of 200 completed patient encounters where the AI provided a clinical output. Cases are stratified by AI concordance (Agree/Disagree field).
+2.  **Ground Truth Determination:** For cases where the clinician disagreed with the AI, the Clinical Validation Lead (an M.D.) performs a chart review to determine a final adjudicated Ground Truth.
+3.  **Metric Trending:** Roll up adjudicated data to compute *in-vivo* Sensitivity, Specificity, and the current Production Calibration Curve. Plot these metrics against the baseline from the initial Independent Clinical Validation.
 
-### 8.1 Model Accuracy Deviation
+### 7.3 Quarterly Business Review (QBR)
 
-Any event where automated monitoring or a silent re-emulation reveals a statistically significant breach of a KPI target triggers the Accuracy Deviation Protocol.
-
-**Procedure:**
-1.  **Automated Quarantine:** The MLOps lead immediately isolates the "amber" or "red" model version. New deployments to additional customer sites are halted. A client communication is drafted by the VP of Clinical AI Products.
-2.  **Severity Classification:**
-    - **SEV-3 (Minor Drift):** ECE or PSI targets breached, but clinical sensitivity/specificity remain within bounds. Action: Scheduled recalibration at next maintenance window.
-    - **SEV-2 (Moderate Performance Dip):** Specificity or Sensitivity drop >5% but <10% absolute. Action: Immediate RCA; silent trial initiated; rollback to previous stable fingerprint prepared.
-    - **SEV-1 (Critical Failure):** Drop >10% or evidence of a clinically dangerous systematic error (e.g., specific mass being systematically missed). Action: Emergency shutdown of the model `model-rollback-or-kill`; direct notification to Dr. Priya Patel; preliminary adverse event filing to regulatory bodies via the Quality Assurance team.
-3.  **RCA Documentation:** All SEV-2 and SEV-1 events require a formal Root Cause Analysis document (`CLIN-FORM-005-RCA`) filed within 72 hours of incident resolution.
-
-### 8.2 Exception Handling
-
-Requests to temporarily deviate from monitoring cadences (e.g., during a planned PACS upgrade at a major customer site) must be approved by the SOP Owner (Dr. Aisha Okafor). An exception request must include the specific procedure being waived, a technical justification, a client impact assessment, and a defined expiration date. Unauthorized deviations discovered during internal audits will be treated as a non-conformance event per corporate QA policy.
+By the 15th calendar day following the end of each fiscal quarter, the VP of Clinical AI Products will present a Clinical AI Quality Dashboard to the Chief Medical Officer and Chief Technology Officer. The report must include:
+- A summary of all in-vivo model performance trends versus baseline.
+- Top 3 models by Data Drift Severity Score.
+- An aggregated summary of all Subgroup Analysis findings from post-market surveillance, including any newly emerging disparities.
+- Summary of all adverse events, exceptions, and deviations.
 
 ---
 
 ## 9. Training Requirements
 
-All personnel assigned to roles in Section 3 must complete the following training curricula. Successful completion is tracked via the `Meridian-LMS` (Litmos).
+All personnel involved in the lifecycle of diagnostic AI must complete the following training program. Training records are maintained in Workday Learning.
 
-### 9.1 Training Curriculum
+| Training Module | Target Audience | Frequency | Content |
+| :--- | :--- | :--- | :--- |
+| **TR-CLIN-005.1: SOP Overview** | All Clinical AI personnel | Annually & on new hire | Detailed walkthrough of this SOP-CLIN-005, roles and responsibilities. |
+| **TR-CLIN-005.2: Calibration Masterclass** | Data Scientists, ML Engineers | Bi-annually | Hands-on workshop on modern calibration techniques (Platt scaling, isotonic regression, temperature scaling), interpreting calibration curves, and debugging miscalibration. |
+| **TR-CLIN-005.3: Human Factors for AI** | Product Managers, UX Researchers, Clinical Validation Leads | Annually | Principles for safe UI design for AI outputs, clinician cognitive load awareness, and designing for appropriate skepticism. |
+| **TR-CLIN-005.4: Clinical Ground Truthing** | Clinical Validation Leads, QA Team | Annually | Standardized methodology for chart review, protocol adjudication, and inter-rater reliability calculation. |
 
-| Training Module Code | Module Title | Target Audience | Frequency | Assessment |
-|---|---|---|---|---|
-| **CLIN-TRN-005.1** | SOP-CLIN-005 Core Awareness & Workflow Integration | All Section 3 Roles | Annually | Multiple-choice quiz (Pass Mark: 90%) |
-| **CLIN-TRN-005.2** | Advanced Calibration Techniques & Silent Trial Design | Algorithm Owners, Clinical Validation Lead | Annually | Case-study based assignment |
-| **CLIN-TRN-005.3** | Fairness and Subgroup Clinical Validity | Algorithm Owners, Clinical Validation Lead, Data Curation | Annually | Completion certificate required |
-| **CLIN-TRN-005.4** | Practical MLOps for Clinical Observability | MLOps Engineering, Algorithm Owners | Bi-annually | Hands-on lab via Katacoda |
-
-### 9.2 Compliance
-
-Access to production model registries and customer deployment tooling is automatically suspended for any user whose assigned training modules exceed their renewal due date, enforced via an LDAP group policy integration with the `Meridian-LMS`.
+All roles must achieve a pass rate of 100% on the associated knowledge check quiz before being granted access to production clinical AI tooling (e.g., model registry, inference deployment console).
 
 ---
 
-## 10. Related Policies and References
+## 10. Exception Handling and Escalation
 
-### 10.1 Internal Meridian SOPs
+### 10.1 Exception Types
 
-| SOP ID | Title | Relationship |
-|---|---|---|
-| SOP-DATA-019 | Data Pipeline Validation and Quality Gates | Defines the data integrity checks prerequisite to accuracy monitoring. |
-| SOP-SEC-009 | Incident Response and Breach Notification for Connected Devices | Governs the emergency security response that may preempt standard calibration cycles. |
-| SOP-CLIN-001 | Clinical Algorithm Development Lifecycle Model | Governs the Phases 1-4 of model development from ideation to go-live. |
-| SOP-CLIN-008 | Post-Market Surveillance and Vigilance Reporting | Governs the handling of adverse clinical events potentially linked to AI failure. |
-| SOP-VM-022 | Vendor Offboarding and Contract Termination | Governs the decommissioning of third-party ground truth labeling services. |
+Any proposed deviation from the mandatory policies in Section 4 or procedures in Section 5 constitutes an Exception. Common examples include:
+- Releasing a model with an ECE exceeding 0.05 due to a novel, compelling clinical justification.
+- Deploying a model without a full 14-day Silent Mode due to a declared internal clinical emergency.
+- Using a non-standard calibration technique.
 
-### 10.2 External Standards and Templates
+### 10.2 Exception Process
 
-- **CLIN-FORM-005-A:** Silent Trial Protocol and SAP Template
-- **CLIN-FORM-005-B:** Quarterly Calibration Report Template
-- **CLIN-FORM-005-RCA:** Root Cause Analysis for Algorithmic Variance
-- **ISO 13485:2016** — Quality Management Systems for Medical Devices
-- **ISO 14971:2019** — Application of Risk Management to Medical Devices
-- **Good Machine Learning Practice (GMLP) Guiding Principles** — Guiding Principles 7, 8, and 10
+1.  **Request:** The Lead Data Scientist formally documents the exception request using template `FRM-QUAL-010` in Greenlight QMS. The request must contain a detailed technical and clinical rationale, a risk assessment of the proposed deviation, a specific compensatory control, and an expiration date for the exception.
+2.  **Risk Review:** The QA team assesses the risk and categorizes it (Minor, Major, Critical).
+3.  **Approval Matrix:**
+    - **Minor Risk:** Approved jointly by VP of Clinical AI and the Quality Director.
+    - **Major Risk:** Approved jointly by VP of Clinical AI and Chief Medical Officer.
+    - **Critical Risk:** Approved jointly by Chief Medical Officer, VP of Clinical AI, and Chief Technology Officer.
+4.  **Tracking:** All active exceptions are logged in an "Exception and Deviation Register" and are reviewed by the Quality Director monthly. No permanent exceptions are permitted; all must have a defined remediation plan and expiry.
 
 ---
 
-## 11. Revision History
+## 11. Related Policies and References
 
-| Version | Date | Author | Summary of Changes |
-|---|---|---|---|
-| 3.8 | 2025-02-11 | Dr. Aisha Okafor | Clarified subgroup sample size minimums (n>50) in Section 5.5; Updated severity classification thresholds in Section 8.1 to align with revised clinical risk matrix; Updated Section 3 roles to reflect new MLOps reporting structure. |
-| 3.7 | 2024-12-18 | Dr. Aisha Okafor | Added ECE threshold to KPI table in Section 7.1 per post-audit corrective action; Refined the definition of A/B Canary Splits from 10% to 5% traffic in Section 6.1. |
-| 3.6 | 2024-08-30 | Dr. Marcus Rivera | Introduced formal Subgroup Performance Analysis procedure (Section 5.5) as part of regulatory harmonization; Updated SOP references from deprecated version SOP-DEV-014 to SOP-CLIN-001. |
-| 3.5 | 2024-06-03 | Dr. Aisha Okafor | Major revision upon obtaining CE marking; Expanded calibration procedures to include ECE as primary metric alongside reliability diagrams; Formalized silent trial template; Updated training curriculum codes. |
-| 3.4 | 2024-02-15 | Dr. Sarah Chen | Minor revision; Updated opportunistic labeling lookback window from 14 days to 30 days in Section 5.3; Updated MCDL URL endpoints. |
+### 11.1 Internal Meridian SOPs
+
+| Document ID | Document Title |
+| :--- | :--- |
+| SOP-CLIN-002 | Clinical Performance Validation Protocol |
+| SOP-CLIN-008 | Post-Market Clinical Surveillance |
+| SOP-DATA-001 | Clinical Data Integrity and Management |
+| SOP-SOFT-002 | Medical Device Software Lifecycle |
+| SOP-MLOPS-001 | Model Deployment and Rollback |
+| SOP-QUAL-001 | Nonconformance and CAPA Management |
+| SOP-QUAL-003 | Adverse Event Reporting for Software as a Medical Device |
+| SOP-RA-005 | EU AI Act High-Risk System Technical Documentation |
+
+### 11.2 External Standards and References
+
+- ISO 13485:2016 - Medical devices — Quality management systems.
+- ISO 14971:2019 - Medical devices — Application of risk management to medical devices.
+- IEC 62304:2006+AMD1:2015 - Medical device software — Software life cycle processes.
+- Good Machine Learning Practice (GMLP) for Medical Device Development (FDA, Health Canada, MHRA).
+- CONSORT-AI extension for clinical trials.
+
+---
+
+## 12. Revision History
+
+| Version | Effective Date | Author(s) | Summary of Changes |
+| :--- | :--- | :--- | :--- |
+| 1.0 | 2021-03-15 | Dr. A. Okafor, S. Chen | Initial Release. Established core accuracy and calibration framework. |
+| 2.1 | 2022-01-10 | Dr. A. Okafor, J. Patel | Added Section 5.7 (Silent Mode). Updated calibration ECE threshold from 0.08 to 0.06. |
+| 3.0 | 2022-11-01 | J. Patel, Dr. M. Williams | Major revision adding Section 5.8 (Subgroup Analysis) and Section 9 (Training). |
+| 4.2 | 2023-08-18 | Dr. A. Okafor, K. Nguyen | Updated Roles and Responsibilities to reflect new Clinical Validation Lead function. Updated metric names for drift. |
+| 4.6 | 2024-06-26 | Dr. A. Okafor, L. Kim | Refined scope to specifically enumerate high-risk and pediatric models. Updated ECE gate to 0.05. Enhanced controls against data leakage and clarified CI reporting methods. Formalized Human Factors review. |

@@ -3,9 +3,9 @@ sop_id: "SOP-COPS-010"
 title: "Customer Consent Management"
 business_unit: "Customer Operations"
 version: "5.6"
-effective_date: "2024-01-06"
-last_reviewed: "2025-12-24"
-next_review: "2026-06-21"
+effective_date: "2024-06-25"
+last_reviewed: "2025-10-03"
+next_review: "2026-04-25"
 owner: "Michael Chang, VP of Customer Operations"
 approver: "Robert Liu, VP of Financial Services"
 classification: "Internal"
@@ -19,455 +19,295 @@ status: "Active"
 
 ## 1. Purpose and Scope
 
-This Standard Operating Procedure (SOP) establishes the enterprise-wide framework for managing customer consent preferences across all Meridian Health Technologies, Inc. (“Meridian”) business lines, products, and geographies. The purpose of this document is to ensure that all customer-facing systems capture, store, propagate, and honor consent choices in a consistent, auditable, and automated manner throughout the full customer lifecycle.
+### 1.1 Purpose
 
-This SOP applies to:
+The purpose of this Standard Operating Procedure (SOP) is to establish a consistent, auditable, and enterprise-wide framework for capturing, storing, tracking, and honoring customer consent preferences across Meridian Health Technologies, Inc. ("Meridian"). This SOP defines the operational processes necessary to manage the full consent lifecycle, from initial collection through preference modification, withdrawal, and eventual data subject offboarding, ensuring that customer autonomy is respected and that processing activities align with the stated preferences of the individual.
 
-- **All Meridian Business Lines**: Clinical AI Platform, HealthPay Financial Services, MedInsight Analytics, and the Meridian SaaS Platform.
-- **All Customer Touchpoints**: Web-based applications, mobile interfaces, API integrations deployed by Meridian, call center workflows, paper-based intake forms that are subsequently digitized, and in-person enrollment kiosks at provider partner locations.
-- **All Data Subjects**: Patients, healthcare provider staff users, payer plan administrators, guarantors, and any individual whose personal data is processed within Meridian systems.
-- **All Geographies**: Operations in the United States, Canada, the European Union (including the European Economic Area), the United Kingdom, and Singapore.
-- **All Consent Dimensions**: Consent for processing of special categories of personal data, marketing communications (email, SMS, push notifications, postal mail), cookies and tracking technologies, automated decision-making within the Clinical AI Platform, secondary research use of de-identified data, and financial product eligibility assessments within HealthPay.
+This document operationalizes Meridian's commitment to transparency and individual control by defining how the Customer Operations ("CustomerOps") team interfaces with the technology stack and other business units to execute consent directives. The procedures herein govern both digital consent mechanisms (web forms, API-based preferences, in-app consent modals) and manual consent collection channels (paper forms, verbal consent recorded during customer service interactions).
 
-This SOP is binding on all full-time employees, contractors, temporary workers, consultants, and third-party partners who design, develop, deploy, operate, or support customer-facing systems that collect or process consent. Compliance with this SOP is mandatory and subject to periodic audit as described in Section 7.
+### 1.2 Scope
 
-**Out of Scope**: Consent for employee human resources data processing and consent related to clinical trial enrollment conducted by sponsored research partners (managed under SOP-RSCH-042).
+This SOP applies to the following populations, systems, and processing contexts:
+
+**In-Scope Populations:**
+- All prospective, current, and former direct customers of Meridian's HealthPay Financial Services platform (patient financing applicants, payment processing users).
+- All authorized users of the MedInsight Analytics platform (health system administrators, clinical analysts, population health managers) who hold individual user accounts with distinct consent profiles.
+- All patient end-users whose data is processed through Meridian's diagnostic imaging AI products (FDA 510(k)-cleared and CE-marked modules).
+- Guardians, authorized representatives, and legal proxies acting on behalf of a data subject.
+
+**In-Scope Consent Activities:**
+- **Marketing Consent:** Preferences regarding promotional communications, product announcements, Meridian-sponsored events, and newsletter distributions via email, SMS, in-app notifications, and telephone.
+- **Transactional Consent:** Preferences regarding operational communications (payment confirmations, service alerts, maintenance notifications). Note that certain transactional communications may be mandatory during active customer relationships; mandatory designation is governed by SOP-LEGL-045 (Communications Classification).
+- **Analytics & Product Improvement Consent:** Preferences regarding the use of anonymized, pseudonymized, or aggregated usage data for product development and quality improvement initiatives.
+- **Third-Party Data Sharing Consent:** Preferences regarding the disclosure of personal data to Meridian's strategic partners, integrated service providers, and marketplace participants.
+- **Cookie & Web Tracking Consent:** Preferences set via the Meridian Consent Management Platform (OneTrust) for browser-based tracking technologies.
+
+**Out of Scope:**
+- Clinical research consent, which is governed by Meridian's Institutional Review Board (IRB) procedures (SOP-CLIN-201).
+- Contractual terms of service acceptance, which are managed by Legal via SOP-LEGL-012.
+- Employee data processing consent, which is governed by the Employee Privacy Notice.
+
+---
 
 ## 2. Definitions and Acronyms
 
-The following defined terms are used throughout this SOP:
-
 | Term / Acronym | Definition |
 |---|---|
-| **Consent** | Any freely given, specific, informed, and unambiguous indication of a data subject's wishes by which they, by a statement or by clear affirmative action, signify agreement to the processing of their personal data for one or more specified purposes. |
-| **Consent Record** | The immutable digital artifact capturing the full context of a consent event, including timestamp, channel, purpose specification, identity of the data subject, and the text of the disclosures presented at the moment of capture. |
-| **Preference Center** | The self-service portal available to authenticated users at `preferences.meridian.com` where data subjects may view, modify, or withdraw consent choices at any time. |
-| **Consent Propagation** | The automated technical process by which a consent state changed in one Meridian system is transmitted to all downstream consuming systems, data warehouses, and processing pipelines within the SLA defined in Section 5. |
-| **Active Consent** | A consent that has been affirmatively granted and has not expired, been withdrawn, or been administratively invalidated due to material change in processing purpose. |
-| **Withdrawn Consent** | A previously Active Consent that the data subject has subsequently revoked via any supported channel. Withdrawal does not affect the lawfulness of processing based on consent before its withdrawal. |
-| **Expired Consent** | A consent that has exceeded its defined validity period as specified in the consent disclosure presented at the time of capture. Default global expiration is 36 months from date of capture unless a shorter period is specified for a given purpose. |
-| **Legitimate Interest** | A lawful basis for processing personal data where such processing is necessary for purposes of Meridian's legitimate interests or those of a third party, except where such interests are overridden by the interests or fundamental rights and freedoms of the data subject. |
-| **Soft Opt-In** | An exception applicable in certain jurisdictions allowing marketing communications about similar products or services to existing customers without explicit prior consent, provided clear and easy opportunity to opt out is given at the time of collection and in each subsequent communication. |
-| **Processing Activity Inventory (PAI)** | The centralized record of all processing activities maintained by the Privacy Office in the OneTrust privacy management platform, indexed by Processing Activity ID. |
-| **GDPR** | Regulation (EU) 2016/679 of the European Parliament and of the Council (General Data Protection Regulation). |
-| **HIPAA** | Health Insurance Portability and Accountability Act of 1996 and its implementing regulations. |
-| **PHI** | Protected Health Information. |
-| **DSAR** | Data Subject Access Request. |
-| **CMP** | Consent Management Platform (OneTrust, hosted at `consent.meridian.com`). |
-| **CRM** | Customer Relationship Management system (Salesforce Health Cloud). |
-| **CDP** | Customer Data Platform (Segment). |
-| **IAP** | Identity and Access Platform (Okta Customer Identity Cloud). |
-| **SLA** | Service Level Agreement. |
+| **Consent** | A freely given, specific, informed, and unambiguous indication of the data subject's wishes by which they, by a statement or by a clear affirmative action, signify agreement to the processing of personal data relating to them for a defined purpose. |
+| **Consent Management Platform (CMP)** | The centralized technology solution used to collect, store, and propagate consent signals. For Meridian, the enterprise CMP is **OneTrust**, deployed across all customer-facing digital properties. |
+| **Consent Record** | The immutable, auditable data object containing the data subject identifier, the purpose(s) consented to, the consent text version shown, the timestamp of the action, the IP address/geolocation, and the active status. Stored in the Consent Database (OneTrust Universal Consent Record). |
+| **Consent Receipt** | A standardized, machine-readable token provided to the data subject following a consent action, containing the details of the record. |
+| **Preference Center** | The self-service, authenticated portal (powered by OneTrust) where customers may view their current consents and modify their preferences at any time. |
+| **Customer Operations Platform (COP)** | The unified agent desktop, built on **Salesforce Service Cloud**, where agents view customer consent status and execute manual consent changes during support interactions. |
+| **Withdrawal** | The formal act by a data subject of revoking previously granted consent. Withdrawal does not render unlawful processing based on consent before its withdrawal. |
+| **Soft Opt-In** | A permissible method for marketing to existing customers concerning similar products/services, provided the customer was given a clear opportunity to refuse (opt-out) at the point of initial collection and in every subsequent communication. Use of Soft Opt-In requires documented review by the Legal team. |
+| **PIMS** | Meridian's Patient Identity Management System, the authoritative source of truth for patient demographic records. |
+| **PUR** | Processing Usage Record - an internal data object linking a specific consent grant to a specific processing activity in the Meridian Data Catalog. |
 
-## 3. Roles and Responsibilities
-
-The RACI matrix below allocates accountability, responsibility, consultation, and information roles for all activities governed by this SOP.
-
-| Activity / Deliverable | VP Customer Ops (Owner) | Privacy Office / DPO | CISO | Product Managers | Engineering | Legal & Compliance | Customer Support |
-|---|---|---|---|---|---|---|---|
-| Consent architecture design | A | C | C | R | R | C | I |
-| Consent disclosure drafting | C | R | I | C | I | A | I |
-| CMP configuration & maintenance | A | R | C | I | R | I | I |
-| Consent propagation testing | I | I | I | R | R | I | I |
-| Audit & compliance monitoring | I | R | I | I | I | A | I |
-| Regulatory change impact assessment | I | A | I | C | C | R | I |
-| Data subject withdrawal processing | I | I | I | I | R | I | R |
-| Consent preference support tickets | A | I | I | I | I | I | R |
-| Third-party consent integration | A | C | R | R | R | C | I |
-
-**Specific Role Details:**
-
-- **Michael Chang, VP of Customer Operations (Policy Owner)**: Bears ultimate accountability for the effectiveness of this SOP. Reviews and approves exceptions escalated beyond standard delegation thresholds. Chairs the quarterly Consent Governance Review meeting.
-- **Dr. Klaus Weber, Chief Privacy Officer / DPO**: Owns the legal sufficiency of consent disclosures, in coordination with General Counsel. Maintains the Processing Activity Inventory mapping all consent purposes to lawful bases. Approves all new consent purpose codes before deployment.
-- **Rachel Kim, CISO**: Ensures that consent data flows comply with data security policies and that encryption and access control controls are implemented for consent records at rest and in transit.
-- **Samantha Torres, VP of IT Operations**: Responsible for the operational availability of the Consent Management Platform and preference center infrastructure. Ensures SLA compliance per Section 6.
-- **Customer Support Managers (all product lines)**: Operate the Tier 1 and Tier 2 consent support queues. Process manual consent withdrawals received via telephone or postal mail within the timelines specified in Section 5.
-- **Product Managers (all product lines)**: Ensure that consent collection touchpoints are embedded in user journeys at the appropriate point before data processing commences. Maintain product-specific consent requirement specifications.
-
-## 4. Policy Statements
-
-Meridian Health Technologies is committed to processing personal data with transparency and respect for individual autonomy. The following policy statements constitute the mandatory principles governing all customer consent activities:
-
-**PS-CNS-001 — Affirmative Consent Requirement**: Consent must be obtained through a clear affirmative action by the data subject. Pre-ticked checkboxes, silence, inactivity, or bundled consent for multiple purposes not individually selectable are prohibited. Each processing purpose requiring consent must be presented with its own opt-in mechanism.
-
-**PS-CNS-002 — Granularity of Choice**: Data subjects must be able to consent to specific processing purposes independently. Consent for marketing communications must be separable from consent for clinical data processing, financial assessments, or any other purpose. Where Meridian processes special categories of personal data, explicit consent must be obtained separately for each category.
-
-**PS-CNS-003 — Right to Withdraw**: Withdrawal of consent must be possible at any time and must be as easy as giving consent. No detriment shall result from withdrawal. All consent collection interfaces must include clear, visible instruction on how to withdraw consent, including a direct link to the Preference Center.
-
-**PS-CNS-004 — Record-Keeping**: Meridian shall maintain demonstrable records of all consent events, including: the identity of the data subject, the timestamp of the consent action, the specific text of disclosures presented, the version identifier of the consent interface, the IP address and user agent string (where collected), and the specific processing purposes consented to or withdrawn.
-
-**PS-CNS-005 — Purpose Limitation**: Personal data shall be processed only for the specific purposes for which consent was obtained. Before any Meridian system begins processing personal data for a given purpose, the CMP consent state for that subject-purpose pair must be verified programmatically. If no active consent is found, processing must not commence.
-
-**PS-CNS-006 — Data Minimization in Consent Collection**: The act of collecting consent shall itself collect only the minimum personal data necessary to establish a consent record. Where possible, consent preferences shall be associated with a pseudonymous identifier rather than directly with the data subject's full profile, with resolution to the full profile performed only when necessary for propagation.
-
-**PS-CNS-007 — Periodic Renewal**: Consent for marketing communications shall be deemed expired after 36 months of inactivity (defined as no interaction with any Meridian digital channel). At or before expiry, an automated renewal prompt shall be sent. If the data subject does not affirmatively renew consent within 30 days of the prompt, the consent status shall transition to Expired and all processing predicated on that consent shall cease.
-
-**PS-CNS-008 — Minor Data Subject Consent**: Where Meridian processes personal data of individuals below the digital age of consent (16 years in most jurisdictions, subject to local variance), consent must be given or authorized by the holder of parental responsibility. The Clinical AI Platform and HealthPay enrollment flows shall implement age gating in accordance with jurisdiction-specific thresholds maintained in the CMP configuration.
-
-**PS-CNS-009 — Consent for Automated Decision-Making**: The Clinical AI Platform shall obtain explicit, separate consent before subjecting any patient data to fully automated processing that produces legal effects or similarly significant effects. This consent purpose code is `AUTOMATED-DECISION-001` and must be accompanied by meaningful information about the logic involved and the envisaged consequences.
-
-**PS-CNS-010 — Privacy Notice**: A layered privacy notice must be presented at every consent capture point. The notice must identify the controller (Meridian Health Technologies, Inc. and its relevant subsidiary by jurisdiction), describe the purposes of processing with specificity, and describe the data subject's rights regarding their personal data. Full privacy notice text is maintained in the OneTrust Notice Management module.
+---
 
 ## 5. Detailed Procedures
 
-This section describes the operational workflows for consent management at Meridian. All Meridian personnel involved in consent operations must follow these procedures precisely. Deviations are managed per Section 8.
+### 5.1 Consent Collection: Initial Capture
 
-### 5.1 Initial Consent Capture
+The collection of consent must occur at the point of data collection, prior to initiating the intended processing activity. Consent requests must be presented in plain language, clearly separated from general terms and conditions.
 
-This procedure applies whenever a new data subject establishes a relationship with Meridian through any digital or assisted channel.
+#### 5.1.1 Digital Acquisition (Web & Application)
 
-**5.1.1 Digital Consent Capture (Web and Mobile)**
+**Pre-Conditions:**
+- User navigates to a Meridian digital property: `healthpay.meridian.com` (customer portal), `insights.meridian.com` (MedInsight), or the mobile application.
+- The relevant Customer Data Record (CDR) has been created (SOP-DATA-200).
 
-1. The product interface shall render the consent collection module from the CMP via the JavaScript tag or mobile SDK configured in the CDP.
-2. The consent interface shall present, in sequence:
-   a. **Jurisdiction Detection**: The interface auto-detects the data subject's jurisdiction based on IP geolocation and browser locale settings. The detected jurisdiction determines the legal basis options and disclosure language presented. The data subject may manually override the detected jurisdiction via a dropdown selector.
-   b. **Privacy Notice Layer 1 (Summary)**: A concise summary of key processing activities and purposes. Must include a link to the full Layer 2 notice hosted at `privacy.meridian.com/{jurisdiction}/{product}`.
-   c. **Cookie and Tracking Consent**: A four-category granular consent panel with the following categories, each individually toggleable:
-      - *Strictly Necessary* (always on, non-consentable)
-      - *Functional / Preference*
-      - *Analytics and Performance* (Meridian first-party analytics)
-      - *Marketing and Advertising* (including third-party ad network cookies and tracking pixels)
-   d. **Marketing Communications Consent**: Individual channels presented separately: Email, SMS/Text Message, Push Notification, Postal Mail. Each channel includes a brief description of typical content and anticipated frequency.
-   e. **Product-Specific Processing Consent**: Additional consent questions specific to the Meridian product line being accessed. For Clinical AI Platform, this includes the automated decision-making consent. For HealthPay, this includes consent for credit and financial eligibility assessments.
-3. The data subject makes their selections and clicks the "Save Preferences" button.
-4. Upon button click, the CMP:
-   a. Generates a unique Consent Receipt ID (format: `CR-{datacenter}-{timestamp}-{random-hex-16}`).
-   b. Captures the full payload in an immutable Consent Record, including the data subject's session identifier, the exact disclosures rendered (version controlled), the selections made, the timestamp (UTC), and the channel identifier.
-   c. Stores the Consent Record in the CMP database, encrypted at rest.
-   d. Transmits the Consent Record to the CDP via the Segment Consent API endpoint.
-5. The CDP propagates the consent state to all downstream destinations (see Section 5.4).
-6. The data subject receives a confirmation email at their registered email address summarizing their consent choices and providing a direct link to the Preference Center.
+**Procedure Steps:**
+1.  The Customer Experience Platform (Adobe Experience Manager) renders the **Consent Capture Modal** via the OneTrust API integration.
+2.  The modal presents the data subject with a **tiered consent interface**, starting with mandatory cookie/functional consent, then presenting Marketing, Third-Party Sharing, and Analytics as separate, non-pre-ticked checkboxes.
+3.  For Marketing consent, the subject must select at least one channel preference (Email, SMS, In-App) to activate the consent grant. A "Select All" toggle is available but defaults to "off."
+4.  Upon clicking "Save Preferences," the system generates a unique Consent Interaction ID and writes the Consent Record to the OneTrust Universal Consent Repository.
+5.  The CMP invokes the **SOP-COPS-010 Consent Webhook**, which posts the Consent Record to the Salesforce Service Cloud Individual object.
+6.  The Customer Data Platform (mParticle) syndicates the marketing opt-in status to downstream marketing automation platforms (Braze, Salesforce Marketing Cloud) in near real-time (latency SLA: < 3 minutes).
+7.  A **Consent Summary Receipt** is dispatched asynchronously to the customer's primary email address on file.
 
-**5.1.2 Assisted Consent Capture (Call Center and In-Person)**
+#### 5.1.2 Assisted Collection (Agent-Guided)
 
-This procedure applies when consent is collected by a Meridian Customer Support agent (Tier 1 or Tier 2) or by an authorized provider partner staff member.
+This procedure applies when a customer provides consent verbally during a telephony interaction (1-800-MERIDIAN) or through a paper/PDF form processed by an agent.
 
-1. The assisting personnel authenticate to the Meridian Customer Service Console (Salesforce Health Cloud Service Console).
-2. The personnel navigate to the "Consent Management" tab associated with the data subject's record.
-3. The personnel verbally present the consent disclosures for each applicable processing purpose, using the jurisdiction-appropriate disclosure scripts maintained in the Knowledge Base (KB-CNS-Category).
-4. The data subject indicates their choices verbally.
-5. The personnel record each choice in the CMP via the Service Console integration, selecting the appropriate purpose code from the dropdown.
-6. The personnel must read the "Verification Statement" displayed on screen, confirming the data subject's identity and that the choices recorded accurately reflect the data subject's expressed wishes.
-7. The personnel sets the "Collection Method" field to `ASSISTED` and the "Assisting Agent" field to their Staff ID.
-8. The personnel clicks "Submit." The CMP generates a Consent Record as in 5.1.4(c) above, with an additional metadata field specifying the assisted collection context.
-9. For telephone collections, a recording of the consent interaction is retained for 90 days in the call recording system linked to the CRM interaction record, after which it is automatically purged.
-10. A confirmation of consent preferences is sent to the data subject via email or postal mail, depending on the primary contact method on file.
+**Agent Guidance Steps (Salesforce Service Cloud):**
+1.  Agent authenticates the customer following the standard identity verification procedure (SOP-SEC-015).
+2.  Agent navigates to the "Consent Management" tab on the customer's Contact record.
+3.  Agent confirms the customer's current contact information (Email, Mobile) is correct; if not, agent must update the record before proceeding.
+4.  Agent reads the **Consent Script** (Knowledge Article KA-01021 "Verbal Consent Script - General").
+    - *Script excerpt:* "Meridian would like your permission to send you product updates and health insights via email and SMS. You can change your mind at any time by visiting our Preference Center or calling us back. Do I have your permission to enable Marketing communications?"
+5.  Agent accurately records the customer's verbal response, indicating the channel and scope of consent.
+6.  Agent clicks the "Log Assisted Consent" button. This generates a Consent Record stamped with the agent's user ID, the interaction ID, and the "Assisted Capture" methodology tag.
+7.  The system automatically queues a Consent Confirmation email to the customer, providing a direct link to the Preference Center to verify their selections. The consent becomes operational immediately upon agent submission but is marked as "Pending Confirmation" for 72 hours. If the customer actively rejects the confirmation, the consent is automatically withdrawn and flagged for review.
 
-### 5.2 Preference Center Access and Usage
+---
 
-The Preference Center is the central self-service portal for consent management, accessible at `preferences.meridian.com`.
+### 5.2 Consent Tracking & The Preference Center
 
-**5.2.1 Authentication**
+Meridian maintains a self-service **Consent & Preference Center** that enables customers to view the active, withdrawn, and expired consents associated with their profile.
 
-1. The data subject navigates to `preferences.meridian.com`.
-2. The data subject is prompted to authenticate using one of the following methods:
-   a. Email + Magic Link (IAP sends a one-time login code to the registered email address, valid for 15 minutes).
-   b. SMS + One-Time Passcode (sent to the registered mobile number).
-   c. Social login (Google, Apple ID — where federated identity is configured and linked to the Meridian profile).
-3. Upon successful authentication, the Preference Center renders all current consent states for the data subject, organized by purpose category.
+#### 5.2.1 Customer Access & Navigation
 
-**5.2.2 Viewing and Modifying Consents**
+Customers access the Preference Center via:
+- A unique link embedded in the footer of every Marketing and Transactional communication (`Update Your Preferences`).
+- A direct link from their authenticated dashboard (`Settings > Consent & Privacy`).
+- Authenticated access via the Meridian Mobile App (`Profile > My Preferences`).
 
-1. The data subject views their current consents in a table format listing:
-   - Processing Purpose (plain language description)
-   - Purpose Code (internal reference)
-   - Current Status (Active, Withdrawn, Expired)
-   - Date of Last Action
-   - Expiry Date
-2. To modify a consent, the data subject toggles the switch for the relevant purpose. The interface presents a confirmation dialog: "You are changing your consent for [Purpose]. Are you sure you wish to [Grant / Withdraw] consent for this purpose?"
-3. Upon confirmation, the CMP generates a new Consent Record reflecting the updated state.
-4. The withdrawal or granting propagates downstream per Section 5.4.
-5. A confirmation email is sent summarizing the change.
+**Procedure (Customer Self-Service):**
+1.  Upon authentication, the Preference Center renders a **Current Consent Status Dashboard**, displaying each Processing Purpose (Marketing, Analytics, 3rd Party Sharing) with its associated Status (Active / Withdrawn / Expired), Date of Initial Collection, and the Mechanism of Collection (e.g., "Online Signup 2024-06-25").
+2.  Each active consent is accompanied by a clearly labeled, one-click "Withdraw" button.
+3.  Modifying consent from "Opted-Out" to "Opted-In" requires an explicit **Positive Action** — the user must activate a toggle and then click a secondary "Confirm Opt-In" button.
 
-**5.2.3 Global Withdrawal**
+---
 
-The Preference Center provides a "Withdraw All Optional Consents" button at the top of the consent listing. Executing this action:
+### 5.3 Withdrawal Handling (Full and Partial)
 
-1. Withdraws all consents except those strictly necessary for the performance of a contract to which the data subject is a party or for compliance with a legal obligation.
-2. Sets the global marketing suppression flag in Salesforce Marketing Cloud.
-3. Queues the data subject's profile for processing activity cessation in all batch and streaming pipelines (target: completion within SLA per Section 5.4.3).
+A withdrawal request is the formal revocation of previously granted consent. The mechanism to withdraw must be as easily executed as the mechanism to grant.
 
-### 5.3 Marketing Consent Management
+#### 5.3.1 Processing a Full Withdrawal
 
-Marketing consent is managed distinctly from processing consent due to the Soft Opt-In provision and the use of separate marketing automation systems.
+A "Full Withdrawal" signifies the data subject's intent to revoke all non-mandatory consents and objects to further marketing communications.
 
-**5.3.1 Consent Capture for Marketing**
+**Operational Workflow:**
+1.  The Withdrawal request is received via one of three channels:
+    - **Self-Service:** Preference Center "Withdraw All" action.
+    - **Agent-Assisted:** Customer contacts the 1-800-MERIDIAN support line.
+    - **Written Request:** Customer sends an email to `privacy@meridian.com`.
+2.  The receiving system or agent logs the request in the OneTrust Universal Consent Record. The Status for all relevant Purposes is set to `REVOKED`, with a time-stamp of record.
+3.  A **Propagation Event** is published to the Meridian Event Bus (Apache Kafka), which triggers the following downstream actions:
+    - **Salesforce Marketing Cloud:** Suppression list updated within 15 minutes. All active journeys and automations execute contact exclusion.
+    - **Braze:** User profile flag `marketing_consent_status` set to `false`. All campaign canvas steps check this flag.
+    - **Data Lake (Snowflake):** The marketing contactability column in the `CDP_GOLDEN_PROFILE` table is updated.
+4.  For full withdrawals, the customer record is segmented as "Do Not Contact - Marketing" in the Customer Operations Platform.
+5.  The agent or automated system closes the interaction with a confirmation message to the customer: "As requested, we have removed you from all marketing communications. Please allow up to 48 hours for all systems to fully synchronize. Transactional communications related to your active account(s) will continue."
 
-1. Marketing consent collection points (website footers, HealthPay enrollment checkout, webinar registration, white-paper downloads) present a clear, unticked checkbox with text specific to the communication channel.
-2. The text must include: "I consent to receive marketing communications from Meridian Health Technologies by [Channel]. I understand that I may withdraw my consent at any time by [link to Preference Center] or by clicking the unsubscribe link in any communication."
-3. Upon check and form submission, the consent event is recorded in the CRM Marketing Consent object, tagged with the `Marketing_Channel` picklist value and the campaign source identifier.
+#### 5.3.2 Processing a Partial Withdrawal
 
-**5.3.2 Soft Opt-In Application (Existing Customer Communications)**
+A partial withdrawal targets specific channels (e.g., "Stop SMS, but keep Emails") or specific purposes (e.g., "Keep HealthPay Transactional emails, but no Marketing emails").
 
-For existing customers of a specific Meridian product line (e.g., HealthPay users), Meridian may send marketing communications about similar Meridian products or services via email without prior explicit consent, provided:
-1. The data subject's email was collected in the context of a sale or registration for the service.
-2. A clear and conspicuous opportunity to opt out of marketing was given at the time of collection (the initial sign-up form must include an "I do not wish to receive marketing communications" checkbox, unchecked by default).
-3. Each subsequent marketing communication includes a valid, one-click unsubscribe mechanism.
-4. The data subject has not previously opted out.
+**Operational Workflow:**
+1.  Agent or self-service tool modifies the specific Purpose/Channel combination.
+2.  The targeted downstream platform is updated. For example, a "No SMS" partial withdrawal triggers an update to the SMS gateway (Twilio) and ensures the mobile number is placed on the SMS suppression list, but Email consent remains untouched.
+3.  The Consent Record reflects a `REVOKED` status only for the specific channel.
 
-The Soft Opt-In applies only to Email and only to Meridian's own similar products. It does not apply to SMS, push notifications, postal mail, or any third-party marketing communications.
-
-**5.3.3 Unsubscribe Processing**
-
-1. Every marketing email sent from Meridian systems includes an unsubscribe link in the footer. The link is unique to the recipient and includes an encoded identifier.
-2. Clicking the unsubscribe link:
-   a. Immediately records an unsubscribe event in the CRM.
-   b. Sets the `Marketing_Email_Opt_Out` flag to `TRUE` on the contact record.
-   c. Adds the email address to the Global Marketing Suppression List in Salesforce Marketing Cloud.
-3. Unsubscribe processing must complete within 60 seconds of link activation.
-4. The data subject is redirected to a confirmation page: "You have been unsubscribed from marketing emails from Meridian Health Technologies. Please allow up to 24 hours for our systems to fully update. You may manage all your communication preferences in our [Preference Center link]."
-5. For SMS, the recipient may reply "STOP" to any Meridian SMS short code to immediately opt out of SMS marketing for that product.
-
-### 5.4 Consent Propagation and Lifecycle Management
-
-Consent propagation ensures that a consent state change in the CMP is reflected across all systems that process data for the affected purpose.
-
-**5.4.1 Propagation Architecture**
-
-```
-Consent Event (CMP) → CDP (Segment) → Downstream Destinations
-                                    ├── CRM (Salesforce Health Cloud)
-                                    ├── Marketing Cloud (Salesforce)
-                                    ├── Clinical AI Platform (Meridian Data Lake)
-                                    ├── HealthPay Platform (Account Service)
-                                    ├── MedInsight Analytics (Snowflake Data Warehouse)
-                                    └── Third-Party Processors (via API)
-```
-
-**5.4.2 Propagation SLA**
-
-| Consent State Change | Propagation Initiation | Propagation Completion (All Destinations) |
+**Timeline SLA:**
+| Withdrawal Type | Propagation Trigger | Max Sync Time Across Platforms |
 |---|---|---|
-| Withdrawal (Global or per purpose) | Real-time (< 5 seconds) | < 5 minutes |
-| New Consent Grant | Real-time (< 5 seconds) | < 2 minutes |
-| Consent Expiry (automated) | Batch, hourly | < 3 hours from expiry event |
-| Administrative Invalidation | Manual, initiated by Privacy Office | < 24 hours |
+| Full Withdrawal | Real-time event | 2 hours |
+| Channel-Specific (Email) | Real-time event | 45 minutes |
+| Channel-Specific (SMS) | Real-time event | 15 minutes |
+| Purpose-Specific (Analytics) | Batch sync | 24 hours |
 
-**5.4.3 Propagation Verification**
+---
 
-1. Upon each consent state change, the CDP emits a "Consent Sync" event to each destination.
-2. Each destination acknowledges receipt back to the CDP's monitoring endpoint.
-3. The CDP maintains a Sync Status dashboard, refreshed every 30 seconds, showing the propagation status for each destination system.
-4. If any destination fails to acknowledge the consent sync event within the SLA period, an automatic alert is generated in PagerDuty to the Data Platform Engineering on-call engineer.
+### 5.4 Marketing Consent Management
 
-**5.4.4 Consent Expiry and Renewal**
+Marketing consent is managed as a distinct processing purpose, separate from consent for product analytics or service improvement. This ensures that the decision to avoid marketing does not impact the customer's experience of the core product.
 
-1. A nightly batch process (Meridian Consent Lifecycle Job, `consent-lifecycle-v3`) runs in Apache Airflow that scans all Active Consent records.
-2. For each consent record where `Current_Date > Expiry_Date`, the job:
-   a. Sets the consent status to `Expired`.
-   b. Logs the expiry in the Consent Audit Log.
-   c. Triggers propagation per 5.4.2.
-3. For consents expiring within 30 days, the Consent Lifecycle Job identifies associated data subjects and, for those with an active email address and non-withdrawn marketing email consent, triggers an automated "Consent Expiration Notice" email via Marketing Cloud. The email includes a direct link to the Preference Center to renew consent.
+#### 5.4.1 Acquisition Standards
 
-### 5.5 Withdrawal Handling and Data Processing Cessation
+Marketing consent shall be:
+- **Active Opt-In:** Pre-ticked boxes or implied consent are prohibited.
+- **Granular:** Customers must consent to specific channels (Email, SMS, Push Notification) independently. A "Global Opt-In" is permissible if each channel can be deselected individually.
+- **Unbundled:** Acceptance of Terms of Service for the Meridian platform must not be a condition of marketing consent.
 
-Withdrawal of consent triggers processing cessation across all affected systems.
+#### 5.4.2 Marketing Re-Consent Campaigns
 
-**5.5.1 Automated Cessation**
+In the event of a material change to the Privacy Notice or a change in the entity processing the marketing data, a Re-Consent Campaign shall be initiated.
+1.  The Campaign Manager identifies the cohort of active customers requiring re-consent.
+2.  A campaign is designed in Salesforce Marketing Cloud with a single, clear Call to Action ("Update Your Preferences Now").
+3.  The campaign is sent a maximum of 3 times over a 30-day period.
+4.  If no positive re-consent action is taken by the end of the 30-day window, the system automatically transitions the campaign cohort's marketing consent status to `EXPIRED` and suppresses further marketing communications.
 
-Upon propagation of a Withdrawn Consent event:
-1. The CRM sets the contact's `Data_Processing_Opt_Out` flag for the relevant processing activity to `TRUE`.
-2. The Clinical AI Platform (Data Pipeline) removes the subject's identifier from active processing queues for the relevant AI/ML model runs.
-3. HealthPay ceases eligibility pre-screening assessments for the withdrawn purpose.
-4. MedInsight Analytics removes the subject's data from active analytic population cohorts (the Subject Access Management module in the Snowflake data warehouse, `snowflake-subject-access-mgmt`, handles row-level enforcement).
-5. Marketing Cloud suppresses the contact for the specific marketing channel withdrawn.
+---
 
-**5.5.2 Non-Automated Cessation Verification**
+### 5.5 Minor's Consent
 
-For high-risk processing activities (automated decision-making, special category data processing), the Privacy Office conducts a quarterly cessation verification audit:
-1. A sample of 50 withdrawn consents from the preceding quarter is selected.
-2. For each sample, the Privacy Office queries the relevant processing system to confirm that the data subject's data is no longer being actively processed for the withdrawn purpose.
-3. Results are documented in the Consent Cessation Audit Report, maintained in the Privacy Office's audit folder.
+For products that may collect data from individuals under the age of 16 (digital consent age threshold), a verifiable parental or guardian consent process must be executed. This is managed via the OneTrust Minor Consent module. The Customer Operations team will route all suspected minor account cases to the dedicated Minor Consent queue for specialized handling as defined by SOP-LEGL-110.
 
-### 5.6 Consent for Financial Product Eligibility (HealthPay)
-
-HealthPay processes personal data for creditworthiness and eligibility assessments. This processing requires explicit, separate consent.
-
-1. During HealthPay product enrollment or credit application, the interface presents a dedicated "Financial Processing Consent" section after the general consent capture.
-2. The disclosure text must state: "I consent to Meridian Health Technologies, Inc. conducting an assessment of my financial eligibility, which may include automated processing of my financial and personal data to determine my eligibility for payment plans and related financial products. This assessment may be conducted by Meridian or an authorized third-party processor. I understand I may withdraw this consent at any time by visiting [Preference Center link] or by contacting Customer Support."
-3. If the data subject does not grant this consent, Meridian shall not conduct the automated eligibility assessment. The data subject may still be offered manual underwriting options where available.
-4. If consent for financial processing is withdrawn, any in-progress applications dependent on that consent shall be paused, and the data subject notified via their primary contact method.
+---
 
 ## 6. Controls and Safeguards
 
+The following technical and administrative controls are established to ensure the integrity and confidentiality of the consent management process:
+
 ### 6.1 Technical Controls
 
-| Control ID | Control Description | Implementation |
+| Control ID | Control Description | Technology |
 |---|---|---|
-| TC-CNS-001 | CMP Database Encryption at Rest | AES-256; keys managed in AWS KMS, rotated annually |
-| TC-CNS-002 | Consent Record Immutability | CMP database configured with append-only tables; no UPDATE or DELETE operations permitted on consent history |
-| TC-CNS-003 | Consent API Authentication | All inter-service consent API calls authenticated via OAuth 2.0 client credentials grant with short-lived tokens (60-minute expiry) |
-| TC-CNS-004 | Consent Data in Transit Encryption | TLS 1.3 enforced for all consent data flows between Meridian services |
-| TC-CNS-005 | PII Pseudonymization in Logs | Consent service logs redact data subject email, phone, and name fields; only anonymized Consent Receipt ID is logged |
-| TC-CNS-006 | Preference Center Rate Limiting | WAF rate limit: 10 requests per second per IP; 30 requests per minute per authenticated user |
-| TC-CNS-007 | SIEM Integration | All consent events streamed to Splunk SIEM for anomalous pattern detection (e.g., bulk consent withdrawal spikes) |
+| **T-010** | **Immutable Ledgering:** All Consent Records (grant, modification, withdrawal) are appended to an immutable audit log. No record can be deleted or overwritten. | OneTrust Audit Trail, SIEM (Splunk) integration |
+| **T-011** | **Automated Sync Verification:** A delta-detection script runs hourly, comparing active Marketing consent counts in OneTrust against the suppression list in Salesforce Marketing Cloud. Mismatches > 5 records trigger a P2 Incident. | Custom Python Script (AWS Lambda) |
+| **T-012** | **API Gateway Throttling:** Consent Preference Center API endpoints are rate-limited to prevent malicious bulk withdrawal attempts. Limit: 30 requests per minute per IP address. | AWS API Gateway |
+| **T-013** | **Encryption at Rest:** The PII associated with a consent profile (email, phone) is stored in Salesforce Shield with AES-256 encryption. | Salesforce Shield Platform Encryption |
+| **T-014** | **Change Data Capture (CDC):** Any modification to a high-sensitivity consent field fires a CDC event logged to Splunk for Security Operations Center (SOC) review. | Salesforce CDC, Splunk |
 
 ### 6.2 Administrative Controls
 
-| Control ID | Control Description | Implementation |
-|---|---|---|
-| AC-CNS-001 | Consent Disclosure Change Management | All changes to consent disclosure text must be reviewed by Privacy Office and Legal, versioned in OneTrust, and deployed via standard change control (Jira ticket, peer review) |
-| AC-CNS-002 | Quarterly Consent Governance Review | VP Customer Ops, CPO, and CISO review consent metrics, propagation failures, and regulatory updates; minutes documented |
-| AC-CNS-003 | Consent Deletion Freeze | During active litigation holds or regulatory investigations, consent records subject to hold shall not be deleted even if retention period has expired; hold is managed by Legal in OneTrust |
-| AC-CNS-004 | Separation of Duties | Engineers deploying CMP configurations do not have Write access to Consent Audit Logs; Privacy Office personnel auditing logs do not have Write access to CMP configurations |
+- **Quarterly Access Review:** The VP of Customer Operations and the CISO will jointly review all active accounts with administrative access to the OneTrust platform to ensure principle of least privilege.
+- **Change Management (ITIL):** Any modifications to the Consent Capture Modal or the Preference Center UI code must follow the standard IT Change Management process per SOP-IT-200-CAB, including a mandatory compliance review by the Legal Operations team.
+- **Semi-Annual Consent Audit:** An independent audit team (Internal Audit or External Auditor) will perform a semi-annual review of a statistically significant sample of consent records to verify alignment between source documents, CMP logs, and downstream provisioning.
 
-### 6.3 Records Retention
-
-| Record Type | Retention Period | Justification |
-|---|---|---|
-| Consent Records (Active and Expired) | Duration of data subject relationship + 6 years | Regulatory defense and auditability |
-| Withdrawn Consent Records | 6 years from date of withdrawal | Defense against claims; evidence of withdrawal compliance |
-| Consent Audit Logs | 7 years | Security investigation support |
-| Consent Disclosure Versions | Indefinite (archived) | Required to reconstruct the exact disclosure presented at any past consent event |
-
-Retained consent records are eventually transferred to the Meridian Glacier Archive (AWS S3 Glacier Deep Archive) after 2 years of inactivity, with retrieval SLA of 48 hours.
+---
 
 ## 7. Monitoring, Metrics, and Reporting
 
 ### 7.1 Key Performance Indicators (KPIs)
 
-| KPI ID | Metric | Target | Measurement Method |
+Customer Operations leadership tracks the following KPIs to measure the effectiveness and health of the consent management ecosystem:
+
+| KPI | Measurement | Target | Review Cadence |
 |---|---|---|---|
-| KPI-CNS-001 | Consent Propagation Latency (Real-Time) | Mean < 60 seconds, P99 < 5 minutes | CDP propagation monitoring dashboard; Datadog APM traces |
-| KPI-CNS-002 | Withdrawal Processing Time (Automated) | 100% completion within 5 minutes | Cessation verification script, executed daily |
-| KPI-CNS-003 | Preference Center Availability | 99.9% uptime (monthly) | Pingdom synthetic monitor; Okta authentication status |
-| KPI-CNS-004 | Consent Capture Abandonment Rate | < 15% (users who start but do not complete consent flow) | Segment funnel analysis |
-| KPI-CNS-005 | Manual Withdrawal Ticket SLA Compliance | 100% processed within 2 business days of receipt | Zendesk reporting, filtered by ticket tag `consent_withdrawal_manual` |
-| KPI-CNS-006 | Consent Record Integrity | 0 records with unpropagated state mismatch | Weekly reconciliation script comparing CMP, CDP, and CRM consent states |
-| KPI-CNS-007 | Expired Consent Renewal Rate | Not targeted (informational only) | Monthly report; renewals / (renewals + expirations) |
+| **Consent Capture Rate** | Percentage of active customer profiles with a valid, complete Consent Record. | ≥ 98% | Monthly (MOAR) |
+| **Sync Latency (Marketing)** | Time from Consent Action (opt-in/out) to effective suppression/provisioning in Braze. | P95 < 45 min | Weekly |
+| **Customer Withdrawal Processing Time** | Time from receipt of a manual withdrawal request (via call or email) to full propagation and customer confirmation of completion. | Mean < 8 business hours | Weekly Operations Review |
+| **Preference Center Utilization** | Ratio of self-service consent modifications versus agent-assisted modifications. | ≥ 75% Self-Service | Quarterly |
+| **Complaint Volume (Consent-Related)** | Number of complaints logged via support channels citing "unwanted communications" or "unable to withdraw." | < 0.01% of active contacts | Monthly |
 
-### 7.2 Dashboards and Reporting Cadence
+### 7.2 Reporting
 
-**7.2.1 Operational Dashboards (Real-Time)**
-- CMP Health Dashboard (Grafana): API response times, error rates, consent event rate.
-- Propagation Status Dashboard (Segment + Datadog): Real-time sync status per destination.
-- Preference Center Availability Monitor (Pingdom public status page).
+- **Weekly Consent Operations Dashboard:** An automated dashboard in Tableau provides near-live data on agent-assisted consent volume, by agent, including call reason disposition codes.
+- **Monthly Consent Management Report (MCMR):** A comprehensive PowerPoint deck delivered by the Director of Customer Operations to the VPs of Customer Ops, Financial Services (for HealthPay consent implications), and the Chief Privacy Officer. The report covers KPI trend analysis, exception logs, and summaries of any privacy-impacting incidents.
+- **Annual Consent Management Review (ACMR):** A formal, audited report that feeds into Meridian's annual regulatory compliance assessment for privacy and data governance.
 
-Access: Engineering teams, IT Operations (Samantha Torres' team), on-call personnel.
-
-**7.2.2 Monthly Reporting**
-- **Audience**: VP Customer Ops, VP Product Management, Privacy Office.
-- **Contents**: All KPIs, trend charts (MoM comparison), exception log summary (Section 8), top five consent-related support ticket categories.
-- **Distribution**: PDF report emailed by the 5th business day of each month.
-
-**7.2.3 Quarterly Regulatory Reporting**
-- **Audience**: Executive Leadership Team, Board Audit Committee (summary).
-- **Contents**: Consent withdrawal volumes by purpose, DSAR trends correlated with consent events, regulatory landscape updates impacting consent, material consent disclosure changes.
-- **Prepared by**: Privacy Office, with data inputs from Customer Operations.
+---
 
 ## 8. Exception Handling and Escalation
 
-Deviation from the procedures defined in this SOP must follow the exception process below. Routine operational incidents (e.g., a failed consent propagation that self-recovers) are handled via standard incident management and do not require a formal exception ticket.
+An "Exception" is defined as any processing activity that deviates from the standard procedures defined in Section 5 of this policy, or any system condition where consent is not propagated as per the defined Technical Controls in Section 6.
 
-### 8.1 Exception Request Process
+### 8.1 Exception Scenarios & Handling Procedures
 
-1. The requester (any Meridian personnel) opens a Jira ticket in the `CNS-EXCP` project.
-2. The ticket must include:
-   a. **SOP Section**: The specific section of this SOP from which deviation is requested.
-   b. **Nature of Exception**: Detailed explanation of what will differ from the standard procedure.
-   c. **Scope**: Specific data subjects, products, or time periods affected.
-   d. **Risk Assessment**: Analysis of the data subject impact and regulatory risk introduced.
-   e. **Mitigating Controls**: Technical or procedural controls compensating for the deviation.
-   f. **Duration**: Proposed start and end dates for the exception.
-3. The ticket is routed to the Privacy Office for risk assessment.
-4. Privacy Office annotates the ticket with regulatory risk classification: **Low**, **Medium**, or **High**.
+#### 8.1.1 Scenario: Backdated Consent (Legacy Migration)
 
-### 8.2 Approval Authority
+A customer record is discovered (often during a migration or M&A activity) that was loaded into the Meridian platform without a properly formatted digital Consent Record, but where the business unit asserts "valid consent was obtained historically."
 
-| Risk Classification | Approver |
-|---|---|
-| Low | Privacy Office designee (any Privacy Analyst) |
-| Medium | Dr. Klaus Weber, CPO / DPO |
-| High | Dr. Klaus Weber, CPO / DPO + Michael Chang, VP Customer Operations (joint approval) |
+**Procedure:**
+1.  The owning Business Unit Manager must create a **Legacy Consent Declaration** in the ServiceNow Governance, Risk, and Compliance (GRC) module.
+2.  The declaration must include: the data source, the total number of affected records, the mechanism of original collection, and a copy of the original consent language used.
+3.  The Legal Operations team reviews the declaration. If the historical language meets current corporate standards, Legal Operations approves the Legacy Consent Declaration.
+4.  Customer Operations may then re-consent the user on their next interaction, or, for low-risk cohorts, batch-upload a "Historical - Migration" consent tag in OneTrust. This tag is tracked as an exception.
 
-All exceptions classified High must be logged in the Enterprise Risk Register and reported to the quarterly Consent Governance Review.
+#### 8.1.2 Scenario: System Sync Failure (Breach of Sync SLA)
 
-### 8.3 Escalation Path
+A significant mismatch is identified by Control T-011 (Automated Sync Verification), or a critical platform (e.g., Salesforce Marketing Cloud) fails to process the propagation event from the Event Bus.
 
-For consent-related incidents requiring urgent resolution (e.g., CMP outage preventing consent capture, global consent propagation failure):
+**Procedure:**
+1.  The IT Operations Center (ITOC) declares a **P2 Consent Sync Incident**.
+2.  Customer Operations initiates a manual sync process: exporting the delta file from OneTrust and performing a controlled import into the affected downstream system, as per the manual override runbook (KA-01055).
+3.  All affected contacts are placed in a "Communication Hold" status in the COP until the manual sync is complete and verified by the ITOC.
+4.  The VP of Customer Operations will determine if a post-incident notification to the cohort is required based on the risk of mis-sent communications.
 
-1. **Detection**: Automated alerting in PagerDuty (Datadog monitor for CMP availability or consent sync failure thresholds).
-2. **Tier 1 Response**: Engineering on-call acknowledges within 15 minutes, begins diagnosis.
-3. **If unresolved within 2 hours**: Incident escalated to Data Platform Engineering Manager.
-4. **If unresolved within 6 hours or if incident is customer-facing and widespread**: Executive notification (VP Customer Operations, VP IT Operations, CISO, CPO). A customer-facing status page update is published at `status.meridian.com`.
-5. **Post-Incident**: Root Cause Analysis (RCA) document prepared within 5 business days; reviewed at next Consent Governance Review.
+### 8.2 Exception Approval Authority
 
-### 8.4 Business Continuity
+| Exception Type | Impact Threshold | Approval |
+|---|---|---|
+| Standard Procedural Exception (e.g., minor deviation from script) | Individual Record | Team Lead, Customer Operations |
+| Technical Workaround (e.g., manual sync) | Cohort (< 5,000 records) | Director, Customer Operations & IT Operations Manager |
+| Policy Exception (e.g., waiver of re-consent) | Cohort (> 5,000) or Policy | VP, Customer Operations & Chief Privacy Officer |
 
-If the CMP is fully unavailable, a "degraded consent mode" is activated:
-1. Consent collection interfaces display a static fallback notice (hosted in CDN edge cache) informing the user: "We are experiencing technical difficulties affecting consent management. By proceeding, your consent choices will be captured and honored once our systems recover. You may manage your preferences at [Preference Center link] once service is restored."
-2. Where feasible, essential consent events are queued client-side (in browser local storage as a temporary buffer) and replayed to the CMP upon service restoration.
+---
 
 ## 9. Training Requirements
 
-All Meridian personnel with responsibilities under this SOP must complete applicable consent management training.
+All personnel with access to customer records and consent management tools must complete the mandatory training curriculum outlined below. Completion is tracked via the Meridian Learning Management System (Cornerstone).
 
-### 9.1 Training Curriculum
+| Training Module | Code | Target Audience | Frequency | Content |
+|---|---|---|---|---|
+| **Foundation: Data Privacy & Consent** | TRN-COPS-010A | All Customer Ops Agents (Tier 1-3), Account Managers | Annual, and upon hire | Principles of consent, Meridian Privacy Notice overview, data subject rights, Meridian's ethical commitment to transparency. |
+| **Operational: COP Consent Management** | TRN-COPS-010B | Customer Ops Agents (Tier 1-2) | Quarterly refresher | Hands-on workshop in Salesforce sandbox: executing an Assisted Consent, processing a Full and Partial Withdrawal, locating the Consent Script, handling an agitated customer requesting deletion. |
+| **Technical: Governance for Engineers** | TRN-ENG-010C | Platform Engineers, DevOps (IT) | Biannual | Technical deep dive on the consent data model, OneTrust API architecture, Kafka topic schemas, incident response runbooks for sync failures. |
+| **Specialized: Marketing Consent Compliance** | TRN-MKTG-010D | Marketing Automation Managers, Campaign Managers | Biannual | Granular consent in campaigns, the prohibition against bundled consent, Re-Consent Campaign procedures, the absolute suppression list policy. |
 
-| Course Code | Course Title | Audience | Frequency |
-|---|---|---|---|
-| CNS-TRN-101 | Consent Management Fundamentals | All Customer Operations, all Product Managers, all Engineering personnel | Onboarding + Annual |
-| CNS-TRN-201 | Advanced Consent Configuration (OneTrust) | Consent Administrators (Privacy Office, select Engineers) | Onboarding + Bi-annual |
-| CNS-TRN-301 | Consent in Clinical Contexts | Clinical AI Platform product and support teams | Onboarding + Annual |
-| CNS-TRN-401 | Financial Consent Compliance | HealthPay product and support teams | Onboarding + Annual |
+Non-compliance with training requirements results in the progressive revocation of user access: a 14-day grace period past due notification, followed by suspension of access to the Customer Operations Platform and OneTrust administrative interfaces until the training is completed.
 
-**CNS-TRN-101 Modules**:
-1. What is Consent? Concepts and Definitions
-2. Meridian Consent Architecture Overview
-3. Consent Capture Procedures (Digital and Assisted)
-4. Withdrawal Processing and Escalation
-5. Preference Center and Support Ticket Handling
-6. SOP-COPS-010 Policy Assessment (20 multiple-choice questions; pass mark: 80%)
-
-### 9.2 Training Tracking
-
-1. All training assignments are managed through the Meridian Learning Management System (LMS: Workday Learning).
-2. Course completion is tracked by employee ID.
-3. Managers receive monthly LMS compliance reports listing team members with overdue training.
-4. Non-completion of mandatory consent training within 30 days of assignment results in an automated notification to the employee's manager and the Privacy Office. Continued non-compliance after 60 days is escalated to the VP of the relevant business unit.
-
-### 9.3 Training Content Review
-
-Training materials are reviewed at least annually by the Privacy Office and the VP of Customer Operations to ensure alignment with current regulatory guidance and Meridian procedures. The review is triggered at the Next Review date of this SOP.
+---
 
 ## 10. Related Policies and References
 
-This SOP does not exist in isolation. Personnel must be familiar with the following interconnected policies:
-
-### 10.1 Meridian Internal Policies
-
-| SOP ID | Title | Relationship |
-|---|---|---|
-| SOP-ISMS-003 | Information Security Incident Response | Incident response procedures for consent system breaches |
-| SOP-PRIV-002 | Personal Data Retention and Deletion | Governs deletion of personal data after consent withdrawal or expiry |
-| SOP-PRIV-005 | Data Subject Rights Request Handling | Procedure for fulfilling DSARs referencing consent records |
-| SOP-PRIV-008 | Processing Activity Inventory Management | Maintains the PAI referenced in consent purposes |
-| SOP-PRIV-012 | Cookie and Tracking Technology Governance | Technical standards complementing this SOP for web tracking |
-| SOP-ENG-015 | Change Management for Customer-Facing Systems | Change control for consent interface and CMP modifications |
-| SOP-COPS-005 | Customer Communication Standards | Branding, tone, and accessibility standards for consent disclosures |
-| SOP-RSCH-042 | Research Partner Consent and Enrollment | Out-of-scope consent scenarios for clinical research |
-| SOP-LEGAL-009 | Litigation Hold and Legal Preservation | Overrides standard consent record retention during legal holds |
-
-### 10.2 External References
-
-| Reference | Identifier |
+| Internal Reference ID | Document Title |
 |---|---|
-| Regulation (EU) 2016/679 (General Data Protection Regulation) | GDPR |
-| ICO Guidance on Consent under GDPR | ICO Consent Guidance (May 2021) |
-| EDPB Guidelines 05/2020 on Consent | EDPB 05/2020 |
-| CAN-SPAM Act of 2003 (United States) | 15 U.S.C. §§ 7701-7713 |
-| Canada's Anti-Spam Legislation (CASL) | S.C. 2010, c. 23 |
-| Singapore Personal Data Protection Act 2012 | PDPA |
-| Meridian OneTrust CMP Configuration Guide | Internal Wiki: /wiki/onetrust-cmp-config |
-| Meridian Customer Data Platform Architecture | Internal Wiki: /wiki/cdp-architecture-v4 |
+| SOP-DATA-200 | Customer Data Record Creation and Maintenance |
+| SOP-SEC-015 | Customer Identity Verification & Authentication Standards |
+| SOP-LEGL-045 | Legal Classification of Communications (Transactional vs. Marketing) |
+| SOP-LEGL-012 | Terms of Service and Contract Acceptance Management |
+| SOP-IT-200-CAB | IT Change Management & Control Advisory Board Procedures |
+| SOP-LEGL-110 | Processing of Minor's Personal Data & Verifiable Parental Consent |
+| KA-01021 | Verbal Consent Script - Agent Guidance (Knowledge Article) |
+| KA-01055 | Manual Consent Sync Runbook - Emergency Operations (Knowledge Article) |
+| POL-DATA-001 | Meridian Corporate Data Governance & Ethics Charter |
+| POL-PRIV-001 | Customer Privacy Notice (Internal Reference Version) |
+
+---
 
 ## 11. Revision History
 
-| Version | Date | Author / Editor | Summary of Changes |
+| Version | Date | Author/Editor | Summary of Changes |
 |---|---|---|---|
-| 5.6 | 2025-12-24 | J. Lee (Privacy) | Annual review: Updated Soft Opt-In language per latest regulatory guidance; revised SLA timings for batch propagation; added Financial Consent (HealthPay) procedure subsection 5.6. No structural changes. |
-| 5.5 | 2025-06-21 | M. Chang (VP Cust Ops) | Mid-cycle review: Adjusted consent expiry from 24 to 36 months (PS-CNS-007); updated CMP vendor from legacy platform to OneTrust migration completion; revised roles reflecting post-migration responsibilities. |
-| 5.4 | 2024-11-15 | K. Weber (CPO) | Incorporated Automated Decision-Making consent per Clinical AI Platform launch (PS-CNS-009, Section 5.1.2.e). Added Consent Renewal flow in Section 5.4.4. Updated training curricula for CNS-TRN-301. |
-| 5.3 | 2024-06-10 | S. Torres (VP IT Ops) | Technical update: Revised consent propagation architecture diagram (Section 5.4.1) to reflect CDP migration to Segment. Updated propagation SLA from 15 minutes to 5 minutes (Section 5.4.2). |
-| 5.2 | 2024-01-06 | J. Lee (Privacy) | Full policy rewrite: aligned to new corporate template. Expanded procedures from conceptual guidance to step-by-step. Introduced RACI matrix, KPI framework, formal exception handling. Changed document owner to VP Customer Operations. |
-| 4.1 | 2023-05-12 | K. Weber (CPO) | Interim update: Added Minor Data Subject Consent policy (PS-CNS-008) in response to Clinical AI Platform expansion to pediatric providers. |
+| 5.0 | 2023-03-15 | J. Kim, Legal Operations | Major rewrite. Introduced granular channel consent, OneTrust Preference Center integration, and updated marketing consent rules for new SMS standards. |
+| 5.1 | 2023-07-20 | M. Chen, Customer Ops | Added Section 5.1.2 (Assisted Collection) and updated agent scripts following Service Cloud migration. |
+| 5.2 | 2023-10-05 | A. Patel, IT Security | Incorporated Technical Controls for immutable ledgering and encryption requirements (Salesforce Shield). Updated Sync failure runbook. |
+| 5.3 | 2024-01-18 | S. Davis, Training | Added Section 9 (Training Requirements) and defined new quarterly refresher modules. |
+| 5.4 | 2024-04-10 | M. Chang, VP CustOps | Full review cycle. Updated KPI targets (Section 7.1), revised exception approval tiers (Section 8.2), and formalized semi-annual audit control. |
+| 5.5 | 2024-06-25 | M. Chang, VP CustOps | Approved changes to Re-Consent Campaign procedures (Section 5.4.2) and updated Propagation Timeline SLA. Effective date version. |
+| 5.6 | 2025-10-03 | A. Reyes, Compliance | Periodic review. Updated Minor's Consent reference to new SOP-LEGL-110. Refined definitions and aligned cross-references. No procedural changes. |

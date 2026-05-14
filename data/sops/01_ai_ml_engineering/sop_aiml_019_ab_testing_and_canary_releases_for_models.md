@@ -2,10 +2,10 @@
 sop_id: "SOP-AIML-019"
 title: "A/B Testing and Canary Releases for Models"
 business_unit: "AI/ML Engineering"
-version: "4.7"
-effective_date: "2025-07-19"
-last_reviewed: "2026-11-09"
-next_review: "2027-05-15"
+version: "5.2"
+effective_date: "2025-08-25"
+last_reviewed: "2026-06-05"
+next_review: "2026-12-05"
 owner: "Dr. Marcus Rivera, Chief AI Officer"
 approver: "David Park, VP of Engineering"
 classification: "Internal"
@@ -21,762 +21,383 @@ status: "Active"
 
 ### 1.1 Purpose
 
-This Standard Operating Procedure (SOP) establishes the mandatory framework for conducting A/B testing and canary release deployments of machine learning (ML) models within Meridian Health Technologies, Inc. The purpose is to ensure that all model changes—whether new versions, architectural modifications, or hyperparameter optimizations—are validated in a controlled, statistically rigorous manner prior to full-scale production deployment. This framework is designed to protect patient safety, maintain model risk management integrity, ensure compliance with applicable regulations, and preserve the trust of healthcare providers, payers, and patients who rely on Meridian's products.
+This Standard Operating Procedure (SOP) establishes the unified framework for conducting A/B tests, multivariate tests, and canary deployments across all model types within Meridian Health Technologies' AI/ML portfolio. The procedures defined herein ensure that all model changes—from minor hyperparameter adjustments to full architectural replacements—are validated in real-world production contexts with appropriate statistical rigor, safety guardrails, and regulatory compliance before full-scale rollout.
+
+This SOP operationalizes Meridian's commitment to evidence-based model evolution, patient safety, and financial integrity. By mandating structured experimentation and graduated exposure, the organization mitigates the risk of deploying underperforming, biased, or unsafe models into clinical, financial, and analytical workflows. The framework also serves as a critical control mechanism to satisfy Meridian's obligations under the EU AI Act for high-risk AI systems, NIST AI RMF governance principles, SR 11-7 model risk management expectations, and SOC 2 change management requirements.
 
 ### 1.2 Scope
 
-This SOP applies to all models deployed or intended for deployment across all Meridian business lines:
+**In-Scope Activities and Assets:**
 
-| Business Unit | Products Covered | Model Types |
-|---|---|---|
-| Clinical AI Platform | Diagnostic imaging analysis, patient risk scoring, adverse event prediction, clinical decision support tools | All high-risk AI models per EU AI Act Annex III classification; all models with direct or indirect patient impact |
-| HealthPay Financial Services | Credit scoring models, fraud detection systems, medical lending underwriting models, claims automation classifiers | All SR 11-7 scoped models; all models influencing financial decisions or credit determinations |
-| MedInsight Analytics | Population health models, care gap identification algorithms, outcomes prediction engines | All models processing PHI or generating clinical insights |
-| Meridian SaaS Platform | Infrastructure-level models (auto-scaling predictors, anomaly detection, resource optimization) | All models supporting platform reliability and security |
+This SOP applies to all A/B testing, multivariate testing, and canary release activities involving the following model categories deployed to or intended for deployment to Production, Pre-Production Staging, or Customer-Facing Sandbox environments:
+
+| Model Category | Business Unit(s) Affected | Example Systems |
+|----------------|--------------------------|-----------------|
+| Clinical Decision Support Models | Clinical AI, Product | Radiology Triage Engine, Sepsis Early Warning System, Drug Interaction Predictor |
+| Patient-Facing Diagnostic Models | Clinical AI, Regulatory Affairs | Dermatology Image Classifier (CE-marked), Arrhythmia Detection Pipeline |
+| Clinical Workflow Optimization Models | Clinical Operations, AI/ML Engineering | ED Patient Flow Predictor, OR Scheduling Optimizer |
+| Financial Risk and Fraud Models | Financial Intelligence, Revenue Cycle | Claims Denial Predictor, Anomaly Detection System v4, Payment Integrity Engine |
+| Patient Experience and Personalization Models | Patient Engagement, Marketing | Care Gap Prioritization Engine, Appointment Adherence Predictor |
+| Core NLP/NLU and Generative Models | AI/ML Engineering, All Business Units | Meridian Clinical Language Model (MCLM), Automated Chart Abstraction Pipeline |
+| Infrastructure and MLOps Tooling | AI/ML Engineering, Platform Engineering | Model Serving Router, Feature Store Query Optimizer |
+
+**Out-of-Scope Activities:**
+
+- Standard unit, integration, and regression tests executed within CI/CD pipelines prior to deployment (governed by SOP-AIML-008).
+- Shadow deployments where a candidate model receives production traffic but returns no responses to downstream systems (governed by SOP-AIML-014).
+- Post-deployment model monitoring for already fully rolled-out models (governed by SOP-AIML-022).
 
 ### 1.3 Applicability
 
-This SOP applies to:
-
-- All AI/ML Engineering personnel, including Data Scientists, ML Engineers, MLOps Engineers, and ML Platform Engineers
-- Clinical AI product teams
-- HealthPay Financial Services modeling teams
-- MedInsight Analytics teams
-- Quality Assurance (QA) personnel involved in model validation
-- Site Reliability Engineering (SRE) teams supporting model deployment infrastructure
-- Product Managers responsible for model-centric features
-- Compliance and Risk Management personnel overseeing model governance
-
-### 1.4 Out of Scope
-
-- Pure infrastructure changes with no model behavioral impact (e.g., container base image updates without logic changes)
-- Front-end UI-only changes with no model inference pathway modifications
-- Emergency security patches (governed by SOP-SEC-042 – Emergency Change Management)
-- Non-production exploratory research conducted exclusively within sandboxed environments (governed by SOP-AIML-007 – Research and Experimentation Governance)
-
-### 1.5 Geographic Applicability
-
-This SOP applies globally to all Meridian offices and remote personnel operating in Boston, London, Berlin, Singapore, Toronto, and any future locations. Where regional regulatory requirements (e.g., EU AI Act vs. FDA requirements) diverge, the more stringent requirement shall prevail unless a formal exception is granted per Section 8 of this SOP.
+This SOP is binding upon all personnel, contractors, and third-party vendors involved in the design, approval, execution, and observation of model experiments within Meridian Health Technologies. Compliance is mandatory for all releases meeting the scope criteria defined above. Violations of this procedure shall be managed in accordance with the *Employee Corrective Action Policy* (HR-POL-042) and the *Vendor Contract Breach Management Procedure* (PROC-VEND-017).
 
 ---
 
 ## 2. Definitions and Acronyms
 
-### 2.1 Definitions
+For the purposes of this document, the following definitions and acronyms apply. Terms not defined here shall carry their standard meaning as documented in the *Meridian Corporate Glossary* (REF-DOC-001).
 
-| Term | Definition |
-|---|---|
-| **A/B Testing** | A controlled experiment in which two or more model variants (Control and Treatment(s)) are deployed simultaneously to mutually exclusive segments of production traffic, enabling statistical comparison of performance metrics under real-world conditions. |
-| **Canary Release** | A phased deployment strategy in which a new model version is initially exposed to a small, monitored subset of production traffic. Traffic is progressively increased contingent upon successful validation at each phase, enabling rapid rollback if anomalies are detected. |
-| **Control Variant** | The currently deployed production model serving as the baseline for comparison. |
-| **Treatment Variant** | The new or modified model being evaluated against the Control. |
-| **Traffic Split** | The proportion of inference requests routed to each variant, expressed as a percentage. |
-| **Shadow Mode** | A deployment configuration where a Treatment variant receives a copy of production traffic and generates predictions that are logged but not served to end-users, allowing performance evaluation without user impact. |
-| **Statistical Significance** | A determination, calculated via pre-registered hypothesis testing, that observed differences between variants are unlikely to have occurred by random chance. Meridian's default significance threshold is p < 0.05 with a minimum statistical power of 80% (β = 0.20), unless a more stringent threshold is specified in the experiment protocol. |
-| **Minimum Detectable Effect (MDE)** | The smallest meaningful difference between variants that the experiment is designed to detect, expressed in the same units as the primary evaluation metric. |
-| **Guardrail Metric** | A metric that must **not** degrade beyond a pre-specified absolute or relative threshold during an experiment, regardless of primary metric performance. Guardrail metrics protect against unintended harm (e.g., fairness degradation, error rate increases in protected subgroups, latency violations). |
-| **Rollback** | The immediate cessation of traffic routing to a Treatment variant and reversion of 100% of traffic to the Control variant or previous stable version. |
-| **Experiment Protocol** | A formal document, pre-registered in the Meridian Experiment Registry prior to experiment initiation, describing all parameters, metrics, stopping rules, and statistical analysis plans. |
-| **High-Risk AI System** | Per EU AI Act Article 6 and Annex III, an AI system intended to be used as a safety component of a product, or that poses a significant risk of harm to health, safety, or fundamental rights. All Clinical AI Platform models are classified as high-risk. |
-| **Model Risk Tier** | A classification (Tier 1-Critical, Tier 2-High, Tier 3-Moderate, Tier 4-Low) assigned per SOP-AIML-004 – Model Risk Classification and Governance, determining the minimum duration and rigor of testing required. |
-| **Stratified Sampling** | An allocation method ensuring that traffic assigned to Control and Treatment groups maintains proportional representation across pre-defined segments (e.g., demographics, clinical conditions, risk scores). |
-
-### 2.2 Acronyms
-
-| Acronym | Full Term |
-|---|---|
-| ML | Machine Learning |
-| MDE | Minimum Detectable Effect |
-| SRM | Sample Ratio Mismatch |
-| SRE | Site Reliability Engineering |
-| QA | Quality Assurance |
-| SLA | Service Level Agreement |
-| SLI | Service Level Indicator |
-| RTO | Recovery Time Objective |
-| CI/CD | Continuous Integration / Continuous Deployment |
-| PHI | Protected Health Information |
-| HIPAA | Health Insurance Portability and Accountability Act |
-| MDR | Medical Device Regulation (EU) |
-| IRB | Institutional Review Board |
-| DAG | Directed Acyclic Graph |
-| KPI | Key Performance Indicator |
-| RACI | Responsible, Accountable, Consulted, Informed |
+| Term / Acronym | Definition |
+|----------------|------------|
+| **A/B Test (Controlled Experiment)** | A randomized experiment comparing two variants—Control (A) and Treatment (B)—against a single, pre-registered Primary Success Metric over a fixed observation period. |
+| **Multivariate Test (MVT)** | A randomized experiment comparing three or more variants simultaneously, typically testing multiple independent model changes, against a pre-registered set of metrics. Requires enhanced statistical correction (e.g., Bonferroni adjustment). |
+| **Canary Release** | A graduated deployment strategy where a new model version (Canary) initially serves a minimal, tightly-controlled percentage of production traffic. Traffic is increased stepwise based on automated metric checks and manual Stage-Gate approvals. |
+| **Shadow Deployment** | A candidate model mirrors live production traffic and records predictions without returning results to downstream systems. Governed by SOP-AIML-014. Not a substitute for A/B or Canary testing as defined here. |
+| **Variant** | A distinct branch within an experiment. Includes Control (current production model) and one or more Treatments (candidate models). |
+| **Control Variant** | The currently deployed, fully-validated production model serving as the benchmark in any experiment. |
+| **Treatment Variant (Candidate)** | A new, updated, or alternative model whose performance is being evaluated against the Control. |
+| **Randomization Unit** | The atomic entity on which traffic is randomly split. Must be a stable, unique identifier. For clinical models, this is the `patient_id`. For financial models, this is the `claim_id`. For NLP models, this is the `document_hash`. |
+| **Primary Success Metric (PSM)** | The single, pre-registered metric that determines experiment success. Must be directly tied to business value or clinical safety. Examples: diagnostic sensitivity, denial overturn rate, patient wait time reduction. |
+| **Guardrail Metrics** | Pre-defined, non-primary metrics that must not degrade by a statistically significant margin during an experiment. These act as safety, fairness, and business health checks. If any guardrail is violated, the experiment may be paused or terminated, regardless of PSM status. |
+| **Minimum Detectable Effect (MDE)** | The smallest meaningful improvement over the Control that the experiment is statistically powered to detect. Set based on clinical, operational, or financial materiality. |
+| **Statistical Power** | The probability that an experiment correctly rejects the null hypothesis (no difference between variants) when a true effect of at least the MDE exists. Minimum threshold for all Meridian experiments: 80%. |
+| **Practical Significance** | A finding that, while statistically significant, represents an effect size large enough to justify the cost and operational disruption of a full rollout. All rollouts require a documented Practical Significance assessment. |
+| **Stage-Gate** | A mandatory review checkpoint within a Canary release where the Release Manager and Designated Approver must explicitly approve progression before the canary traffic percentage is increased. |
+| **Automatic Rollback** | An immediate, system-executed rollback (via the MLOps Router—see Section 6) triggered without human intervention when a Pre-Defined Catastrophic Threshold is breached. |
 
 ---
 
 ## 3. Roles and Responsibilities
 
-### 3.1 RACI Matrix
+### 3.1 Responsibility Assignment Matrix (RACI)
 
-| Activity | ML Engineer | Data Scientist | Product Manager | QA Lead | SRE | ML Platform Engineer | Chief AI Officer | Compliance Officer |
-|---|---|---|---|---|---|---|---|---|
-| Experiment Protocol Design | C | R | A | C | I | C | I | I |
-| Statistical Analysis Plan | C | R | I | C | I | I | I | I |
-| Traffic Split Configuration | R | C | I | I | C | A | I | I |
-| Guardrail Monitoring Setup | R | C | I | C | A | C | I | I |
-| Experiment Execution | R | C | I | I | C | A | I | I |
-| Daily Monitoring During Experiment | R | A | I | I | C | I | I | I |
-| Statistical Significance Determination | C | R | I | I | I | I | I | I |
-| Rollback Decision (Standard) | R | C | A | I | C | I | I | I |
-| Rollback Decision (Emergency) | I | I | I | I | R | I | A | I |
-| Experiment Conclusion Report | R | A | C | C | I | I | I | I |
-| Final Approval for Full Rollout | I | C | A | C | I | I | R | I |
-| Regulatory Compliance Review | I | I | I | I | I | I | C | R |
-| Exception Approval | I | I | C | I | I | I | R | R |
+The following matrix delineates responsibilities for the lifecycle of an A/B test or Canary release:
 
-**R = Responsible** (executes the work) | **A = Accountable** (approves and answers for outcome) | **C = Consulted** (provides input) | **I = Informed** (kept up to date)
+| Activity / Deliverable | Experiment Owner (EO) | Release Manager (RM) | Data Science Review Board (DSRB) | AI/ML Engineering (Platform) | Clinical Safety Officer (CSO) | Chief AI Officer (CAIO) |
+|---|---|---|---|---|---|---|
+| **Experiment Design Document (EDD) Authoring** | **R, A** | C | C | C | C | I |
+| **Statistical Design Approval** | C | C | **R, A** | I | I | I |
+| **Clinical / Financial Safety Review** | C | C | I | I | **R, A** | I |
+| **Traffic Routing Configuration** | I | **R** | I | **A** | I | I |
+| **Stage-Gate Review** | **R** | **A** | C | I | C | I |
+| **Rollback Decision (Standard)** | C | **R** | C | **A** | C | I |
+| **Rollback Decision (Catastrophic)** | I | I | I | **A (System)** | I | I |
+| **Final Results & Rollout Approval** | **R** | C | **R** | C | **R** | **A** |
+| **Artifact Archiving** | **R** | C | I | **A** | I | I |
 
-### 3.2 Role Descriptions
+### 3.2 Named Role Definitions
 
-**Chief AI Officer (Dr. Marcus Rivera):**
-- Ultimate accountable authority for all model A/B testing and canary release activities
-- Approves exceptions to this SOP
-- Authorizes emergency rollbacks above Tier 3
-- Reviews and signs off on all Tier 1 Critical model experiment conclusion reports
+**Experiment Owner (EO):** A senior Data Scientist or ML Engineer from the originating business unit. This individual authors the EDD, monitors the experiment's health daily, and presents final results to the DSRB. The EO must have completed the mandatory training `TRAIN-AIML-019-2` ("Advanced Statistical Experimental Design for Safety-Critical Systems").
 
-**VP of Engineering (David Park):**
-- Approves this SOP and all subsequent revisions
-- Escalation point for unresolved disputes regarding experiment design or rollback decisions
-- Authorizes infrastructure changes that affect traffic splitting capabilities at the platform level
+**Release Manager (RM):** A designated DevOps or MLOps engineer from the AI/ML Engineering Platform team. The RM is the sole executor of traffic routing changes in the Meridian MLOps Router (`mlops-router.internal.meridian.com`). All routing changes must be performed via audited Terraform Enterprise runs.
 
-**ML Engineer:**
-- Configures traffic routing rules in Meridian's ML serving infrastructure (currently MLFlow Serving with Istio/Envoy-based traffic management on Kubernetes)
-- Implements guardrail metric instrumentation
-- Monitors experiment health dashboards daily
-- Executes rollback procedures when triggered
-- Maintains experiment audit trail in the Meridian Experiment Registry
+**Data Science Review Board (DSRB):** A standing committee chaired by the VP of Biostatistics. Members include at least two Principal Statisticians and one rotating Principal Engineer. The DSRB validates all EDD statistical designs, reviews final results, and adjudicates disputes over statistical methodology. Meets weekly on Wednesdays at 14:00 ET.
 
-**Data Scientist:**
-- Designs the experiment protocol, including hypothesis formulation, metric selection, and sample size calculations
-- Conducts statistical analysis at pre-defined checkpoints
-- Determines whether statistical significance thresholds are met
-- Authors the experiment conclusion report
-- Ensures fairness metrics are evaluated per regulatory requirements
+**Clinical Safety Officer (CSO):** Dr. Anya Sharma (Chief Medical Informatics Officer). The CSO holds veto power over any clinical model experiment. The CSO must sign off on the *Safety Assessment Checklist* (Appendix A) for all experiments affecting patient-facing models.
 
-**Product Manager:**
-- Defines the business objectives and success criteria for the experiment
-- Aligns experiment design with product roadmap priorities
-- Accountable for rollback decisions (standard path)
-- Communicates experiment outcomes to stakeholders
-
-**QA Lead:**
-- Validates that experimental setup meets testing standards
-- Reviews offline evaluation results prior to experiment approval
-- Audits monitoring dashboard configurations
-- Verifies that guardrail thresholds are correctly implemented
-
-**Site Reliability Engineer (SRE):**
-- Ensures deployment infrastructure health during experiments
-- Manages alert routing and escalation for infrastructure-level anomalies
-- Responsible for emergency rollback execution when automated triggers fire
-- Monitors latency, error rate, and resource utilization SLIs
-
-**ML Platform Engineer:**
-- Maintains and operates the traffic splitting infrastructure
-- Accountable for the correctness of traffic routing mechanisms
-- Ensures experiment isolation (no cross-contamination between Control and Treatment groups)
-- Manages feature flag and experiment configuration systems
-
-**Compliance Officer:**
-- Reviews high-risk model experiments for EU AI Act compliance prior to initiation
-- Ensures documentation meets regulatory evidence requirements
-- Audits experiment registries for completeness and accuracy
-- Escalates compliance concerns directly to the Chief AI Officer
+**Chief AI Officer (CAIO):** Dr. Marcus Rivera. The CAIO holds ultimate authority over all AI/ML artifacts, including authority to mandate the termination of any experiment deemed to pose a regulatory, reputational, or ethical risk.
 
 ---
 
 ## 4. Policy Statements
 
-### 4.1 General Principles
+The following policies govern all A/B tests and Canary releases. Deviation must be authorized through the formal exception process defined in Section 8.
 
-**P-001: Mandatory Validation.** No model modification that alters inference behavior shall be deployed to 100% of production traffic without first undergoing A/B testing or canary release validation, except where explicitly exempted per Section 1.4 of this SOP.
+- **POL-019-01: Mandatory Pre-Registration.** All A/B tests and Canary releases, including all variants, metrics, sizing parameters, and success criteria, must be pre-registered in an approved Experiment Design Document (EDD) and logged in the Meridian Experiment Tracker ("Guild Tracker") *before* a single byte of experimental production traffic is routed.
 
-**P-002: Pre-Registration.** All A/B tests and canary releases must be pre-registered in the Meridian Experiment Registry with a complete Experiment Protocol at least 48 hours prior to experiment initiation. Late registrations require Chief AI Officer approval.
+- **POL-019-02: Single Primary Success Metric.** Every experiment must have exactly one, unambiguous, pre-registered Primary Success Metric (PSM) directly tied to a business or clinical Key Performance Indicator (KPI). Cherry-picking positive secondary metrics post-hoc to justify a rollout is strictly prohibited.
 
-**P-003: Informed Consent and Ethical Review.** Any A/B test involving models that directly impact patient care decisions, diagnoses, or treatment recommendations must undergo ethical review by Meridian's Clinical AI Ethics Board prior to protocol approval. The board evaluates whether the experiment design respects patient autonomy, ensures equitable distribution of risk, and provides meaningful opt-out mechanisms where applicable.
+- **POL-019-03: Mandatory Guardrails for High-Risk Models.** For EU AI Act High-Risk models (see SOP-RISK-001), Guardrail Metrics must be explicitly defined. At minimum, guardrails must monitor for fairness degradation (by protected attributes), stability, and critical safety outcomes. Breach of any guardrail triggers an automatic experiment pause and mandatory CSO review.
 
-**P-004: Fairness Monitoring.** All experiments on models processing demographic, clinical, or financial data must include pre-defined fairness guardrail metrics evaluated across at minimum the following protected attributes where available: age group, sex, race/ethnicity, and geographic region (per EU AI Act Article 10(2)(f) requirements for training data examination extended to testing). Degradation of fairness metrics beyond pre-specified thresholds constitutes an automatic stop condition.
+- **POL-019-04: Mandatory Observation Period.** No A/B test may be concluded before the expiration of the pre-registered minimum observation period. This period must account for one full business cycle (minimum 1 week) and the cycle of any external effects (e.g., month-end financial close). The absolute minimum observation period for any high-risk model is 14 calendar days.
 
-**P-005: Transparency.** The existence of any A/B test on a clinical model must be disclosed in the model's technical documentation (per EU AI Act Article 11 and Annex IV). Patients and providers must be able to ascertain, upon request, which model variant served a particular prediction affecting their case.
+- **POL-019-05: Canary Graduation Gates.** A Canary release may not progress to the next traffic percentage increment (e.g., 1% to 5%) until all pre-defined health checks on the current increment have been met for the Minimum Soak Time, and the formal Stage-Gate review has been documented by the RM.
 
-### 4.2 Experiment Design Policies
-
-**P-006: Hypothesis Pre-Registration.** All experiments must define a falsifiable null hypothesis and specify the statistical test to be employed before data collection begins. Post-hoc hypothesis modification invalidates the experiment's statistical conclusions and requires a new protocol and registration.
-
-**P-007: Sample Size Requirements.** Experiments must achieve a minimum of 80% statistical power for the pre-specified MDE. Sample size calculations must be documented in the Experiment Protocol. Experiments failing to reach the target sample size within the planned duration require an extension request or early termination analysis, both subject to the original power analysis assumptions.
-
-**P-008: Minimum Duration.** A/B tests and canary releases must run for a minimum duration to capture temporal variation:
-
-| Model Risk Tier | Minimum Duration | Minimum Full Business Cycles |
-|---|---|---|
-| Tier 1 – Critical | 14 days | 2 complete cycles |
-| Tier 2 – High | 10 days | 1 complete cycle |
-| Tier 3 – Moderate | 7 days | 1 complete cycle |
-| Tier 4 – Low | 48 hours | Not required |
-
-**P-009: Traffic Split Configuration.** Canary releases must follow a phased traffic increase schedule as specified in Section 5.3. No canary shall jump directly from initialization to 50% without passing through intermediate phases.
-
-### 4.3 Rollback Policies
-
-**P-010: Automatic Rollback Triggers.** The following conditions automatically trigger immediate rollback:
-
-- Primary guardrail metric degrades beyond its pre-specified absolute or relative threshold
-- Any fairness metric degrades by >5% relative change with p < 0.10
-- Service latency at p99 increases by >200% relative to Control
-- Error rate (HTTP 5xx or equivalent) exceeds 1% of requests
-- Any patient safety incident is reported and plausibly attributable to the Treatment variant
-- Sample Ratio Mismatch (SRM) detected with chi-squared p < 0.001
-
-**P-011: Manual Rollback Authority.** Any member of the roles listed below may initiate a manual rollback at any time if they reasonably believe continued exposure to the Treatment variant poses a risk:
-
-- Chief AI Officer
-- VP of Engineering
-- Product Manager (for their product's experiment only)
-- SRE Lead (on-call, for infrastructure-related concerns)
-- Compliance Officer (for regulatory compliance concerns)
-
-**P-012: Post-Rollback Investigation.** Every rollback, whether automatic or manual, triggers a mandatory post-incident review to be conducted within 5 business days per SOP-INC-011 – AI Incident Response and Learning.
-
-### 4.4 EU AI Act Specific Policies
-
-**P-013: High-Risk System Documentation.** For all Clinical AI Platform models classified as high-risk per EU AI Act Annex III, A/B test and canary release documentation constitutes part of the technical documentation required under Article 11. All experiment protocols, monitoring logs, and conclusion reports must be retained for a minimum of 10 years after the model is last placed on the EU market per Article 11(2).
-
-**P-014: Human Oversight.** Per EU AI Act Article 14, any A/B test on a high-risk AI system must maintain human oversight capability throughout the experiment. Human reviewers must be able to override model outputs from both Control and Treatment variants with equal facility. Oversight must not be degraded by the experimental configuration.
-
-**P-015: Accuracy and Robustness Reporting.** Performance metrics collected during A/B testing and canary releases on high-risk systems must be included in the model's accuracy and robustness reporting required under Article 15.
-
-**P-016: Serious Incident Reporting.** Any serious incident (as defined in EU AI Act Article 3(44)) or malfunction discovered during A/B testing or canary releases that could constitute a serious incident must be reported to the relevant market surveillance authority within 15 days per Article 62.
-
-### 4.5 NIST AI RMF Alignment
-
-**P-017: Risk Management Integration.** A/B testing and canary release activities are integral to Meridian's implementation of the NIST AI Risk Management Framework (AI RMF 1.0). These activities directly support the MAP function by establishing context for model behavior understanding, the MEASURE function by providing empirical performance data against defined metrics, and the MANAGE function by informing risk treatment decisions through controlled exposure and monitoring. All experiment-related risks identified shall be documented in the model's risk register and reviewed during quarterly AI risk committee meetings.
-
-**P-018: Stakeholder Engagement.** Stakeholders affected by model changes under test—including clinical end-users, patient advocacy representatives, and operational staff—shall be informed of ongoing experiments through established communication channels. Feedback received during the experiment period shall be considered in the final evaluation, though structured formal feedback collection mechanisms are developed and maintained at the business unit level.
+- **POL-019-06: Audit Trail Immutability.** All experiment configuration changes, traffic shifts, Stage-Gate approvals, and rollback events must generate immutable, timestamped audit log entries in Splunk. Logs must be retained for the period defined in SOP-DATA-011 (currently 7 years for clinical data).
 
 ---
 
 ## 5. Detailed Procedures
 
-### 5.1 Experiment Protocol Development
-
-This procedure must be completed and approved prior to any traffic being routed to a new model variant.
-
-#### 5.1.1 Protocol Document Template
-
-All experiments must use the standard Experiment Protocol Template (Form AIML-019-EPT, latest version maintained in the Meridian Document Management System). The protocol must contain the following completed sections:
-
-1. **Experiment Identification**
-   - Unique Experiment ID (format: EXP-YYYY-MM-NNN)
-   - Model Name and Version(s)
-   - Model Risk Tier
-   - Experiment Type (A/B Test | Canary Release | Shadow Mode Deployment)
-   - Business Unit and Product
-   - Primary Data Scientist (Protocol Author)
-   - Responsible ML Engineer
-   - Product Manager Approver
-
-2. **Hypothesis Statement**
-   - Null Hypothesis (H₀): The Treatment and Control variants do not differ with respect to the primary evaluation metric by more than the MDE.
-   - Alternative Hypothesis (H₁): The Treatment variant differs from the Control by at least the MDE on the primary evaluation metric.
-   - Explicit statement of directionality (one-tailed vs. two-tailed test with justification).
-
-3. **Metrics Specification**
-   - **Primary Evaluation Metric(s):** Maximum of 2. Must be defined with precise calculation methodology.
-   - **Secondary Evaluation Metrics:** Maximum of 5. Exploratory comparisons; no statistical significance claim without correction for multiple comparisons (Bonferroni or Benjamini-Hochberg).
-   - **Guardrail Metrics:** Minimum of 3. Must include at least one fairness metric per sensitive attribute and at least one operational metric (latency, error rate, or resource utilization). Each guardrail must specify an absolute threshold and a relative degradation threshold.
-
-4. **Experimental Design Parameters**
-   - Sample size calculation with assumptions and formula
-   - MDE specification
-   - Traffic split ratios per phase
-   - Randomization unit (user ID, session ID, case ID, clinical encounter ID, etc.)
-   - Stratification variables (if applicable)
-   - Planned duration and phases per Section 5.3
-
-5. **Statistical Analysis Plan**
-   - Primary statistical test (e.g., two-sample t-test, Mann-Whitney U, chi-squared)
-   - Significance threshold (α)
-   - Desired statistical power (1 - β)
-   - Interim analysis checkpoints (if planned)
-   - Multiple comparison correction method
-   - Stopping rules (efficacy and futility)
-
-6. **Risk Assessment**
-   - Identified risks specific to this experiment
-   - Mitigation controls
-   - Rollback trigger thresholds (customized from baseline in Section 4.3)
-
-7. **EU AI Act Compliance Section (for high-risk models)**
-   - Confirmation of human oversight continuity
-   - Technical documentation retention plan
-   - Serious incident reporting readiness confirmation
-
-#### 5.1.2 Protocol Approval Workflow
-
-```
-[Data Scientist drafts protocol]
-          │
-          ▼
-[Peer Review by second Data Scientist (2 business days)]
-          │
-          ▼
-[QA Lead review for guardrail adequacy (2 business days)]
-          │
-          ▼
-[ML Engineer review for implementation feasibility (2 business days)]
-          │
-          ▼
-[Product Manager approval for business alignment]
-          │
-          ▼
-{If Tier 1 or Clinical AI Platform model}
-          │
-          ▼
-[Clinical AI Ethics Board review (5 business days)]
-          │
-          ▼
-[Compliance Officer review for EU AI Act alignment (3 business days)]
-          │
-          ▼
-{All experiments}
-          │
-          ▼
-[Chief AI Officer final sign-off (Tier 1 only)]
-          │
-          ▼
-[Protocol registered in Meridian Experiment Registry]
-```
-
-Total approval lead time: 6-10 business days for Tier 2-4 models; 11-15 business days for Tier 1 models. Teams must plan experiment timelines accordingly.
-
-### 5.2 Pre-Experiment Validation
-
-Before traffic routing is enabled, the following pre-flight checks must pass:
-
-#### 5.2.1 Offline Evaluation Gate
-
-| Gate | Criteria | Required For |
-|---|---|---|
-| Offline test suite pass | All pre-defined offline evaluation test cases pass with no regressions > 2% on any metric | All tiers |
-| Adversarial robustness check | Treatment model passes Meridian's standard adversarial input test suite (AIML-SEC-TS-042) | Tier 1, Tier 2 |
-| Fairness benchmark | Treatment model's offline fairness metrics do not degrade >3% from Control on any protected attribute | All tiers |
-| Latency benchmark | Treatment model p95 latency ≤ 150% of Control p95 latency in isolated environment | All tiers |
-| Memory profile | Treatment model peak memory usage ≤ 130% of Control allocation | All tiers |
+This section constitutes the operational workflow. All steps are mandatory unless explicitly marked as conditional.
 
-QA Lead documents results in the experiment's pre-validation report (Form AIML-019-PVR).
+### 5.1 Phase 1: Experiment Design and Approval
 
-#### 5.2.2 Infrastructure Readiness
+This phase is the sole responsibility of the Experiment Owner (EO) and must be completed before an RM ticket is opened.
 
-The ML Engineer and SRE must confirm:
+#### 5.1.1 Step 1: Draft the Experiment Design Document (EDD)
 
-1. Traffic splitting infrastructure (Istio VirtualService rules) configured and tested with synthetic traffic.
-2. Monitoring dashboards deployed and populating with data (per Section 7.1).
-3. Alert thresholds configured per guardrail specifications.
-4. Rollback automation verified with a dry-run rollback test.
-5. Experiment ID tagged on all Treatment variant inference telemetry.
-6. Log isolation verified: Treatment and Control logs do not intermix in downstream pipelines.
+The EO must complete the official template `FRM-AIML-019-1` (Experiment Design Document). The EDD is a controlled document and must include the following sections at minimum:
 
-#### 5.2.3 Experiment Initiation Approval
+1.  **Experiment Hypothesis:** A clear, falsifiable business hypothesis (e.g., "Deploying the new Gradient Boosting model (v3) will reduce false-positive cardiac alerts by at least a relative 10% compared to the current LSTM model (v2), without any statistically significant increase in false-negative alerts.").
+2.  **Variant Definitions:**
+    - **Control:** Precise identification (Model Registry URI, container tag, etc.).
+    - **Treatment(s):** Precise identification for each candidate. For Canary releases, the Treatment is the new model version.
+3.  **Randomization Strategy:**
+    - **Unit of Randomization:** Must be specified (e.g., `patient_id`).
+    - **Salt & Hashing Procedure:** Procedure for salting and hashing the randomization unit to assign traffic. Standard procedure uses the `meridian-experiments` Python library, which applies a consistent SHA-256 hash using a per-project global salt.
+4.  **Metrics Framework:**
+    - **Primary Success Metric (PSM):** Exhaustive definition including source table/stream, aggregation logic, unit of measurement, and direction of good (e.g., "higher is better").
+    - **Secondary Metrics:** Informational metrics to understand side effects.
+    - **Guardrail Metrics:** Each must have a defined "no-worse-than" bound using a non-inferiority margin or a strict degradation threshold.
+5.  **Sizing and Duration:**
+    - **Minimum Detectable Effect (MDE):** Justified based on materiality.
+    - **Desired Statistical Power:** Must be >= 0.80.
+    - **Significance Level (Alpha):** Standard = 0.05.
+    - **Required Sample Size:** Calculated using a standard power analysis (the `meridian-ml.experiments.power` package is the approved tool).
+    - **Minimum Observation Period (Calendar Days):** Justified per POL-019-04.
+6.  **Safety and Ethical Assessment:** A checklist confirming review of potential biases, downstream patient impact, data privacy implications, and, for generative models, hallucination risk.
+7.  **Rollback Criteria:** Pre-defined thresholds requiring a Standard Rollback (Section 5.4).
 
-A formal Go/No-Go meeting is held with the Data Scientist, ML Engineer, Product Manager, and QA Lead. The following checklist items must be affirmed:
+#### 5.1.2 Step 2: Statistical Design Review (DSRB)
 
-- [ ] Experiment Protocol fully approved and registered
-- [ ] Offline evaluation gates passed
-- [ ] Infrastructure readiness confirmed
-- [ ] Guardrail monitoring dashboards operational
-- [ ] Rollback procedure tested
-- [ ] On-call rotation briefed on experiment
+The EO submits the completed EDD to the Data Science Review Board via the ServiceNow workflow `DSRB Review Request`. The DSRB review focuses on:
 
-Upon unanimous Go decision, the ML Engineer initiates traffic routing per Section 5.3.
+- Appropriateness of the PSM for the hypothesis.
+- Correctness of the Randomization Unit.
+- Validity of the statistical sizing and power analysis. The DSRB statistician will independently re-run the power analysis.
+- Correctness of the multiple comparison correction strategy (e.g., Bonferroni, Benjamini-Hochberg) if a Multivariate Test is proposed.
+- Guardrail metric selection and thresholds.
 
-### 5.3 Traffic Splitting and Phase Progression
+The DSRB records its decision (Approved / Revisions Requested / Rejected) in Guild Tracker. A rejection is final; a new EDD must be submitted.
 
-#### 5.3.1 Standard Canary Release Phases
+#### 5.1.3 Step 3: Clinical/Fiscal Safety Review
 
-All canary releases follow this phased progression. Advancement to the next phase requires successful completion of the current phase's monitoring period without triggering any rollback condition.
+- **High-Risk Clinical Models:** The approved EDD is routed to the CSO for a Safety Review. The CSO reviews the "Safety and Ethical Assessment" section of the EDD and may impose additional, experiment-specific guardrail metrics. The CSO signature is mandatory.
+- **Financial Models impacting Revenue Cycle (above $1M annual ARR):** The approved EDD is routed to the VP of Financial Intelligence, who serves as the Financial Safety Reviewer, analogous to the CSO.
 
-| Phase | Traffic to Treatment | Traffic to Control | Minimum Duration | Advancement Criteria |
-|---|---|---|---|---|
-| Phase 0: Shadow | 0% served; 100% logged in shadow | 100% | 24 hours | All guardrail metrics within thresholds; no critical errors in shadow logs |
-| Phase 1: Initial Exposure | 2% | 98% | 24 hours | No rollback triggers; Product Manager approval |
-| Phase 2: Low Traffic | 10% | 90% | 48 hours | No rollback triggers; QA Lead approval |
-| Phase 3: Medium Traffic | 25% | 75% | 72 hours | No rollback triggers; no fairness guardrail activations |
-| Phase 4: High Traffic | 50% | 50% | Duration per P-008 minimum from this point | No rollback triggers; interim statistical analysis showing no significant degradation |
-| Phase 5: Full Rollout | 100% | 0% | N/A (full deployment) | Final statistical analysis; Experiment Conclusion Report approved |
+### 5.2 Phase 2: Technical Implementation and Setup
 
-#### 5.3.2 Standard A/B Test Traffic Configuration
+Performed jointly by the EO and the Release Manager (RM), after Phase 1 approval.
 
-For formal hypothesis-testing experiments:
+#### 5.2.1 Step 4: RM Opens Infrastructure Ticket
 
-| Configuration Element | Requirement |
-|---|---|
-| Traffic Allocation | 50% Control / 50% Treatment, unless sample size calculation justifies unequal allocation |
-| Allocation Mechanism | Deterministic hash-based assignment on the pre-defined randomization unit; no self-selection permitted |
-| Allocation Consistency | Same randomization unit must always route to the same variant (sticky assignment) |
-| SRM Monitoring | Sample Ratio Mismatch test run every 6 hours; automated alert if chi-squared p < 0.01 |
-| Stratification Verification | If stratified sampling is employed, distribution parity across strata is validated every 24 hours |
+The RM creates a Change Request in ServiceNow (`CHG` type), linking the approved EDD Guild Tracker ID. The ticket details the infrastructure-as-code changes required.
 
-#### 5.3.3 Traffic Routing Mechanism
+#### 5.2.2 Step 5: Model Registration and Containerization
 
-Meridian's ML serving infrastructure implements traffic splitting at the service mesh layer:
+The EO ensures all treatment models are registered in the **Meridian Model Registry** (`model-registry.ml.meridian.com`). Each variant is tagged with the Guild Tracker Experiment ID. Models must be packaged as standard Meridian Inference Service (MIS) containers. The RM verifies all containers pass a vulnerability scan in Prisma Cloud.
 
-1. **Istio VirtualService** rules define weight-based traffic distribution between model variant Kubernetes Services.
-2. **Envoy sidecar proxies** in the inference service pods enforce traffic routing rules.
-3. **Consistent hashing** on the `x-meridian-randomization-unit` header ensures sticky assignment.
-4. **Telemetry headers** (`x-meridian-experiment-id`, `x-meridian-variant`) are injected and propagated through all downstream logging and monitoring systems.
-5. **Feature flag override** capability is maintained for emergency traffic shifting without deployment changes.
+#### 5.2.3 Step 6: Experiment Routing Configuration (RM & EO)
 
-The ML Platform Engineer is responsible for the correctness of this configuration. Any configuration change to traffic routing rules during an active experiment is prohibited except in the execution of a rollback.
+The RM and EO co-author the Terraform configuration for the MLOps Router (`meridian-mlops/providers/router`). This configuration defines:
 
-### 5.4 During-Experiment Monitoring
+- **Traffic Split Rules:** Initial split percentages for an A/B test (e.g., 50/50) or a Canary (e.g., 1% new / 99% current).
+- **Allocation Hashing Logic:** Terraform module that codifies the randomization unit and hashing procedure from the EDD.
+- **Shadow Traffic Rules (Optional):** If, for a Canary, the treatment model also receives shadow traffic of all requests as a diagnostic aid, this is declared here.
 
-#### 5.4.1 Daily Monitoring Checklist
+This configuration is peer-reviewed by a second MLOps engineer, then merged into the `production` branch of the `mlops-infra` GitLab repository, triggering a Terraform Enterprise plan and apply.
 
-The Responsible ML Engineer must complete the following checks at minimum once per 24-hour period during any active A/B test or canary release:
+### 5.3 Phase 3: Execution and Monitoring
 
-1. **Dashboard Review (Section 7.1 describes dashboard contents)**
-   - Primary metric trending: Are Control and Treatment diverging?
-   - Guardrail metrics: Any approaching warning thresholds (<80% of trigger threshold)?
-   - Fairness metrics: Any subgroup showing unexpected divergence?
-   - SRM test: Last chi-squared p-value > 0.05?
+This is the live phase of the experiment, from activation to conclusion.
 
-2. **Alert Review (past 24 hours)**
-   - Any guardrail warning alerts (not yet at critical)?
-   - Any infrastructure alerts (CPU throttling, memory pressure, OOM events on Treatment pods)?
-   - Any user-reported issues potentially related to model behavior?
+#### 5.3.1 Step 7: Experiment Activation
 
-3. **Log Sampling Review**
-   - Random sample of 100 Treatment inferences reviewed for obvious anomalies (e.g., out-of-range predictions, nonsensical outputs, NaN values).
-   - For Clinical AI Platform models: sample size increased to 500 inferences and review includes clinician-annotated correctness check where feasible.
+Upon Terraform apply success, the RM, following a strict change window (e.g., Tuesday 04:00-06:00 ET), runs the `publish-experiment-config` CLI command. The system confirms routing to all variants. The RM updates the ServiceNow CHG ticket to "Active" and declares the experiment start time (`T0`).
 
-4. **Daily Check-in Post in Experiment Channel**
-   - ML Engineer posts status update to the experiment's dedicated Slack channel (`#exp-{EXPERIMENT_ID}`)
-   - Template: "Day [N] - [Phase] - Traffic: Treatment [X]% / Control [Y]% - Primary metric: Control [value], Treatment [value], Δ [delta] - Guardrails: All green / [N] in warning - SRM: p=[value] - Status: CONTINUE / CONCERN / ESCALATE"
+#### 5.3.2 Step 8: Continuous Metric Monitoring
 
-#### 5.4.2 Interim Statistical Analysis
+From `T0`, the EO performs continuous (daily) health checks using the custom Meridian Experiment Dashboard in Grafana (`grafana.ml.meridian.com/d/aiml019`).
 
-For experiments with planned duration exceeding 7 days, interim analyses are conducted at the midpoint:
+**Daily Checks (EO Responsibility):**
+1.  **Sample Ratio Mismatch (SRM) Check:** A chi-squared test comparing the observed traffic ratio against the configured split. A p-value < 0.001 for SRM triggers an immediate investigation. No experiment-related decision can be made until SRM is resolved.
+2.  **Guardrail Metric Status:** Each guardrail must be checked against its "no-worse-than" bound.
+3.  **Data Quality & Latency:** Monitor for upstream data drift and model serving latency spikes.
 
-1. Data Scientist performs pre-specified interim analysis per the protocol's statistical analysis plan.
-2. If the stopping rule for efficacy is met (Treatment is conclusively superior with p < adjusted threshold), the Product Manager may decide to accelerate the phase progression schedule. Minimum durations per phase still apply.
-3. If the stopping rule for futility is met (unlikely to reach significance by planned end), the Product Manager may decide to terminate the experiment early and abandon the Treatment variant.
-4. All interim analysis results are documented in the Experiment Registry.
+**Weekly Status Report:** The EO posts a brief status update in the Slack channel `#ml-experiments-active`.
 
-### 5.5 Experiment Conclusion
+**Procedure for Guardrail Breach:**
+If any guardrail metric crosses its pre-defined breach threshold, the following occurs:
+1.  **Automated Pause:** The monitoring system (Grafana alert hook) automatically triggers a "safe-routing" event in the MLOps Router, setting the Treatment variant traffic to 0% (a full stop). An alert is fired to `#ml-experiments-active` and the RM on-call pager.
+2.  **CSO Notification (High-Risk Models):** For high-risk models, the CSO is immediately notified.
+3.  **Root Cause Analysis (RCA):** The EO and RM have 48 business hours to perform an RCA and present findings in a Guardrail Breach Report (`FRM-AIML-019-3`). The experiment may not resume without DSRB and CSO/Financial Safety Reviewer approval of the report.
 
-#### 5.5.1 Statistical Conclusion
+#### 5.3.3 Step 9: Canary Stage-Gate Process
 
-Upon completion of the planned experiment duration and achievement of the target sample size:
+This process replaces Step 8 for a graduated Canary release. Only after the Minimum Soak Time for the current traffic step (e.g., 24 hours for a 1% step) has elapsed and all health checks are "green":
 
-1. Data Scientist performs the final statistical analysis per the pre-registered plan.
-2. Results are categorized:
+1.  **EO Calls the Gate:** The EO prepares a brief Stage-Gate Report in Guild Tracker, showing the current step's PSM, Guardrails, and latency/error rate comparisons.
+2.  **RM & CSO Approve:** The RM and, for high-risk models, the CSO, provide explicit digital sign-off in Guild Tracker.
+3.  **RM Executes Next Step:** The RM executes the Terraform configuration change for the next traffic percentage (e.g., 1% -> 5%). The Minimum Soak Time resets for the new step.
 
-| Conclusion | Criteria |
-|---|---|
-| **Treatment Superior** | Primary metric improvement exceeds MDE with p < α; all guardrail metrics within thresholds; no fairness degradation |
-| **Treatment Non-Inferior** | Primary metric within MDE of Control with p < α for non-inferiority test; all guardrail metrics within thresholds |
-| **Treatment Inferior** | Primary metric degradation exceeds MDE with p < α or any guardrail metric breached |
-| **Inconclusive** | Sample size insufficient for statistical power target despite reaching planned duration; or effects observed but not reaching significance threshold |
+**Standard Canary Traffic Steps**: 1% -> 5% -> 25% -> 50% -> 100%.
 
-#### 5.5.2 Experiment Conclusion Report
+#### 5.3.4 Step 10: Final Statistical Analysis
 
-The Data Scientist authors the Experiment Conclusion Report (Form AIML-019-ECR) within 5 business days of experiment termination. The report includes:
+At the end of the pre-registered observation period, the EO stops data collection via the Guild Tracker "End Analysis Period" function. The EO performs the final analysis using the `meridian-ml.experiments.evaluate` function, which produces the official Experiment Results Report (`FRM-AIML-019-4`). The report explicitly states whether the PSM achieved statistical significance, and if Guardrails were maintained.
 
-1. Summary of experiment parameters (link to approved protocol)
-2. Actual sample sizes achieved (Control and Treatment)
-3. Final statistical analysis results with p-values and confidence intervals
-4. All primary, secondary, and guardrail metric results
-5. Fairness metric analysis across protected attributes
-6. Any deviations from protocol and their justifications
-7. Recommendation:
-   - **Proceed to full rollout** (Treatment Superior or Non-Inferior)
-   - **Abandon Treatment** (Treatment Inferior)
-   - **Extend experiment** with justification (Inconclusive)
+### 5.4 Phase 4: Closure and Rollout Decision
 
-#### 5.5.3 Full Rollout Approval
+#### 5.4.1 Step 11: Final Review Meeting
 
-Before a Treatment variant can be promoted to 100% of traffic:
+The EO presents the official Experiment Results Report to the DSRB. The meeting is conducted from the *DSRB Review* Jira project; all materials must be linked. The DSRB reviews and validates:
 
-1. Experiment Conclusion Report must be approved by:
-   - Product Manager (all tiers)
-   - Chief AI Officer (Tier 1 only)
-   - Compliance Officer (high-risk AI systems and SR 11-7 models)
-2. Model version must be tagged in the Meridian Model Registry as `production-ready`.
-3. Model card must be updated with experiment results (per SOP-AIML-008 – Model Documentation and Cards).
-4. Full rollout proceeds via the standard CI/CD pipeline, not as an extension of the experiment's traffic rules.
+- Statistical validity of results.
+- Absence of SRM issues.
+- Adequacy of observation period.
+- A **Practical Significance Assessment**, documented by the EO, which weighs the statistical effect against the operational cost of a full rollout.
 
-### 5.6 Rollback Procedure
+The DSRB votes on a recommendation: **"Roll Out"**, **"Do Not Roll Out"**, or **"Gather More Data"**.
 
-#### 5.6.1 Automated Rollback
+#### 5.4.2 Step 12: Go/No-Go Authorization
 
-When any automatic rollback trigger condition is detected (Section 4.3, P-010):
+The DSRB recommendation, the EDD, and the final report are forwarded to the CAIO (Dr. Rivera) for the final Go/No-Go decision. For clinical models, the CSO must co-sign the authorization. The CAIO decision is final and is recorded in Guild Tracker.
 
-1. Monitoring system fires `CRITICAL` alert to PagerDuty (escalation policy: ML Engineering on-call, secondary: SRE on-call).
-2. Automated rollback script (`aiml-rollback-model`) executes:
-   - Updates Istio VirtualService weight to 100% Control / 0% Treatment
-   - Gracefully drains in-flight Treatment requests (30-second timeout)
-   - Logs rollback event with full context (triggering metric, threshold, observed value, timestamp)
-   - Posts rollback notification to `#exp-{EXPERIMENT_ID}` Slack channel and `#ai-incidents`
-3. ML Engineer on-call acknowledges within 15 minutes.
-4. Post-rollback investigation initiated per SOP-INC-011.
+#### 5.4.3 Step 13: Full Rollout or Rollback (RM)
 
-**RTO Target:** Rollback completion within 2 minutes of trigger detection.
-
-#### 5.6.2 Manual Rollback
-
-When any authorized role (Section 4.3, P-011) initiates a manual rollback:
-
-1. Authorized individual executes rollback either:
-   - Via the Meridian ML Ops Dashboard "Emergency Rollback" button (requires authentication and confirms authorization scope)
-   - By direct command to SRE on-call if dashboard is unavailable
-2. Rollback procedure identical to automated steps 2-4 above.
-3. Rollback rationale documented in post-incident review.
-
-#### 5.6.3 Post-Rollback State
-
-After any rollback:
-- The experiment is placed in `TERMINATED` status.
-- Traffic remains at 100% Control until root cause analysis is complete.
-- Re-initiation of the experiment requires a new or amended Experiment Protocol addressing the root cause.
+Upon "Go" authorization, the RM executes the traffic routing change to 100% for the winning Treatment via a standard Change Request. This transition terminates the experiment phase, and the model becomes the new standard production version, subject to SOP-AIML-022 (Monitoring). If "No-Go" or "Rollback" is the decision, the RM executes the traffic shift returning the Control to 100%.
 
 ---
 
 ## 6. Controls and Safeguards
 
-### 6.1 Technical Controls
+This section details technical and administrative controls that enforce policy.
 
-| Control ID | Control Description | Implementation |
-|---|---|---|
-| TC-001 | Traffic Isolation | Istio VirtualService rules enforce strict traffic separation; Envoy sidecar configuration verified by ML Platform Engineer before experiment initiation; no cross-contamination possible at the networking layer |
-| TC-002 | Consistent Assignment | Deterministic SHA-256 hash on `x-meridian-randomization-unit` header ensures sticky variant assignment; hash seed rotated per experiment to prevent cross-experiment correlation |
-| TC-003 | Telemetry Integrity | All Treatment inferences tagged with `x-meridian-experiment-id` and `x-meridian-variant` headers; headers propagated through all services in the call graph; missing headers trigger `WARNING` log and alert if >0.1% of requests |
-| TC-004 | Automated Rollback Hook | Pre-deployed rollback automation with 2-minute RTO; dry-run tested within 24 hours of experiment initiation; health-check endpoint monitored independently of experiment metrics |
-| TC-005 | Feature Flag Kill Switch | Global kill switch (`meridian.exp.global_kill`) disables all experimental traffic routing; tested during each quarterly disaster recovery exercise |
-| TC-006 | Log Immutability | Experiment logs written to append-only storage (AWS S3 with Object Lock in compliance mode, retention 10 years per EU AI Act Article 11(2) for high-risk models); tamper-proof audit trail |
-| TC-007 | Capacity Safety Margin | Treatment variant resource allocation includes 200% headroom over offline-benchmarked requirements to absorb unexpected load; auto-scaling policies validated before Phase 1 |
+### 6.1 Technical Safeguards
 
-### 6.2 Administrative Controls
+**1. MLOps Router Traffic Control Gate:**
+The Meridian MLOps Router (`mlops-router`) is the sole point of ingress for inference requests to A/B or Canary models. Its control plane enforces all traffic splits. Features include:
+- **Atomic Assignment:** User/Patient assignment to a variant is based on a hash of the unit (e.g., `patient_id`) and a per-experiment salt. Assignment is consistent for the life of the experiment (no "carry-over" effect for users).
+- **"Zero-Traffic Kill Switch":** A single, 2FA-protected API endpoint (`POST /router/experiment/{id}/pause`) that the RM, CAIO, or CSO can invoke to immediately set all non-control traffic to 0%. This bypasses normal CI/CD and has a guaranteed execution time of < 15 seconds.
+- **Latency Circuit Breaker:** If the p99 latency for a Treatment model exceeds the Control model by a factor of 3x for a rolling 5-minute window, the router automatically isolates the Treatment, serving 100% traffic from Control. This triggers an immediate incident ticket.
 
-| Control ID | Control Description | Implementation |
-|---|---|---|
-| AC-001 | Experiment Registry | All experiments logged in the Meridian Experiment Registry (Backstage plugin backed by PostgreSQL with audit logging); entries immutable post-creation; all modifications append-only |
-| AC-002 | Pre-Registration Requirement | Experiment Protocol must be registered ≥48 hours prior to traffic routing; registry enforces timestamp check; late registrations blocked without Chief AI Officer override |
-| AC-003 | Four-Eyes Approval | Traffic routing configuration changes require approval by both the Responsible ML Engineer and the Product Manager or their delegates; enforced via GitOps pull request workflow with mandatory reviewers |
-| AC-004 | Segregation of Duties | Protocol author (Data Scientist) cannot approve their own protocol; traffic routing implementer (ML Engineer) cannot be the sole approver of phase advancement |
-| AC-005 | Ethical Review Board | Per Section 4.1 P-003, Clinical AI Ethics Board reviews all patient-impacting experiments; board includes at minimum: one practicing clinician, one patient advocate (external), one bioethicist, one regulatory specialist |
-| AC-006 | Experiment Duration Enforcement | Experiment registry automatically transitions experiments exceeding planned duration + 20% buffer without extension request to `PENDING_EXTENSION_OR_TERMINATION` status; automatic notification to Product Manager and Compliance Officer |
+**2. Automated Sample Ratio Mismatch (SRM) Detection:**
+A continuous drift-detection job runs hourly in the Databricks monitoring workspace, comparing the actual ratio of assigned units to the configured ratio. An alert is fired to the `#ml-experiments-active` Slack channel on warning (p < 0.01) and critical (p < 0.001).
 
-### 6.3 EU AI Act Specific Controls
+**3. Immutable Audit Ledger:**
+All configuration changes to the MLOps Router are managed by Terraform Enterprise. All Terraform run logs, along with structured application logs that capture every routing decision (Assignment ID, Hash, Variant Selected, Timestamp), are streamed to a write-once-read-many (WORM) audit index in Splunk.
 
-| Control ID | Control Description | EU AI Act Reference |
-|---|---|---|
-| EU-001 | Technical Documentation Retention | All experiment artifacts (protocol, monitoring logs, conclusion report, rollback records) retained for 10 years minimum in immutable storage, indexed by model version and experiment ID | Article 11(2), Annex IV |
-| EU-002 | Human Oversight Continuity | During any A/B test, human reviewers retain override capability for both Control and Treatment predictions with equal latency and availability; override rate monitored as a guardrail metric; any increase in override necessity for Treatment >10% triggers review | Article 14(1)-(5) |
-| EU-003 | Accuracy Reporting Integration | Performance metrics collected during experiments automatically fed into the model's EU AI Act technical documentation package; model cards updated within 10 business days of experiment conclusion | Article 15, Annex IV |
-| EU-004 | Serious Incident Detection Pipeline | Experiment monitoring includes automated detection of patterns matching serious incident definitions (Article 3(44)); any such detection triggers immediate rollback AND notification to Compliance Officer for Article 62 reporting evaluation | Article 62, Article 3(44) |
-| EU-005 | Fairness and Bias Documentation | Fairness guardrail metric results, including any degradations observed, documented in the technical documentation irrespective of whether thresholds were breached; serves as evidence of Article 10(2)(f) compliance during testing phase | Article 10(2)(f), Recital 44 |
-| EU-006 | CE Marking Impact Assessment | For CE-marked models under EU MDR, any A/B test that could indicate a change in the model's safety or performance characteristics triggers a notified body impact assessment per SOP-RA-027 – Regulatory Change Impact Assessment | MDR Article 120, Annex II |
+**4. Guardrail-Backed Feature Flag:**
+The experiment infrastructure is wrapped in a feature flag service (LaunchDarkly). The Canary Stage-Gate process is programmatically gated: the `rollout_percentage` flag cannot be increased if the "guardrail_breach" metric flag is in a `true` state.
 
-### 6.4 Data Privacy Controls
+### 6.2 Administrative Safeguards
 
-- No PHI is logged in experiment telemetry. All PHI is processed within the inference service boundary and stripped before telemetry emission.
-- Experiment logs, including shadow mode prediction logs, are subject to the same data access controls as production inference logs per SOP-DSG-011 – Data Classification and Handling.
-- A/B test group assignment does not persist in user-identifiable records beyond the experiment duration, except where required for regulatory audit (clinical models: group assignment retained per retention policy with justification of clinical necessity).
+- **Pre-Registration Mandate:** Guild Tracker will reject any manual traffic split configuration via Terraform Enterprise if a valid `experiment_id` from Guild Tracker is not provided in the plan. This is enforced via an Open Policy Agent (OPA) policy on the Terraform plan.
+- **Segregation of Duties:** The Experiment Owner (EO) may *define* the EDD. The Data Science Review Board (DSRB) *validates* the design. The Release Manager (RM) *executes* the technical deployment. No single individual can design and deploy without independent review.
+- **Required Review Cadence:** An open experiment that has not had a documented health check from the EO in 7 calendar days triggers an automatic Stage-Gate hold, pausing the experiment until a health check is completed.
 
 ---
 
 ## 7. Monitoring, Metrics, and Reporting
 
-### 7.1 Experiment Monitoring Dashboards
+### 7.1 Core Metrics Framework (KPIs)
 
-Every active experiment must have a dedicated monitoring dashboard provisioned from the standard Meridian Experiment Dashboard Template (Datadog dashboard template `aiml-exp-monitor-v3`). The dashboard includes the following panes:
+| KPI | Description | Measurement Method | Target / Threshold |
+|-----|-------------|--------------------|--------------------|
+| **Experiment Velocity** | Median calendar days from EDD first draft to Final Rollout Decision. | Guild Tracker lifecycle analytics. | < 30 days for non-clinical, < 60 days for clinical. |
+| **False Discovery Rate (FDR)** | Proportion of "successful" experiments (PSM met) that later exhibit degraded long-term metrics post-rollout (measured 30 days post-rollout vs. experiment period). | Difference-in-differences analysis of PSM & long-term KPI. | < 10%. Trigger for a full methodological review by DSRB. |
+| **Guardrail Breach Rate** | Percentage of experiments terminated early due to a Guardrail Metric violation. | Monthly summary from Guild Tracker. | Monitored as a process health indicator; no specific threshold set. |
+| **Rollback Duration** | Time from rollback decision (manual or automatic) to 100% traffic back on Control. | Splunk audit logs of router config changes and CLI commands. | < 60 seconds for automated, < 5 minutes for manual (during business hours). |
 
-| Pane | Content | Refresh Interval | Alerting |
-|---|---|---|---|
-| Primary Metric Comparison | Time-series line chart: Control vs. Treatment on primary metric(s), with cumulative mean overlay and confidence interval bands | 5 minutes | No direct alerting; used for visual trend detection |
-| Guardrail Metric Dashboard | Multi-panel display: each guardrail metric as a time series with warning threshold (yellow dashed line) and critical threshold (red dashed line) overlaid | 5 minutes | Warning: PagerDuty `P3` (1-hour acknowledgment) Critical: PagerDuty `P1` (5-minute acknowledgment, automatic rollback trigger) |
-| Fairness Subgroup Analysis | Small multiples: primary metric stratified by protected attribute categories, Treatment vs. Control overlaid per subgroup; relative change percentage tile per subgroup | 15 minutes | PagerDuty `P2` (15-minute acknowledgment) if any subgroup relative change exceeds protocol threshold |
-| Sample Ratio Mismatch | Bar chart: expected vs. actual traffic proportion per variant; chi-squared p-value trend line | 30 minutes (SRM test runs every 6 hours) | PagerDuty `P2` if chi-squared p < 0.01 |
-| Operational Health | Standard service health panes: p50/p95/p99 latency, request rate, error rate (5xx), CPU/memory utilization, all split by Control vs. Treatment | 1 minute | Standard SRE thresholds (SOP-SRE-001); Treatment-specific thresholds per Section 4.3 P-010 |
-| Traffic Split Visualization | Pie chart: current traffic proportion, overlaid with phase target markers; bar chart: cumulative request counts per variant | 5 minutes | No alerting; informational |
+### 7.2 Dashboards and Observability
 
-### 7.2 Key Performance Indicators (KPIs)
+The following dashboards are mandatory sources of truth during any live experiment:
 
-The AI/ML Engineering organization tracks the following KPIs related to A/B testing and canary releases:
-
-| KPI | Target | Measurement Method | Reporting Cadence |
-|---|---|---|---|
-| Experiment Protocol Pre-Registration Compliance | ≥ 98% of experiments registered ≥ 48 hours before traffic routing | Meridian Experiment Registry timestamp audit | Monthly, included in AI Governance Dashboard |
-| Canary Phase Adherence | 100% compliance; no phase skipping | Phase progression audit log review | Per experiment; aggregate monthly |
-| Rollback Rate | ≤ 10% of experiments triggering rollback | Rollback event log | Monthly |
-| Mean Time to Detect (MTTD) Guardrail Violations | ≤ 15 minutes from threshold crossing to alert acknowledgment | PagerDuty analytics + Datadog event correlation | Monthly, reviewed at ML Ops retrospective |
-| Mean Time to Recover (MTTR) Post-Rollback | ≤ 2 minutes to traffic reversion (RTO); ≤ 5 business days to root cause analysis completion | Incident management system | Per incident; aggregate quarterly |
-| Experiment Conclusion Report Timeliness | ≥ 95% submitted within 5 business days of experiment end | Experiment Registry status tracking | Monthly |
-| Fairness Guardrail Activation Rate | ≤ 5% of experiments triggering fairness guardrail | Experiment Registry event log | Quarterly, included in AI Fairness Report |
-| Stakeholder Communication Compliance | 100% of Tier 1-2 experiments have documented stakeholder notification prior to Phase 1 | Experiment Registry checklist verification | Monthly |
+1.  **AIML-019 Experiment Live Dashboard (Grafana):**
+    - **Folder:** `AI-Experiments`
+    - **Primary Panels:** Real-time PSM progression, Guardrail metric charts with breach threshold lines, Variant Request Volume & Error Rate, p-value and Confidence Interval evolution, SRM p-value over time.
+2.  **MLOps Router Service Dashboard (Datadog):**
+    - Monitors the health of the serving infrastructure itself: router CPU/memory, model container resource usage, serving latency (p50, p95, p99), gRPC/HTTP error codes.
+3.  **Guild Tracker Portfolio View:**
+    - Management-level view showing all experiments by status (Design, Active, Closed), business unit, and risk classification.
 
 ### 7.3 Reporting Cadence
 
-| Report | Audience | Frequency | Content |
-|---|---|---|---|
-| Active Experiment Status Brief | VP of Engineering, Chief AI Officer | Weekly (every Monday) | Summary of all active experiments: phase, duration elapsed/planned, any warnings or concerns |
-| Experiment Completion Summary | Product Managers, Data Science Leads | Per experiment + monthly rollup | Conclusion report summaries; win/loss/inconclusive rates |
-| Quarterly AI Testing Governance Report | Chief AI Officer, Compliance Officer, AI Ethics Board | Quarterly | Aggregate KPI performance; EU AI Act compliance metrics; incident summaries; fairness guardrail analysis; recommendations for SOP revisions |
-| Annual AI RMF Alignment Review | Chief AI Officer, CISO, General Counsel | Annual | Review of A/B testing framework against NIST AI RMF and EU AI Act; identification of gaps and remediation planning; input to SOP review cycle |
+- **Weekly (Automated):** Guild Tracker sends a "Weekly Experiment Digest" email to the AI/ML Engineering team and key stakeholders, listing all newly activated, newly paused, and newly concluded experiments.
+- **Monthly (Manual):** The AI/ML Platform team (RM lead) publishes a "Model Experimentation Health Report," analyzing the core KPIs and highlighting any policy violations or near-misses. This report is reviewed in the CAIO's monthly business review.
+- **Quarterly (Manual):** A "Model Governance Quarterly Review" is presented to the Clinical Safety and Compliance Committee, summarizing all A/B and Canary activities on high-risk clinical models, including all safety-related guardrail breaches and their RCAs.
 
 ---
 
 ## 8. Exception Handling and Escalation
 
-### 8.1 Exception Types
+This section defines the process for granting an exception to any non-negotiable control in this SOP. An exception is defined as a temporary, documented deviation from a policy statement or mandatory procedure step.
 
-| Exception Type | Definition | Examples |
-|---|---|---|
-| **Protocol Deviation** | Minor departures from the approved protocol that do not affect the validity of statistical conclusions or risk management posture | Experiment initiated 4 hours after Go/No-Go instead of immediately; daily check-in missed by 6 hours |
-| **Protocol Variance** | Departures from protocol that may affect statistical interpretation but do not increase patient or business risk | Traffic split unintentionally 52/48 instead of 50/50 for 2 hours; stratification variable not collected for 0.5% of traffic due to upstream data pipeline issue |
-| **Protocol Waiver** | Intentional exemption from a specific policy requirement, approved in advance | Skipping Phase 0 shadow mode for a latency-critical Tier 4 infrastructure model; reducing minimum duration for a model with no patient impact |
-| **SOP Exception** | Circumstances where full compliance with this SOP is not feasible or would be counterproductive to Meridian's mission | Emergency model hotfix requiring immediate deployment; model change that is objectively non-substantive but triggers SOP scope |
+### 8.1 Exception Request Process
 
-### 8.2 Exception Approval Authority
+1.  **Initiator:** The Experiment Owner files an *Experiment Exception Request* using the form `FRM-AIML-019-5` in ServiceNow. The form requires:
+    - Reference to the specific SOP policy/procedure step to be excepted.
+    - Business justification for why the exception is required.
+    - Risk assessment of the deviation, including proposed compensating controls.
+    - Expiration date for the exception (must not exceed 90 days).
+2.  **Technical Review:** The RM reviews the technical and operational risk of the proposed compensating controls.
+3.  **Business/Clinical Approval:**
+    - **Standard ML Exception:** Approved by the CAIO.
+    - **High-Risk Clinical ML Exception:** Co-approved by the CAIO and CSO.
+    - **Financial Model Exception (>$1M ARR):** Co-approved by the CAIO and Chief Financial Officer (CFO).
 
-| Exception Scope | Approver Required | Maximum Duration |
-|---|---|---|
-| Protocol Deviation (minor, self-detected) | ML Engineer + Product Manager (documentation only; no pre-approval needed if detected post-hoc) | Documented in conclusion report; no duration limit for experiment |
-| Protocol Deviation (minor, externally flagged) | QA Lead | 2 business days to resolve or escalate |
-| Protocol Variance | Product Manager + QA Lead | Duration of experiment; documented in conclusion report with impact assessment |
-| Protocol Waiver (Tier 3-4 models) | Product Manager + Chief AI Officer (delegatable to Director of ML Engineering) | Single experiment; renewed per experiment |
-| Protocol Waiver (Tier 1-2 models) | Chief AI Officer + Compliance Officer | Single experiment |
-| SOP Exception (non-clinical, non-financial model) | Chief AI Officer | Single instance; time-bound |
-| SOP Exception (clinical or financial model) | Chief AI Officer + Compliance Officer + VP of Engineering | Single instance; time-bound; documented with regulatory impact assessment |
+### 8.2 Emergency Rollback Escalation
 
-### 8.3 Exception Request Procedure
-
-1. Requestor completes the Exception Request Form (Form AIML-019-ERF) including:
-   - Experiment ID or proposed experiment identification
-   - Specific SOP section or policy identifier from which exception is sought
-   - Justification: why compliance is not feasible or appropriate in this instance
-   - Risk assessment: what risks does non-compliance introduce, and what compensating controls are proposed?
-   - Duration: if time-bound, specify start and end
-
-2. Form routed to approvers per Section 8.2 table.
-
-3. Approvers may:
-   - **Approve:** Exception recorded in Experiment Registry; approved compensating controls become binding requirements for the experiment.
-   - **Approve with Conditions:** Additional compensating controls or monitoring requirements specified; must be met for approval to take effect.
-   - **Reject:** With written rationale; requestor may revise and resubmit once.
-
-4. Approved exceptions are linked to the experiment in the Experiment Registry and visible in the experiment's audit trail.
-
-5. No experiment with a pending exception request may proceed beyond Phase 1 (Initial Exposure) until the exception is approved.
-
-### 8.4 Escalation Path
-
-```
-Issue identified by any role
-          │
-          ▼
-[Immediate supervisor or experiment's Product Manager]
-          │ (1 business day if unresolved)
-          ▼
-[Director of ML Engineering / Director of Data Science (depending on issue nature)]
-          │ (1 business day if unresolved)
-          ▼
-[Chief AI Officer]
-          │ (1 business day if unresolved)
-          ▼
-[VP of Engineering (final escalation for operational issues)]
-```
-
-For regulatory compliance concerns, the Compliance Officer has a direct escalation path to the Chief AI Officer without intermediate steps.
+In the event that an automatic rollback fails or a rollback decision cannot be executed via normal tools:
+1.  The **RM** invokes the "network isolation" runbook (`RUNBOOK-MLOPS-004`), which revokes network-level ingress permissions to the Treatment model's serving pods.
+2.  The RM immediately declares a **SEV1 incident** in PagerDuty, which pages the VP of Engineering (David Park) and the CAIO.
+3.  The SEV1 is then managed per the standard *Incident Management Procedure* (PROC-IT-101).
 
 ---
 
 ## 9. Training Requirements
 
-### 9.1 Required Training Modules
+Compliance with this SOP requires verifiable training. The role-based training matrix is as follows:
 
-| Training Module | Course Code | Required For | Frequency | Delivery Method |
-|---|---|---|---|---|
-| A/B Testing and Canary Release Fundamentals | AIML-TRN-019-BASE | All AI/ML Engineering personnel, all Data Scientists working on production models, all Product Managers overseeing model-centric features | Initial onboarding; refresher every 24 months | Self-paced e-learning (LMS) + hands-on workshop with sandbox environment (4 hours) |
-| Statistical Rigor in Online Experimentation | AIML-TRN-019-STAT | All Data Scientists, all ML Engineers involved in experiment design | Initial; refresher every 18 months | Instructor-led (2 days) covering: power analysis, sequential testing, multiple comparison correction, SRM diagnosis, stratification techniques |
-| EU AI Act Compliance for Model Testing | REG-TRN-032 | All personnel working on Clinical AI Platform models; all Compliance Officers; all QA Leads | Initial; refresher annually (due to regulatory evolution) | Instructor-led (1 day) covering: high-risk classification, technical documentation requirements, serious incident definitions, Article 14 human oversight, Article 62 reporting obligations |
-| Canary Rollback and Incident Response Drill | AIML-TRN-019-DRILL | All ML Engineers, all SREs | Initial; refresher quarterly (hands-on drill) | Simulated rollback exercise in staging environment; timed assessment; RTO must be met within 2 attempts |
+| Role(s) | Required Training | Frequency | Owner |
+|---------|-------------------|-----------|-------|
+| Experiment Owner (EO) | `TRAIN-AIML-019-1`: SOP Awareness & Guild Tracker Usage | Once, with annual refresher. | AI/ML Engineering L&D |
+| Experiment Owner (EO) | **`TRAIN-AIML-019-2`: Advanced Statistical Experimental Design** | Once, with bi-annual recertification. | DSRB (VP of Biostatistics) |
+| Release Manager (RM) | `TRAIN-AIML-019-3`: MLOps Router Operations & Terraform for Experiments | Once, with annual hands-on simulation. | AI/ML Platform Team Lead |
+| DSRB Reviewer, CSO | `TRAIN-AIML-019-4`: Regulated Model Review & Safety Assessment | Once, with annual regulatory update briefing. | Legal & Compliance |
 
-### 9.2 Training Tracking
-
-- All training completion is recorded in Meridian's Learning Management System (Workday Learning).
-- Managers are responsible for ensuring their direct reports maintain current training status.
-- Experiment Protocol submission is blocked by the Experiment Registry if the protocol author's `AIML-TRN-019-STAT` certification is expired or not on file.
-- Compliance Officer audits training compliance quarterly for all personnel working on high-risk AI systems.
-
-### 9.3 Role-Based Minimum Certification Requirements for Experiment Participation
-
-| Role | Minimum Active Certifications |
-|---|---|
-| Data Scientist (Protocol Author) | AIML-TRN-019-BASE, AIML-TRN-019-STAT; plus REG-TRN-032 if working on Clinical AI Platform models |
-| ML Engineer (Experiment Implementer) | AIML-TRN-019-BASE, AIML-TRN-019-DRILL (must be current within 90 days); plus REG-TRN-032 if implementing experiments on Clinical AI Platform models |
-| Product Manager (Experiment Approver) | AIML-TRN-019-BASE; plus REG-TRN-032 if approving experiments on Clinical AI Platform models |
-| QA Lead (Experiment Quality Reviewer) | AIML-TRN-019-BASE, AIML-TRN-019-STAT; REG-TRN-032 mandatory |
-| SRE (Infrastructure Support) | AIML-TRN-019-DRILL |
+Training completion is tracked in the Workday Learning Management System (LMS). An experiment cannot be transitioned to "Active" if the EO and RM have expired certifications for their respective mandatory trainings. This gating is enforced programmatically via the Guild Tracker API.
 
 ---
 
 ## 10. Related Policies and References
 
-### 10.1 Internal Meridian SOPs
+### 10.1 Internal Policies and SOPs
 
-| SOP ID | Title | Relationship |
-|---|---|---|
-| SOP-AIML-001 | Model Development Lifecycle | Defines the overall lifecycle that A/B testing fits within |
-| SOP-AIML-004 | Model Risk Classification and Governance | Defines the Tier system used throughout this SOP for scoping requirements |
-| SOP-AIML-007 | Research and Experimentation Governance | Governs pre-production experimentation in sandbox environments |
-| SOP-AIML-008 | Model Documentation and Model Cards | Specifies documentation update requirements triggered by experiment conclusion |
-| SOP-AIML-012 | Model Registry and Versioning | Governs model versioning; referenced for production-ready tagging post-experiment |
-| SOP-AIML-021 | Offline Model Evaluation Procedures | Defines offline evaluation gates required before experiment initiation |
-| SOP-RA-027 | Regulatory Change Impact Assessment | Triggered for CE-marked model changes; referenced in EU-006 control |
-| SOP-SEC-042 | Emergency Change Management | Governs emergency deployments; referenced as out-of-scope for standard experiment flow |
-| SOP-INC-011 | AI Incident Response and Learning | Governs post-rollback investigation and incident management |
-| SOP-DSG-011 | Data Classification and Handling | Governs PHI handling; referenced for log data privacy controls |
-| SOP-SRE-001 | Service Level Objectives and Error Budgets | Defines SRE alerting thresholds integrated with operational health monitoring |
+| Identifier | Title |
+|------------|-------|
+| SOP-AIML-008 | Model CI/CD, Validation, and Pre-Deployment Testing |
+| SOP-AIML-014 | Shadow Deployment and Latent Model Scoring |
+| SOP-AIML-022 | Production Model Monitoring and Alerting |
+| SOP-AIML-030 | Data and Model Versioning |
+| SOP-RISK-001 | AI Risk Classification and EU AI Act Compliance Framework |
+| SOP-DATA-011 | Data Retention and Archiving Policy |
+| SOP-PRIV-005 | Patient Data De-identification and Pseudonymization |
+| PROC-IT-101 | Major Incident Management Procedure |
+| HR-POL-042 | Employee Corrective Action Policy |
+| PROC-VEND-017 | Vendor Contract Breach Management Procedure |
 
-### 10.2 External Standards and Regulations
+### 10.2 External References
 
-| Reference | Description | Applicability |
-|---|---|---|
-| EU AI Act (Regulation 2024/1689) | Harmonized rules on artificial intelligence; Articles 6, 10, 11, 14, 15, 62, Annex III, Annex IV specifically referenced | Mandatory for all Clinical AI Platform models placed on EU market |
-| EU Medical Device Regulation (MDR) 2017/745 | Regulation on medical devices; CE marking requirements referenced for models classified as medical device software | Mandatory for CE-marked clinical AI products |
-| NIST AI RMF 1.0 | AI Risk Management Framework; MAP, MEASURE, MANAGE functions provide overarching risk governance structure | Adopted as Meridian's AI risk governance framework |
-| ISO 13485:2016 | Quality management systems for medical devices | Applicable to Clinical AI Platform model development processes |
-| HIPAA | Health Insurance Portability and Accountability Act | Privacy controls for PHI in experiment logs |
-
-### 10.3 Internal Tools and Systems Referenced
-
-| System | Purpose |
-|---|---|
-| Meridian Experiment Registry | Central system of record for all experiment protocols, statuses, approvals, and results (built on Backstage with PostgreSQL backend) |
-| MLFlow Serving | Model serving framework managing variant deployments |
-| Istio / Envoy (Kubernetes Service Mesh) | Traffic splitting and routing infrastructure |
-| Datadog | Monitoring, dashboarding, and alerting platform |
-| PagerDuty | Incident alerting and on-call management |
-| Workday Learning | Learning Management System for training tracking |
-| GitOps Repository (GitHub Enterprise) | Infrastructure-as-code for traffic routing configuration |
+| Identifier | Title/Description |
+|------------|-------------------|
+| **EU AI Act, Reg 2024/1689** | Title III, Chapter 2 (Requirements for high-risk AI systems); Title IV (Transparency). |
+| **NIST AI RMF 1.0** | NIST AI 100-1, especially Map, Measure, and Manage functions. |
+| **ISO/IEC 42001:2023** | Artificial Intelligence — Management System. |
+| **AICPA TSC 2022** | SOC 2 categories CC8.1 (Changes to infrastructure, data, and software), PI1.1 (Processing Integrity). |
 
 ---
 
 ## 11. Revision History
 
-| Version | Effective Date | Author | Change Summary | Approver |
-|---|---|---|---|---|
-| 1.0 | 2024-03-01 | Dr. Marcus Rivera, Chief AI Officer | Initial release. Established baseline A/B testing and canary release framework for Meridian. | David Park, VP of Engineering |
-| 2.0 | 2024-08-15 | Dr. Marcus Rivera, Chief AI Officer | Major revision. Incorporated EU AI Act requirements following publication of Regulation 2024/1689 (effective August 2024). Added clinical model-specific controls, expanded fairness guardrail definitions, introduced mandatory ethical review board gate. Extended document retention to 10 years for high-risk systems. | David Park, VP of Engineering |
-| 3.0 | 2025-01-22 | Sarah Chen, Director of ML Engineering (delegated revision) | Updated traffic routing infrastructure references from deprecated `Seldon Core` to current `MLFlow Serving + Istio/Envoy`. Revised canary phase durations based on 9 months of operational data. Added SRM monitoring requirement. Standardized dashboard template references. | Dr. Marcus Rivera, Chief AI Officer |
-| 3.3 | 2025-04-05 | Compliance Working Group | Interim revision. Added serious incident detection pipeline control (EU-004). Updated EU AI Act article references to final numbering. Clarified training certification blocking in Experiment Registry. | Dr. Marcus Rivera, Chief AI Officer |
-| 4.0 | 2025-07-19 | Dr. Marcus Rivera, Chief AI Officer | Major revision. Aligned with NIST AI RMF 1.0 adoption across Meridian. Restructured P-017/018 for RMF alignment. Introduced formal stakeholder engagement language. Expanded protocol template to include risk assessment section. Added formal exception type taxonomy and approval matrix. Increased minimum duration for Tier 1 from 10 to 14 days based on post-market surveillance data. | David Park, VP of Engineering |
-| 4.5 | 2026-02-10 | Dr. Marcus Rivera, Chief AI Officer | Interim revision. Updated RACI matrix to reflect reorganization within ML Engineering. Clarified shadow mode phase requirements. Added KPI targets and reporting cadence detail. Incorporated regulatory feedback from notified body audit. | David Park, VP of Engineering |
-| 4.7 | 2026-11-09 | Dr. Marcus Rivera, Chief AI Officer | Current version. Refined fairness monitoring requirements to include geographic region per updated regulatory guidance. Added detailed sample size calculation documentation requirements. Updated training module codes and LMS integration details. Minor procedural clarifications to phase advancement criteria. Incorporated lessons learned from 3 incident post-mortems (INC-2026-084, INC-2026-112, INC-2026-197). | David Park, VP of Engineering |
-
----
-
-**End of Document**
-
-© Meridian Health Technologies, Inc. – Internal Use Only – Distribution Controlled by Document Owner
+| Version | Date | Author | Summary of Changes |
+|---|---|---|---|
+| 1.0 | 2023-01-19 | J. Park (AI Eng) | Initial version. Focused on A/B testing for non-clinical models only. |
+| 2.0 | 2023-09-15 | M. Rivera (CAIO) | Expanded scope to include clinical models and added CSO role. Introduced mandatory guardrails. |
+| 3.0 | 2024-02-28 | L. Chen (MLOps) | Introduced Canary Release procedures and MLOps Router technical controls. Added ServiceNow integration. |
+| 4.0 | 2024-06-10 | K. O'Malley (Legal) | Major revision to align with newly approved EU AI Act requirements. Added pre-registration mandate and enhanced audit trail requirements. |
+| 4.1 | 2024-11-05 | A. Davis (DSRB) | Refined statistical procedures, added explicit SRM checks, mandated `meridian-ml.experiments` standard library. |
+| 5.0 | 2025-05-12 | R. Evans (Platform) | Integrated Canary and A/B workflows into single, unified control plane. Switched to Guild Tracker as source of truth. |
+| 5.1 | 2025-08-01 | A. Davis (DSRB) | Post-audit revision: clarified statistical power analysis requirements and MDE justification. |
+| **5.2** | **2026-06-05** | **M. Rivera (CAIO)** | **Biennial full review. Updated to align with NIST AI RMF 1.0 MAP, MEASURE, and MANAGE functions. Clarified stakeholder feedback mechanisms.** |

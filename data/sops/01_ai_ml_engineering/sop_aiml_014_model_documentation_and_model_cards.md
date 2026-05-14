@@ -3,9 +3,9 @@ sop_id: "SOP-AIML-014"
 title: "Model Documentation and Model Cards"
 business_unit: "AI/ML Engineering"
 version: "2.9"
-effective_date: "2024-10-02"
-last_reviewed: "2025-01-12"
-next_review: "2025-07-28"
+effective_date: "2025-12-20"
+last_reviewed: "2026-06-21"
+next_review: "2026-12-16"
 owner: "Dr. Marcus Rivera, Chief AI Officer"
 approver: "David Park, VP of Engineering"
 classification: "Internal"
@@ -22,35 +22,29 @@ status: "Active"
 
 ### 1.1 Purpose
 
-This Standard Operating Procedure (SOP) establishes the mandatory framework for the creation, review, approval, and maintenance of model documentation and model cards for all artificial intelligence (AI) and machine learning (ML) models developed, deployed, or procured by Meridian Health Technologies, Inc. The purpose of this framework is to ensure a standardized, auditable, and transparent record of all algorithmic systems, to facilitate robust model risk management, and to provide clear, accessible information to downstream consumers including internal developers, product teams, regulatory compliance officers, and external auditors.
+This Standard Operating Procedure (SOP) establishes the mandatory framework for the creation, review, approval, and maintenance of model documentation within Meridian Health Technologies, Inc. ("Meridian" or "the Company"). The primary objective of this SOP is to ensure that all machine learning and artificial intelligence models developed, deployed, or procured by Meridian are accompanied by complete, accurate, standardized documentation that enables effective model risk management, promotes transparency, and satisfies applicable regulatory obligations as they relate to model risk governance.
 
-This SOP operationalizes the principles of transparency and accountability by ensuring that every model is accompanied by a comprehensive dossier that describes its design, development, performance characteristics, and operational constraints. Adherence to this procedure is critical for maintaining the safety and soundness of our automated decision-making systems, particularly those within the HealthPay Financial Services business line, and for demonstrating responsible AI practices to regulators and partners.
+The secondary purpose is to operationalize the production of Model Cards as the standard vehicle for communicating model characteristics to internal stakeholders, including but not limited to model validation teams, internal audit, compliance personnel, and business unit leadership. Model Cards serve as the canonical record of a model's identity, purpose, architecture, training data, performance characteristics, limitations, and intended use boundaries.
 
 ### 1.2 Scope
 
-This SOP applies to all employees, contractors, and third-party vendors who are involved in the lifecycle of an AI/ML model at Meridian Health Technologies. The scope encompasses all models across all business units, from initial research through decommissioning.
+This SOP applies to all models, algorithms, and AI systems developed, maintained, or procured by any business unit of Meridian Health Technologies, Inc. The term "model" as used herein encompasses, but is not limited to:
 
-Specifically, the requirements herein apply to:
+- Clinical decision support algorithms deployed within the Clinical AI Platform, including diagnostic imaging analysis models, patient risk scoring engines, and adverse event prediction systems.
+- Credit scoring, fraud detection, lending decision, and payment processing models operating within the HealthPay Financial Services business line.
+- Population health analytics models, care gap identification algorithms, and outcomes prediction systems within the MedInsight Analytics platform.
+- Any supplementary or supporting models embedded within the Meridian SaaS Platform, including but not limited to natural language processing services, recommendation engines, and data transformation pipelines.
+- Third-party and vendor-supplied models that are integrated into Meridian products or used to inform business decisions affecting Meridian customers or patients.
 
-| Business Unit | Model Types Covered | Data Types | Deployment Environment |
-| :--- | :--- | :--- | :--- |
-| **Clinical AI Platform** | Diagnostic imaging analysis, patient risk scoring, adverse event prediction, clinical decision support algorithms | De-identified and PHI-radiology images, EHR data | AWS (us-east-1, eu-west-1), Azure (DR) |
-| **HealthPay Financial Services** | Credit scoring, fraud detection, claims automation, patient lending, payment integrity models | PHI, PII, financial account data, claims data | AWS (us-east-1), On-premise HSM |
-| **MedInsight Analytics** | Population health risk stratification, care gap identification, readmission prediction, outcomes forecasting | Aggregated and patient-level PHI, claims data | AWS (us-east-1), Snowflake |
-| **Meridian SaaS Platform** | Core infrastructure AI for IAM anomaly detection, platform health prediction, cost optimization | System logs, metadata | AWS (us-east-1, eu-west-1) |
-
-The scope includes:
-- All new models in development.
-- All existing models in production (retroactive documentation to be completed per Section 5.10).
-- All significant updates or retrains of existing models.
-- Models procured from third-party vendors, including those embedded in licensed software or API-accessible services.
+This SOP applies to all Meridian personnel involved in the model lifecycle, including employees, contractors, consultants, and temporary staff. The scope extends across all Meridian global offices (Boston, London, Berlin, Singapore, Toronto) and applies to models deployed in any AWS region or disaster recovery environment.
 
 ### 1.3 Exclusions
 
-The following are explicitly out of scope for this SOP:
-- Simple rule-based heuristic systems that do not learn from data (e.g., a static SQL `WHERE` clause rule). However, if such a rule is used as an output of a model or is derived from a statistical analysis of data, the source model is in scope.
-- Exploratory data analysis scripts that are not intended for production deployment.
-- General-purpose productivity tools using generative AI (e.g., Microsoft Copilot) when not integrated into Meridian products. Integration of such tools into Meridian workflows or products brings them immediately into scope.
+The following are explicitly excluded from the scope of this SOP:
+
+- Simple rule-based systems that do not involve statistical learning, optimization, or pattern recognition (e.g., static lookup tables, hard-coded branching logic without learned parameters). The determination of whether a system qualifies for this exclusion must be documented in writing and approved by the business unit's Model Owner.
+- Spreadsheet-based calculations that are not used for credit decisions, clinical recommendations, or regulatory reporting.
+- Research prototypes that have not been approved for production deployment and are not processing Production Data as defined in Section 2.1.
 
 ---
 
@@ -59,395 +53,419 @@ The following are explicitly out of scope for this SOP:
 ### 2.1 Definitions
 
 | Term | Definition |
-| :--- | :--- |
-| **Accountable Executive** | The most senior leader with authority over the business unit operating the model, ultimately answerable for model-derived decisions. |
-| **Bias** | A systematic error in a model's predictions that results in unfair or inequitable outcomes for a specific group, not related to the underlying risk or clinical reality. |
-| **Concept Drift** | A change in the statistical properties of the target variable, which the model is predicting, over time in unforeseen ways. |
-| **Data Drift** | A change in the statistical properties of the input features to the model over time. |
-| **Intended Use** | A detailed, prescriptive description of the precise purpose for which a model was designed, including the clinical or financial context, target population, and operational workflow. |
-| **Limitation** | A specific, known condition, constraint, or scenario under which the model’s performance has been shown to degrade, or where its use is not recommended or is forbidden. |
-| **Model Card** | A concise, structured, and human-readable document that provides key information about a deployed AI/ML model, intended for transparency with stakeholders. It is a summary derived from the full model documentation. |
-| **Model Documentation** | The comprehensive technical dossier, containing all design choices, data provenance, bias analyses, validation results, and risk assessments.
-| **Model Owner** | The individual (non-human-singular title) who is responsible for the day-to-day management, performance monitoring, and maintenance of a specific model. |
-| **Model Risk Management (MRM)** | The overarching framework and processes for identifying, measuring, monitoring, and controlling risks associated with the use of models. |
-| **Significant Model Update** | Any alteration to a model's architecture, hyperparameters, or training data distribution that, upon review by the Model Owner and MRM Committee, is expected to result in a material change (>5% delta) to a core performance metric (e.g., AUC, F1 score, precision, error rate) or its functional use case. |
+|---|---|
+| **Accountable Executive** | The senior leader (VP-level or above) who bears ultimate accountability for all models within a given business unit. |
+| **Critical Model** | A model designated as critical based on materiality assessment per SOP-RISK-003, considering factors such as financial impact, patient safety implications, regulatory capital requirements, and operational criticality. |
+| **Intended Use** | The specific, bounded purpose for which a model was designed, developed, and validated, including the target population, clinical or business context, and decision framework within which the model is expected to operate safely. |
+| **Material Change** | Any modification to a model's architecture, training data distribution, input features, objective function, or deployment environment that, in the judgment of the Model Owner in consultation with the Model Validation team, may materially alter the model's performance characteristics, risk profile, or suitability for its Intended Use. |
+| **Model** | A quantitative method, system, or approach that applies statistical, economic, financial, or mathematical theories, techniques, and assumptions to process input data into quantitative estimates. For purposes of this SOP, this definition encompasses all supervised and unsupervised machine learning models, deep learning networks, natural language processing systems, and ensembles thereof. |
+| **Model Card** | A structured, standardized document that provides essential information about a model's identity, intended use, architecture, training and evaluation data, performance metrics, limitations, ethical considerations, and recommended usage protocols. The Model Card template is defined in Appendix A of this SOP. |
+| **Model Owner** | The named individual (Director-level or above) responsible for the end-to-end lifecycle management of a specific model or model family, including documentation, performance monitoring, and remediation. |
+| **Model Validator** | An individual or team functionally independent from model development who is responsible for conducting independent validation activities, including documentation completeness checks. For SR 11-7 scoped models, the Model Validator must report to an organizational unit that is independent of the model development and business line functions. |
+| **Production Data** | Data that originates from or represents actual patients, customers, transactions, or operations, as distinguished from synthetic, simulated, or test data. For HealthPay Financial Services models, Production Data includes personally identifiable information (PII) and protected financial information. |
+| **SR 11-7 Model** | A model used for credit scoring, fraud detection, lending decisions, or payment processing that falls within the scope of the Federal Reserve's SR Letter 11-7 guidance on model risk management. |
 
 ### 2.2 Acronyms
 
 | Acronym | Definition |
-| :--- | :--- |
-| **AI** | Artificial Intelligence |
-| **AUROC** | Area Under the Receiver Operating Characteristic curve |
-| **CAIO** | Chief AI Officer |
-| **CCO** | Chief Compliance Officer |
-| **DPD** | Detailed Procedural Document |
-| **EU** | European Union |
-| **F1** | Harmonic mean of precision and recall |
-| **FPR** | False Positive Rate |
-| **GDPR** | General Data Protection Regulation |
-| **GRC** | Governance, Risk, and Compliance |
-| **HIPAA** | Health Insurance Portability and Accountability Act |
-| **JIRA** | Issue and project tracking software |
-| **KPI** | Key Performance Indicator |
-| **ML** | Machine Learning |
-| **MRE** | Model Risk Exception |
-| **MRM** | Model Risk Management |
-| **PHI** | Protected Health Information |
-| **RACI** | Responsible, Accountable, Consulted, Informed |
-| **RMSE** | Root Mean Square Error |
-| **SDLC** | Software Development Lifecycle |
-| **V&V** | Verification and Validation |
+|---|---|
+| AI | Artificial Intelligence |
+| CIO | Chief Information Officer |
+| CISO | Chief Information Security Officer |
+| CMO | Chief Medical Officer |
+| CPO | Chief Privacy Officer |
+| DPO | Data Protection Officer |
+| EDA | Exploratory Data Analysis |
+| F1 | Harmonic mean of precision and recall |
+| FN | False Negative |
+| FP | False Positive |
+| GDPR | General Data Protection Regulation |
+| HIPAA | Health Insurance Portability and Accountability Act |
+| KPI | Key Performance Indicator |
+| ML | Machine Learning |
+| MRE | Model Risk Evaluation |
+| PHI | Protected Health Information |
+| RACI | Responsible, Accountable, Consulted, Informed |
+| ROC-AUC | Area Under the Receiver Operating Characteristic Curve |
+| SLA | Service Level Agreement |
+| TN | True Negative |
+| TP | True Positive |
+| VP | Vice President |
 
 ---
 
 ## 3. Roles and Responsibilities
 
-The following RACI matrix defines the roles and their specific duties for the model documentation lifecycle.
+The following RACI matrix defines the responsibilities of key roles in the Model Documentation lifecycle. Each model registered in the Meridian Model Inventory System (see Section 5.2) must have these roles explicitly assigned.
 
-| Activity / Task | Model Developer | Model Owner | Quality Assurance (QA) Lead | VP of Clinical/FinServ | MRM Committee | CAIO Office | CCO / Legal |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Creation of Draft Model Docs & Card** | **R** | A | C | I | I | C | I |
-| **Technical Validation of Metrics** | C | R | **R** | I | I | A | I |
-| **Intended Use & Limitation Sign-off** | C | R | I | **A** | C | C | C |
-| **SR 11-7 Compliance Assessment** | C | R | I | C | **R** | A | C |
-| **Final Approval for Low-Risk Model** | I | R | C | C | A | **A** | I |
-| **Final Approval for High-Risk Model** | I | C | C | C | **R** | C | **A** |
-| **Annual Model Docs Revalidation** | R | **R** | C | I | A | C | I |
-| **Exception Handling & Escalation** | C | R | I | I | **A** | C | R |
+| Activity / Deliverable | Model Owner | AI/ML Engineer | Model Validator | Accountable Executive | Compliance Officer | CISO / DPO |
+|---|---|---|---|---|---|---|
+| Author initial Model Card | A | R | C | I | I | I |
+| Validate Model Card completeness | I | I | R | A | I | I |
+| Approve Model Card for production | C | I | C | A | I | I |
+| Update Model Card after Material Change | A | R | C | I | I | I |
+| Annual Model Card review and recertification | R | C | C | A | I | I |
+| Identify model as Critical per SOP-RISK-003 | R | C | C | A | I | I |
+| Escalate documentation non-compliance | R | I | R | A | C | I |
+| Confirm SR 11-7 documentation requirements met | A | C | R | I | C | I |
+| Review data privacy statements in Model Card | C | C | I | I | I | R |
+| Archive deprecated model documentation | R | C | I | A | I | I |
 
-**Key Responsibility Descriptions:**
+**R** = Responsible (performs the work) | **A** = Accountable (approves the work) | **C** = Consulted (provides input) | **I** = Informed (notified of outcome)
 
-- **Model Developer (e.g., Senior ML Engineer, Data Scientist):** Responsible for creating the initial model documentation and card by completing the `MER-FORM-AIML-014` template. They must provide complete, accurate, and evidence-backed technical information.
-- **Model Owner (e.g., Director of Credit Risk Modeling, Lead Clinical Data Scientist):** The primary point of contact for the model's documentation throughout its lifecycle. Accountable for ensuring documentation is current, accurate, and complete. Must review and approve developer drafts before wider review.
-- **Quality Assurance (QA) Lead:** Independently verifies all reported performance metrics by replicating results or reviewing source code and validation plans. Signs off on the technical accuracy of the model card's performance benchmarks.
-- **VP of Business Unit (VP of Financial Services - Robert Liu / VP of Clinical AI Products - Dr. Aisha Okafor):** Holds ultimate authority to sign off on the documented Intended Use and Limitations, confirming alignment with business strategy and product roadmap.
-- **Model Risk Management (MRM) Committee:** A cross-functional committee chaired by the CAIO. Evaluates all documentation for high-risk models, assesses inherent and residual risk, and approves the model for deployment or continued use in line with SR 11-7.
-- **Office of the Chief AI Officer (Dr. Marcus Rivera):** Provides final approval on all model documentation, ensuring adherence to this SOP and overall AI strategy. Maintains the central repository of approved model cards.
-- **Chief Compliance Officer / Legal (Thomas Anderson / Maria Gonzalez):** Consults on regulatory language, reviews documentation for compliance with legal obligations, and must approve documentation for any model under a consent order or regulatory finding.
+### 3.1 Named Role Descriptions
+
+**Dr. Marcus Rivera, Chief AI Officer**, serves as the executive sponsor for this SOP and chairs the quarterly Model Documentation Compliance Review. The CAIO may delegate operational oversight to the VP of Engineering but retains ultimate accountability for adherence to this SOP across all business units.
+
+**David Park, VP of Engineering**, is responsible for integrating the requirements of this SOP into the software development lifecycle (SDLC) and for ensuring that adequate tooling and automation exist to support Model Card generation and maintenance at scale.
+
+**Accountable Executive (Business Unit Level)**: Each business unit must designate an Accountable Executive for its models:
+- Clinical AI Platform: Dr. Aisha Okafor, VP of Clinical AI Products
+- HealthPay Financial Services: Robert Liu, VP of Financial Services
+- MedInsight Analytics: Dr. Priya Patel, Chief Medical Officer (interim)
+- Meridian SaaS Platform: David Park, VP of Engineering
+
+**Thomas Anderson, Chief Compliance Officer**, is responsible for incorporating SR 11-7 documentation requirements into the company's compliance testing program and for reporting material documentation deficiencies to the Board-level AI Governance Committee.
+
+**Model Validation Team**: An independent team reporting to the Chief Compliance Officer with a dotted line to the CAIO. This team is responsible for conducting independent reviews of Model Cards and associated documentation for all SR 11-7 Models and Critical Models.
 
 ---
 
 ## 4. Policy Statements
 
-4.1. **No Undocumented Models in Production:** No AI/ML model may be deployed to a production environment, including shadow or "dry-run" deployment, without fully approved model documentation and a corresponding model card, compliant with this SOP.
+### 4.1 Mandatory Documentation
 
-4.2. **Single Source of Truth:** The official model documentation, managed in the Meridian GRC Platform (OneTrust) and the Model Registry (MLflow), serves as the single, authoritative source of truth for all information related to a model's state, purpose, and risks.
+Meridian Health Technologies, Inc. requires that every model deployed in a production environment or used to inform a material business decision be accompanied by a completed Model Card that has been reviewed and approved in accordance with this SOP. No model shall be promoted to production status without an approved Model Card on file in the Meridian Model Inventory System.
 
-4.3. **Model Cards for External Transparency:** For any model that directly or indirectly impacts external partners, patients, or financial consumers, an approved external-facing model card must be published on the Meridian Developer Portal within 30 calendar days of deployment.
+### 4.2 SR 11-7 Compliance
 
-4.4. **Mandatory Intended Use and Limitations:** Every model card shall explicitly define a rigid, non-ambiguous Intended Use and a section detailing known Limitations. Use of the model outside of the stated Intended Use is prohibited.
+Meridian is committed to sound model risk management practices consistent with the Federal Reserve's Supervisory Guidance on Model Risk Management (SR Letter 11-7). Specifically, this SOP implements the documentation standards required by SR 11-7, which stipulates that model documentation must be sufficiently detailed to allow parties unfamiliar with the model to understand the model's functioning, limitations, and key assumptions. For SR 11-7 Models, documentation must meet the following specific requirements:
 
-4.5. **SR 11-7 Alignment for Financial Models:** All models used within HealthPay Financial Services for credit adjudication, line assignment, or fraud detection shall adhere to the validation, documentation, and governance principles specified in Federal Reserve SR Letter 11-7. The documentation package is the primary evidence for exams.
+- **Conceptual Soundness Documentation (SR 11-7 Section III.A)**: Model Cards must include a comprehensive description of the theory, logic, and assumptions underlying the model design. This includes, at minimum: (a) a detailed exposition of the mathematical and statistical methodology employed; (b) justification for the choice of methodology relative to alternatives considered; (c) description of the theoretical relationship between input variables and predicted outcomes; and (d) documentation of all expert judgment or qualitative adjustments applied.
+- **Data Integrity Documentation (SR 11-7 Section III.B)**: Model Cards must document the source, quality, and relevance of data used to develop and test the model. This must include: (a) provenance of all training, validation, and test datasets; (b) descriptive statistics for all input features, including counts of missing values and extreme observations; (c) data preprocessing and transformation steps applied; (d) assessment of data representativeness relative to the target population; and (e) documentation of any proxy variables used when ideal data was unavailable.
+- **Model Performance Testing (SR 11-7 Section III.C)**: Model Cards must document the results of performance testing, including: (a) sensitivity analysis demonstrating model behavior across a plausible range of input values; (b) back-testing results where historical data is available; (c) benchmarking against alternative models or industry standards; (d) stability analysis assessing the sensitivity of model outputs to small perturbations in inputs; and (e) stress testing results under adverse scenarios defined in SOP-RISK-004.
+- **Outcomes Analysis (SR 11-7 Section IV)**: Model Cards must contain a framework for ongoing outcomes analysis, specifying: (a) key metrics to be tracked on an ongoing basis; (b) thresholds that trigger investigation or remediation; (c) the cadence of performance monitoring (minimum monthly for Critical Models, quarterly for all other SR 11-7 Models); and (d) the responsible party for conducting and reviewing outcomes analysis.
 
-4.6. **Lifecycle Event Triggers:** Documentation must be reviewed and, if necessary, updated at the following trigger events:
-    - Prior to initial production deployment.
-    - Prior to the approval of a Significant Model Update.
-    - Within 10 business days of a material performance degradation event (e.g., a silent PagerDuty alert for model drift exceeding thresholds for >24 hours).
-    - At least annually, as part of the formal model revalidation process.
-    - Within 30 days of a major change to the underlying data source or the operational environment.
+### 4.3 Model Card Minimum Content
+
+Every Model Card produced under this SOP shall contain, at minimum, the following sections. Detailed specifications for each section are provided in Appendix A.
+
+1. **Model Identity and Versioning**: Unique identifier, version number, date of last training, owning business unit, and development team.
+2. **Intended Use and Target Population**: Precise specification of the model's intended purpose, the population on which it is designed to operate, and the decision context in which model outputs are expected to be used.
+3. **Model Architecture and Methodology**: Description of the model type, architecture, training objective, optimization algorithm, and key hyperparameters.
+4. **Training and Evaluation Data**: Description of datasets used, including source, size, time period covered, and known limitations or biases.
+5. **Performance Metrics**: Quantitative performance metrics on held-out test data, stratified by relevant subgroups where applicable.
+6. **Fairness and Bias Assessment**: Analysis of model performance across demographic or clinically relevant subgroups, with identification of any disparate performance or outcome patterns.
+7. **Limitations and Out-of-Scope Uses**: Explicit enumeration of known limitations and contexts in which the model should not be used.
+8. **Ethical Considerations**: Assessment of potential societal or individual impacts, including dual-use risks and steps taken to mitigate identified concerns.
+9. **Maintenance and Monitoring Plan**: Schedule for periodic review, performance monitoring, and conditions triggering unscheduled review.
+10. **Regulatory Compliance Mapping**: Cross-reference to applicable regulatory requirements satisfied by this documentation.
+
+### 4.4 Timeliness and Recertification
+
+Model documentation must be maintained in a current and accurate state throughout the model's production lifecycle. Specifically:
+
+- Initial Model Cards must be completed and approved prior to production deployment.
+- Updates reflecting Material Changes must be completed within 30 calendar days of the change.
+- Annual recertification of Model Card accuracy must be completed by the Model Owner by the anniversary date of the model's initial approval. Recertification includes: (a) verification that all performance metrics reflect current production performance; (b) review and update of limitations based on operational experience; (c) confirmation that the Intended Use statement remains accurate; and (d) documentation of any drift or degradation observed since last review.
+- Deprecated or decommissioned models must have their Model Cards archived with a retirement date annotation within 15 business days of decommissioning.
 
 ---
 
 ## 5. Detailed Procedures
 
-This section outlines the step-by-step procedures for creating, approving, and maintaining model documentation and model cards. The procedure is integrated with the Meridian SDLC and JIRA Model Lifecycle project (`MLC-PROJ`).
+### 5.1 Model Onboarding and Initial Documentation
 
-### 5.1 Step 1: Initiation and Template Selection
+This procedure describes the steps required to document a new model entering the Meridian model ecosystem.
 
-1.1. Upon JIRA issue creation for a new model (`JIRA: MLC-NEW`) or a significant update (`JIRA: MLC-UPD-###`), the Model Developer is assigned the task "Complete Model Documentation."
-1.2. The Model Developer accesses the official template file from the Meridian GRC SharePoint site at `https://sharepoint.meridian.tech/sites/GRC/ModelDocs/Templates/`.
-1.3. Two templates exist and must be selected based on the model's complexity and risk tier as described in SOP-RMG-002:
-    - **`MER-FORM-AIML-014a` (Standard Template):** For Tier 1 and Tier 2 models (Low/Moderate Risk).
-    - **`MER-FORM-AIML-014b` (SR 11-7 Comprehensive Template):** For Tier 3 models (High Risk) and all models within the HealthPay Financial Services business line. This template includes sections for detailed conceptual soundness review, outcome analysis, and an extensive bibliography of developmental evidence.
-1.4. The Developer creates a copy of the correct template, renames it according to the convention `ModelID_v[X.Y]_Documentation_[YYYYMMDD].docx`, and stores it in the model's dedicated GRC folder.
+#### 5.1.1 Pre-Development Documentation (Phase 0)
 
-### 5.2 Step 2: Technical Population of the Documentation Template
+Prior to commencing model development, the proposing team shall complete the following:
 
-The Model Developer must complete all applicable sections of the selected template. The following sub-sections detail the critical elements required.
+1. **Register Intent**: The Model Owner (identified by the business unit) shall submit a New Model Intent Form in the Meridian Model Inventory System. This form captures: proposed model ID, business justification, initial risk classification (per SOP-RISK-003), and designation of whether the model will process PHI or financial data.
+2. **Conduct Preliminary SR 11-7 Scoping**: The Model Owner and the Model Validation team shall jointly determine whether the proposed model falls within the scope of SR 11-7 based on its intended use in credit, fraud, or lending decisions. This determination must be documented in the Model Inventory System. If the model is classified as an SR 11-7 Model, a senior validator must be assigned as a reviewer prior to any data ingestion.
+3. **Document Data Sources**: The AI/ML engineering team shall document all anticipated data sources in the Data Source Registry module of the Model Inventory System, including: source name, data custodian, data classification (per SOP-DATA-005), expected volume, and known quality issues.
 
-#### 5.2.1 Model Identity and Executive Summary
-- **Model ID:** A unique identifier from the MLflow Model Registry (e.g., `HP-CS-V2` for HealthPay Credit Score V2).
-- **Model Name:** Human-readable name.
-- **Version:** Semantic version (e.g., `2.3.1`).
-- **Ownership:** Model Owner, Developer(s), and Accountable Executive.
-- **Business Objective:** A 3-5 sentence summary of the model's purpose, framed as a business objective to be achieved, suitable for a non-technical executive audience.
+#### 5.1.2 Development-Phase Documentation (Phase 1)
 
-#### 5.2.2 Intended Use and Limitations
-- **Intended Use:** A detailed, prescriptive statement. Must specify:
-    - The population on which the model is to be used (e.g., "All adult patients (>=18) presenting for an initial primary care visit in a non-emergency setting").
-    - The specific outcome being predicted or optimized.
-    - How the model output is designed to be used in a workflow (e.g., "The score is an input to the loan officer's decision matrix, not the sole determinant of credit approval.").
-    - The geographical and temporal validity scope (e.g., "Validated for use in the United States only, using patient data from 2019-2023. Performance is expected to be stable through 2025-12-31.").
-- **Out-of-Scope Use Cases:** Explicit statement of known misuses (e.g., "Not to be used for emergency room triage," "Not for use on pediatric populations").
-- **Limitations and Warnings:** A numbered list of specific, quantifiable limitations.
-    1.  "Performance degrades to an AUROC of 0.62 for patients with fewer than 2 years of claims history."
-    2.  "False negative rate may be unacceptably high for patients with specific rare disease codes defined in Appendix A."
-    3.  "Not validated for use with ICD-11 codes; limited to ICD-10-CM."
+During model development, the AI/ML team shall maintain a Development Log containing:
 
-#### 5.2.3 Data Provenance and Preprocessing
-- **Source Systems:** List all data sources (e.g., Snowflake `PROD_EDW_MED.CLAIMS_V`, Kafka topic `patient-registration`).
-- **Data Fields:** Comprehensive data dictionary with field name, description, data type, and PHI/PII classification.
-- **Data Splitting Strategy:** Detailed methodology for train/validation/test splits, including temporal cutoffs or stratified splitting to prevent leakage.
-- **Preprocessing Steps:** Version-controlled reference to the feature engineering pipeline code in the `meridian-ml/feature-store` Git repository.
+1. **EDA Summary**: Exploratory data analysis results, including distributions of key features, correlation matrices, identified outliers, and treatment of missing data.
+2. **Feature Engineering Log**: Documentation of all feature transformations, encodings, and derived features, with justification for each.
+3. **Algorithm Selection Rationale**: Written justification for the selected modeling approach, including a comparison of at least two candidate approaches (if only one is proposed, a written justification for why alternatives were not feasible is required).
+4. **Hyperparameter Tuning Record**: Search space definition, optimization strategy, and final selected hyperparameters with corresponding performance on the validation set.
+5. **Code Repository Reference**: Link to the version-controlled repository (GitHub Enterprise or equivalent) containing the training pipeline, tagged with the model version identifier.
 
-#### 5.2.4 Model Architecture and Training
-- **Algorithm Class:** (e.g., XGBoost, Transformer, Random Forest Classifier).
-- **Final Hyperparameters:** The exact hyperparameters used for the deployed model.
-- **Training Environment:** (e.g., SageMaker training job ID `training-job-2024-09-15-...`).
-- **Training Metrics:** Log loss, accuracy, AUROC, F1, etc., as tracked in MLflow run `[MLflow-Run-Link]`.
+The Development Log shall be maintained in a format that can be linked or appended to the final Model Card.
 
-### 5.3 Step 3: Performance Benchmarks and Ethical Considerations
+#### 5.1.3 Pre-Deployment Model Card Completion (Phase 2)
 
-This section is subject to rigorous review by the QA Lead and the MRM Committee.
+At least 14 calendar days prior to the scheduled production deployment date, the Model Owner shall submit a complete draft Model Card for review. The submission must include:
 
-#### 5.3.1 Performance Benchmarks
-This is the definitive record of model performance. The Developer must populate this section from MLflow directly. A manual override of metrics is strictly prohibited.
+1. **Completed Model Card** (all sections per Appendix A populated).
+2. **Independent Test Set Performance Report**: Results on a held-out test set that was not used during model development or hyperparameter optimization. The report must include, for SR 11-7 Models, the following minimum metrics:
+   - Confusion matrix (TP, FP, TN, FN) and derived metrics (accuracy, precision, recall, F1 score).
+   - ROC-AUC with 95% confidence interval.
+   - Calibration curve (reliability diagram) for probabilistic outputs.
+   - Performance stratified by at least three relevant demographic or risk-stratified subgroups.
+   - Kolmogorov-Smirnov (KS) statistic for rank-ordering ability.
+3. **Fairness Assessment**: For models processing individual-level data where demographic attributes are known or inferable, a fairness analysis reporting:
+   - Statistical parity difference between the most- and least-favored subgroups.
+   - Equal opportunity difference (true positive rate parity).
+   - Average odds difference.
+   - Thresholds for flagging: differences exceeding 10 percentage points require mitigation; differences exceeding 20 percentage points require escalation to the AI Governance Committee prior to deployment approval.
+4. **Stability Test Results**: Sensitivity of key performance metrics (F1, AUC) to random perturbation of input features at magnitudes of 1%, 5%, and 10% of the feature's standard deviation.
+5. **Data Quality Certificate**: Attestation from the Data Engineering team confirming that the training data pipeline has passed data quality checks per SOP-DATA-006, including completeness (>95% required for SR 11-7 models), consistency, and timeliness.
 
-**Table 5.3.1a: Aggregate Performance Metrics**
+#### 5.1.4 Model Card Review and Approval (Phase 3)
 
-| Metric | Overall Score | Threshold Target |
-| :--- | :---: | :---: |
-| **AUROC** | 0.89 | > 0.85 |
-| **F1 Score** | 0.79 | > 0.75 |
-| **Precision** | 0.82 | > 0.78 |
-| **Recall (Sensitivity)** | 0.76 | > 0.72 |
-| **RMSE** | N/A (Classification) | N/A |
+Upon submission of the complete package, the following review workflow is initiated:
 
-**Table 5.3.1b: Segment-Level Performance Metrics (Excerpt)**
-*This section must be completed for all Tier 2 and Tier 3 models, evaluating at least race, gender, and age per SOP-AIML-008.*
+| Review Stage | Reviewer | Timeline | Criteria |
+|---|---|---|---|
+| **Completeness Check** | Model Validator | 3 business days | All required fields populated; attachments present |
+| **Technical Review** | Peer AI/ML Engineer (not on development team) | 5 business days | Reproducibility of reported metrics; code review of evaluation scripts |
+| **SR 11-7 Compliance Review** | Senior Model Validator (if applicable) | 7 business days | Verification against SR 11-7 Sections III.A-III.C and IV |
+| **Privacy & Security Review** | CISO / DPO delegate | 3 business days | Data handling compliance; PHI/PII exposure assessment |
+| **Final Approval** | Accountable Executive | 3 business days | Sign-off for production deployment |
 
-| Segment | Value | AUROC | F1 Score | FPR at threshold 0.5 | Assessment |
-| :--- | :--- | :---: | :---: | :---: | :--- |
-| Race | White, Non-Hispanic | 0.90 | 0.81 | 0.20 | Pass |
-| Race | Black or African American | 0.86 | 0.74 | 0.28 | **Review** |
-| Gender | Female | 0.88 | 0.80 | 0.18 | Pass |
-| Gender | Male | 0.89 | 0.78 | 0.22 | Pass |
-| Age | 65+ | 0.82 | 0.69 | 0.30 | **Fail - Limitation Trigger** |
+If any reviewer identifies deficiencies, the Model Owner is notified and must resubmit within the original 14-day window or request an extension. Extensions beyond 30 days from initial submission require written approval from the CAIO.
 
-If any primary metric for a segment falls below the target threshold, it must be explicitly flagged as an Ethical Consideration and automatically triggers the addition of a specific Limitation statement. The "Fail" and "Review" flags in the Assessment column auto-generate a JIRA ticket for Quantitative Bias Review (`JIRA: BIAS-###`).
+Approval is recorded in the Model Inventory System with a digital signature from the Accountable Executive.
 
-#### 5.3.2 Ethical Considerations
-A narrative section addressing fairness and equity, containing:
-- **Bias Mitigation Strategy:** Describe the pre- or in-processing techniques used (e.g., re-weighting, adversarial debiasing) and reference the technical report.
-- **Disparate Impact Analysis Summary:** A plain-language summary of the fairness metrics, referencing the full report in SOP-AIML-008.
+### 5.2 Model Inventory System
 
-### 5.4 Step 4: Documentation Review and Approval Workflow
+The Meridian Model Inventory System (accessible at `https://model-inventory.internal.meridian.com`) serves as the system of record for all model documentation. The system maintains:
 
-Once the Model Developer signs off on the draft, the document enters the formal review workflow in the Meridian GRC Platform.
+- A unique Model ID for each registered model (format: `MER-ML-[BUSINESS_UNIT]-[SEQUENTIAL]`, e.g., `MER-ML-CLIN-0147`).
+- Version-controlled Model Cards with full audit trail (creation, modification, approval timestamps and actor identities).
+- Automated workflow routing for review and approval per Section 5.1.4.
+- Searchable metadata including business unit, model type, risk classification, SR 11-7 status, and review due dates.
 
-1.  **Developer Review:** Developer self-attests to completeness and technical accuracy, attaching all evidentiary links. Assigns to Model Owner.
-2.  **Model Owner Review:** The Model Owner performs a thorough review of the document. If issues are found, it is returned to the Developer. If approved, it is assigned to the QA Lead.
-3.  **QA Lead Validation:** The QA Lead independently reproduces the performance benchmark figures from the test dataset and the production MLflow run. The QA Lead must sign off on a `QA Validation Checklist` confirming the results are within a ±1% tolerance of the metrics in the document. Signs off in GRC and assigns to the Business VP.
-4.  **Business VP Sign-off:** The relevant VP (Dr. Aisha Okafor for Clinical, Robert Liu for Financial Services) reviews and formally signs off on the Intended Use and Limitations. This signature is a regulatory attestation that the business will not use the model for other purposes.
-5.  **MRM Committee / CAIO Office Approval (Risk-Tier Dependent):**
-    - **Tier 1 Models:** Auto-approved upon Business VP sign-off. A notification is sent to the CAIO Office for final registration.
-    - **Tier 2 Models:** The CAIO Office (or delegate) performs a final completeness check and grants approval.
-    - **Tier 3 Models (including all HealthPay models):** The full package is presented to the MRM Committee at its next weekly meeting. The committee votes on a formal "Approval to Deploy" motion per Section 5 of the MRM Committee Charter (SOP-RMG-001). The CCO/Legal representative must concur for the approval to be valid.
-6.  **Final Registration:** Upon final approval, the GRC system automatically:
-    - Sets the document status to `Approved`.
-    - Registers the model ID and version in the central Model Inventory.
-    - Publishes the model card to the internal API endpoint.
-    - Creates a task for the Developer to publish the external model card, if applicable.
+All Model Cards must be stored in this system. No model may exist in production without a corresponding entry. IT Operations, under the direction of the VP of Engineering, is responsible for maintaining the availability, integrity, and backup of the Model Inventory System with a recovery time objective (RTO) of 4 hours and a recovery point objective (RPO) of 1 hour.
 
-**SLA Timelines for Reviewers:**
+### 5.3 Material Change Documentation
 
-| Role | Max Time in Review (Calendar Days) |
-| :--- | :---: |
-| Model Owner | 5 |
-| QA Lead | 10 |
-| Business VP | 7 |
-| MRM Committee / CAIO | 14 (from next meeting date) |
+When a Material Change (as defined in Section 2.1) is made to a model, the documentation update procedure is:
 
-### 5.5 Step 5: Model Card Generation and Publication
+1. **Change Impact Assessment**: The Model Owner completes a Material Change Assessment Form documenting: (a) nature and rationale of the change; (b) expected impact on model performance; (c) comparison of pre- and post-change performance on a consistent test set; (d) determination of whether the change requires re-approval or supplemental approval.
+2. **Model Card Revision**: Updated sections of the Model Card are drafted, with change bars indicating modifications from the previous version.
+3. **Validation Scope Determination**: The Model Validator reviews the Change Impact Assessment and determines the scope of re-validation required:
+   - **Minor Change**: Targeted review of affected sections; 5 business day turnaround.
+   - **Significant Change**: Full re-validation of performance and fairness metrics; 10 business day turnaround.
+   - **Fundamental Change**: Model treated as new; full Phase 0-3 process applies; 30 business day timeline.
+4. **Re-Approval**: Updated Model Card is routed through the review workflow (Section 5.1.4) at the validation level determined above. Final approval is required from the Accountable Executive.
+5. **Version Archive**: The prior version of the Model Card is archived with the effective end date recorded. Retention of archived versions is indefinite.
 
-The model card is an immutable, versioned JSON file (conforming to the `meridian-model-card-schema-v2`) generated from the final approved documentation.
+### 5.4 Annual Recertification Procedure
 
-5.5.1. The GRC Platform's `ModelCardPublisher` module auto-populates the JSON file by extracting data from the `MER-FORM-AIML-014a/b` document.
-5.5.2. The Model Owner is notified to review the JSON. After approval, the JSON file's hash is immutably stored.
-5.5.3. The model card is published to two endpoints:
-    - **Internal:** `api.meridian.tech/internal/model-cards/` for cross-team transparency and integration with Datadog dashboards.
-    - **External:** `developer.meridian.tech/cards/` (for applicable models), providing a clean, branded HTML view of the model card for customers and partners.
-5.5.4. The external model card includes a "Subscribe to Updates" function, managed by the Customer Operations team under VP Michael Chang, which notifies subscribers of critical changes to limitations or intended use.
+By the first business day of the model's anniversary month, the Model Inventory System generates an automated notification to the Model Owner. The procedure is:
 
-### 5.6 Step 6: Specific Procedures for HealthPay Financial Services Models (SR 11-7 Alignment)
+1. **Performance Refresh**: The Model Owner, in coordination with the operations/MLOps team, shall re-execute the evaluation pipeline against the current production model using either: (a) the most recent three months of production data (for models with continuous inference), or (b) a contemporary hold-out sample drawn from production data (for batch-scored models). Metrics reported must match those in the original Model Card.
+2. **Drift Assessment**: Compare current metrics to the metrics reported in the most recently approved Model Card. Thresholds:
+   - ROC-AUC degradation >5 absolute percentage points: requires investigation and remediation plan within 60 days.
+   - F1 score degradation >7 absolute percentage points: requires investigation and remediation plan within 60 days.
+   - KS statistic below 30% for SR 11-7 credit models: immediate escalation to CCO and CAIO.
+3. **Limitations Review**: Review the limitations section against operational incident reports (from Jira Service Management or equivalent) to identify any new limitations not captured in the existing documentation. Any incident classified as P1 or P2 (per SOP-INC-001) that involved model error or unexpected behavior MUST be documented as a new limitation or risk.
+4. **Recertification Attestation**: The Model Owner submits a signed attestation confirming: (a) review of current performance against benchmarks; (b) accuracy of Intended Use statement; (c) no unreported drift; and (d) any updates made to limitations or ethical considerations.
+5. **Validator Spot Check**: The Model Validation team randomly samples 20% of annual recertifications for full independent review. Models flagged for spot check are notified to the Model Owner within 5 business days of recertification submission.
 
-This procedure applies in addition to the steps above for all HealthPay models, directly addressing supervisory expectations under SR 11-7.
+### 5.5 Third-Party and Vendor Model Documentation
 
-`[Note: This section is intentionally detailed to demonstrate thorough SR 11-7 coverage as per Federal Reserve guidance on Model Risk Management.]`
+For models procured from third-party vendors, the Procurement team shall ensure that the vendor contract includes a requirement for delivery of documentation equivalent to a Meridian Model Card. Specifically:
 
-#### 5.6.1 Evidence of Developmental Evidence per SR 11-7, Attachment 1
-The documentation package must be self-contained and demonstrate rigorous conceptual soundness. The `MER-FORM-AIML-014b` template includes a dedicated "Conceptual Soundness Dossier" appendix, which must contain:
-- **A. Theory and Design:** A detailed white paper describing the theory, statistical methodology, and a literature review of alternative approaches considered. Reference to the specific JIRA research spike (`JIRA: RSCH-###`).
-- **B. Data Evaluation:** An in-depth analysis of data quality, completeness, and representativeness. This must include a formal analysis of missing data mechanisms (MCAR, MAR, MNAR) and the impact of any imputation strategies on model outcomes.
-- **C. Variable Selection:** A rigorous justification for the selection of every predictor variable, including bivariate and multivariate analyses. The iterative feature elimination process must be documented and reproducible.
+1. **Pre-Procurement Assessment**: The Model Owner (assigned by the procuring business unit) shall complete a Vendor Model Assessment, evaluating the vendor's documentation against the standards of this SOP. Gaps shall be documented in a Gap Analysis Report.
+2. **Contractual Requirement**: Vendor agreements must stipulate delivery of: model architecture description, training data characteristics (sufficient to assess representativeness), performance benchmarks, known limitations, and intended use boundaries. For SR 11-7 Models provided by vendors, the contract must also require annual updated performance reports benchmarked against Meridian-specific data.
+3. **Internal Model Card Creation**: Within 45 calendar days of vendor model receipt, the assigned Model Owner shall produce an internal Model Card based on vendor documentation, supplemented by Meridian-led evaluation on Meridian data. Gaps shall be explicitly identified.
+4. **Risk Acceptance**: Where gaps cannot be remediated, the Accountable Executive and CCO must jointly sign a Risk Acceptance Memorandum, which is filed with the Model Card and reviewed annually.
 
-#### 5.6.2 Independent Validation per SR 11-7, Section III.B
-An independent validation report, produced by a party not responsible for model development or use, is required. For Meridian, this function is fulfilled by the QA Lead, who must not report to David Park (VP of Engineering) but instead has a dotted-line reporting capability to the MRM Committee. The independent validation report must include:
-- **Outcome Analysis (Back-testing):** Detailed comparison of model predictions against actual outcomes on an out-of-time sample. A table showing actual vs. predicted loss rates across deciles must be included, along with a binomial test of the distribution of outcomes.
-- **Sensitivity Analysis:** An assessment of the model's sensitivity to changes in key inputs. This must show the marginal effect on the credit score of a 10% shock to critical macroeconomic variables (e.g., unemployment rate under CECL scenarios).
-- **Benchmarking:** Direct comparison of the model's performance against a challenger model or an incumbent model, using the same out-of-time dataset. The QA Lead must explain and justify any performance degradation.
+### 5.6 Deprecated Model Archiving
 
-#### 5.6.3 Ongoing Monitoring Plan per SR 11-7, Section III.C
-The documentation must include a link to the live, automated monitoring plan. This is not a static document but a pointer to the specific Datadog dashboard and PagerDuty service configuration for the model.
-- **Monitoring Dashboard (`dashboard-meridian-{modelID}`).** Must exist at the time of model approval.
-- **Key Drift Metrics Tracked:** Population Stability Index (PSI), Characteristic Stability Index (CSI) for top 10 features, and Kolmogorov-Smirnov (KS) statistic on credit scores.
-- **Alerting Thresholds:** PagerDuty alerts must be configured to fire a `Severity-3` warning for a PSI > 0.1 and a `Severity-2` critical alert for a PSI > 0.25, directly to the Model Owner and the Dev Ops on-call rotation.
+When a model is decommissioned:
 
-### 5.7 Step 7: Post-Deployment Monitoring and Revalidation
-
-7.7.1. The Model Owner is responsible for reviewing the live Datadog dashboards daily for any anomalies.
-7.7.2. Every quarter, the Model Owner generates an "Automated Quarterly Model Health Report" (JIRA Automation `ML-QR-GEN`). This report, compiled from Datadog logs versus the benchmarks in the model card, is submitted to the CAIO office for review.
-7.7.3. The annual revalidation process (Step 5.10) includes a full re-execution of the back-testing and sensitivity analysis by the QA Lead, documented as an addendum to the original validation report.
-
-### 5.8 Step 8: Model Card for Third-Party Models
-
-For vendor-supplied models (e.g., a credit score from a major bureau):
-8.1. The Procuring Manager (with support from the Vendor Risk Management team) is the Model Owner.
-8.2. They must complete the `MER-FORM-AIML-014c` Third-Party Model Documentation Supplement, demanding equivalent information from the vendor.
-8.3. If the vendor provides their own model card in a standard format, it can be attached, but the Meridian supplement evaluating the vendor's card against our standards must be completed. Any gaps (e.g., vendor does not provide segment-level performance) must be documented as a Limitation and an MRE (Model Risk Exception, see Section 8) must be filed.
-
-### 5.9 Step 9: Decommissioning a Model
-
-9.1. To decommission a model, the Model Owner must create a JIRA issue: `JIRA: MLC-RET-###`.
-9.2. Attach a "Model Decommissioning Report" to the model documentation, which details the reason for retirement, the date of final inference, the disposal of model artifacts, and the plan for monitoring any residual downstream impacts.
-9.3. The MRM Committee reviews the decommissioning report at its next weekly meeting. If approved, the model's status in the MLflow Registry is changed to `Archived`. The model card JSON and all documentation remain in the GRC system as an immutable audit record but are marked with a `Decommissioned` badge.
-
-### 5.10 Step 10: Retroactive Documentation for Existing Models
-
-A phased approach is mandated for all models that were in production prior to the effective date of this SOP version (2024-10-02).
-
-| Model Tier | Inventory Completion Deadline | Full Documentation & Approval Deadline | Accountable Leader |
-| :--- | :--- | :--- | :--- |
-| Tier 3 (High Risk) | 2024-11-15 | 2025-01-31 | Dr. Marcus Rivera, CAIO |
-| Tier 2 (Moderate Risk) | 2024-12-31 | 2025-03-31 | Respective VPs |
-| Tier 1 (Low Risk) | 2025-01-31 | 2025-06-30 | Respective Directors |
-
-The CCO, Thomas Anderson, will provide a monthly compliance status report to the Executive Leadership Team, tracking completion against these deadlines. Non-compliance will be escalated per Section 8 of this SOP.
+1. The Model Owner updates the Model Card status to "Deprecated" with an effective date.
+2. A final performance summary covering the model's operational period is appended.
+3. All associated documentation (Model Card, validation reports, development logs) is archived to the long-term retention repository.
+4. Retention period: 10 years from date of deprecation for SR 11-7 Models; 5 years for all others.
+5. The Model Inventory System entry is marked as read-only, with metadata indicating archive location.
 
 ---
 
 ## 6. Controls and Safeguards
 
-### 6.1 Technical Controls
+### 6.1 Access Controls
 
-| Control ID | Control Description | Tool/Implementation |
-| :--- | :--- | :--- |
-| **TEC-AIML-014-01** | Immutable documentation versions are enforced. All approved documents are hashed (SHA-256) and stored in a write-once-read-many (WORM) compliant GRC repository. | Meridian GRC Platform (OneTrust) |
-| **TEC-AIML-014-02** | Model registry enforces a gated promotion policy. A model artifact cannot be moved from the `Staging` to `Production` stage unless the status of the linked documentation object in the GRC system is `Approved`. | MLflow Model Registry API integration with OneTrust GRC API |
-| **TEC-AIML-014-03** | Performance metric population in the model card template must be automated and auditable. A direct API link between the MLflow run and the GRC template is the only permitted method for populating final benchmark tables. Manual typing is blocked. | MLflow Tracking API, GRC Form Automation |
-| **TEC-AIML-014-04** | Access to "Approved" model documentation is read-only for all roles except the GRC Administrators in the CAIO office and the CISO’s office. Editing requires a new version (check-out/check-in process). | Role-Based Access Control (RBAC) in Meridian GRC Platform, synced with Okta (`group: grc_modeldoc_admin`) |
-| **TEC-AIML-014-05** | An audit log captures all views and changes to the documentation, providing a non-repudiable chain of custody. | AWS CloudTrail, OneTrust audit logs |
+Access to Model Cards in the Model Inventory System is governed by role-based access control (RBAC):
 
-### 6.2 Administrative Controls
+| Role | Access Level |
+|---|---|
+| Model Owners | Read/Write for owned models; Read for all models |
+| AI/ML Engineers | Read/Write for assigned models; Read for team models |
+| Model Validators | Read for all models; Write for validation review sections |
+| Compliance / Audit | Read for all models; Download capability |
+| Accountable Executives | Read for business unit models; Write for approval |
+| External Auditors | Read-only (time-limited, approved by CISO) |
 
-- **Segregation of Duties:** The QA Lead performing the independent validation per SR 11-7 (Section 5.6.2) must not have been involved in the model's development. Their compensation and performance review are structured to not be dependent on model deployment timelines.
-- **Committee Governance:** The MRM Committee must maintain a documented quorum, including the CAIO, CCO (or delegate), and at least one non-voting technical expert. Formal meeting minutes documenting all approval and risk acceptance decisions are mandatory.
-- **Mandatory Templates:** Only officially approved templates (`MER-FORM-AIML-014a/b/c`) may be used. Any deviation requires a formal template exemption approved by the CAIO office.
+Modification of any approved Model Card requires explicit check-out from the system, which generates an audit trail entry recording the user, timestamp, and nature of the change.
+
+### 6.2 Segregation of Duties
+
+Consistent with SR 11-7 principles, the following segregation requirements are enforced:
+
+- No individual may serve as both the Model Owner and the Model Validator for the same model.
+- Model Validators must be organizationally independent from model development. For SR 11-7 Models and Critical Models, the validation function reports to the Chief Compliance Officer, not to the AI/ML Engineering organization.
+- Approval decisions for SR 11-7 Model Cards require signatures from both the Accountable Executive (business) and an independent validator (independent control function).
+
+### 6.3 Audit Trail
+
+The Model Inventory System maintains an immutable audit log recording:
+
+- Every access to a Model Card (user, timestamp, action).
+- Every modification to a Model Card (before/after snapshots).
+- Every approval or rejection action.
+- Every Material Change Assessment.
+
+Audit logs are retained for the life of the model plus 7 years, consistent with Meridian's record retention policy (SOP-COMP-008).
+
+### 6.4 Version Control
+
+Model Cards are subject to semantic versioning:
+
+- **Major version** (X.0): Incremented upon fundamental re-development or re-architecture.
+- **Minor version** (X.Y): Incremented upon Material Change that does not constitute a fundamental change.
+- **Patch version** (X.Y.Z): Incremented upon non-material updates, errata corrections, or routine recertification with no substantive changes.
+
+The current approved version is the only version considered authoritative. Access to previous versions is read-only and available for audit and comparison.
 
 ---
 
 ## 7. Monitoring, Metrics, and Reporting
 
-### 7.1 Process KPIs for Model Documentation
+### 7.1 Key Performance Indicators
 
-These KPIs measure the health and compliance of the documentation process itself and are reported to the MRM Committee monthly.
+The following KPIs shall be tracked and reported monthly to the CAIO and quarterly to the AI Governance Committee:
 
-| KPI | Target | Owner | Dashboard Tile |
-| :--- | :---: | :--- | :--- |
-| **Documentation Completeness** | 100% of Tier 3 models, 95% of Tier 1 & 2 | Model Owners | GRC_DOCS_001 |
-| **Average Time-to-Approval (Tier 3)** | < 30 calendar days from initial submission | MRM Committee Chair | GRC_DOCS_002 |
-| **Overdue Annual Revalidations** | 0 | CAIO Office | GRC_DOCS_003 |
-| **Models Flagged with Active MREs (Model Risk Exceptions)** | < 5% of total model inventory total | CCO | GRC_RISK_001 |
+| KPI | Target | Measurement Method |
+|---|---|---|
+| **On-Time Initial Documentation** | ≥95% of models approved prior to production deployment | Automated flag in Model Inventory System; violations reported monthly |
+| **Material Change Update Timeliness** | ≥90% updated within 30 calendar days | Tracked by change event timestamp vs. revised approval timestamp |
+| **Annual Recertification On-Time Rate** | ≥95% completed by anniversary date | System-generated due dates vs. completion dates |
+| **SR 11-7 Documentation Conformance** | 100% of SR 11-7 models have all required sections fully populated | Quarterly audit by Model Validation team; sample of 100% of SR 11-7 models |
+| **Documentation Defect Rate** | <5% of spot-checked cards have identified gaps | Independent review by CCO designee; random sample of 10% of all active Model Cards quarterly |
+| **Post-Deployment Documentation Completeness** | <2% of production models lacking approved Model Card | Reconciliation of Model Inventory System vs. production model registry |
 
-### 7.2 Quarterly Documentation Health Audits
+### 7.2 Reporting Cadence
 
-The CAIO office will perform a random sampling audit each quarter, selecting 10 models (with a mandatory minimum of 3 HealthPay models). The audit checks:
-- Existence and currency of all required documentation.
-- Accuracy and completeness of the Intended Use and Limitations against current product functionality.
-- Validity of all links in the model card (Datadog dashboards, source code, etc.).
-- Adherence to the review and sign-off workflow.
+| Report | Frequency | Audience | Prepared By |
+|---|---|---|---|
+| Documentation Compliance Dashboard | Monthly | CAIO, Accountable Executives | Model Validation Team |
+| SR 11-7 Conformance Report | Quarterly | CCO, CAIO, Board AI Governance Committee | Compliance Officer |
+| Annual DSR Process Effectiveness Review | Annually | CCO, CAIO, CPO | Privacy Office |
+| Exception Tracking Log | Continuous | CAIO, Accountable Executives | Model Inventory System (automated) |
 
-A report of the audit is presented to the Board-level AI Governance Committee.
+### 7.3 Escalation Triggers
+
+Automated alerts are generated by the Model Inventory System under the following conditions:
+
+- A model enters production without an approved Model Card (alert to CAIO and Accountable Executive; response required within 24 hours).
+- Annual recertification is 15 days overdue (alert to Model Owner and Accountable Executive).
+- Annual recertification is 30 days overdue (alert to CAIO; Model Owner status changed to "Non-Compliant").
+- Post-deployment reconciliation detects a production model with no Model Inventory entry (alert to CAIO and CISO for immediate investigation).
 
 ---
 
 ## 8. Exception Handling and Escalation
 
-### 8.1 Model Risk Exception (MRE) Process
+### 8.1 Exception Request Process
 
-Any deviation from the requirements of this SOP must be formally managed through the Model Risk Exception process.
+In circumstances where strict compliance with a provision of this SOP is infeasible, a formal exception request may be submitted. The process is:
 
-1.  **Identification:** The Model Owner identifies a non-compliance or a need to deviate from the standard process (e.g., inability to obtain segment-level data from a vendor, requesting a 10-day extension to complete the revalidation).
-2.  **Submission:** The Model Owner creates a `Model Risk Exception` record in the GRC system, linked to the model's record. The submission must include:
-    - A clear description of the non-compliance.
-    - A documented compensating control or justification.
-    - An impact assessment explaining the risk of accepting the exception.
-    - A proposed remediation plan with a hard deadline (not to exceed 90 days).
-3.  **Approval Authority:**
-    - **Minor Exceptions** (e.g., extension of an annual review deadline by < 30 days, minor template field omission): Approval by the Director of Model Risk Management in the CAIO Office.
-    - **Major Exceptions** (e.g., deploying a Tier 3 model without full segment-level fairness analysis, accepting an external model card without performance benchmarks, any exception related to a credit model): Approval by the full MRM Committee, with mandatory non-concurrence documentation from the CCO if the exception is accepted.
-4.  **Tracking:** All open MREs are tracked on the GRC_RISK_001 dashboard. Any MRE exceeding its remediation deadline is automatically escalated to the CEO, Dr. Sarah Chen, and the CISO, Rachel Kim, for a formal risk acceptance decision.
+1. **Initiation**: The Model Owner submits a Documentation Exception Request (Form DER-014, available in the Compliance Portal) specifying: (a) the specific SOP provision for which exception is sought; (b) the rationale for non-compliance; (c) the proposed alternative control or compensating measure; (d) the duration for which the exception is needed; and (e) an assessment of risk associated with the exception.
+2. **Risk Assessment**: The Model Validation team evaluates the exception's impact on model risk and documentation integrity.
+3. **Approval Authority**:
+   - Exceptions for non-SR-11-7 models with duration ≤60 days: Accountable Executive and CAIO.
+   - Exceptions for SR 11-7 models or duration >60 days: Accountable Executive, CAIO, and CCO.
+   - Exceptions exceeding 90 days: Must be escalated to the Board AI Governance Committee.
+4. **Tracking**: All approved exceptions are logged in the Exception Tracking module of the Model Inventory System, visible to auditors and regulators upon request. Expired exceptions without resolution trigger automatic escalation.
+5. **Review**: All open exceptions are reviewed at the quarterly AI Governance Committee meeting. Recurring exceptions for the same model or business unit trigger a root-cause analysis requirement.
 
-### 8.2 Emergency Escalation
+### 8.2 Escalation Path
 
-If a critical model failure is observed that violates the stated Limitations or renders the model documentation dangerously inaccurate (e.g., a 50% drift in population stability overnight), the Model Owner must:
-1.  Immediately initiate a `Severity-1` PagerDuty incident using the `model-risk-immediate` service.
-2.  This pages the VP of Engineering (David Park), the on-call SRE, the CISO (Rachel Kim), and the CAIO (Dr. Marcus Rivera).
-3.  Within two hours, the incident commander (first responder from the on-call rotation) must decide whether to automatically roll back the model to the last known good version or shut down its API endpoint, per SOP-OPS-120.
-4.  A post-mortem analysis, including an immediate update to the model card, is required within 48 hours. This is a regulatory-critical process for financial models under SR 11-7.
+For issues that cannot be resolved at the operational level:
+
+1. **Level 1**: Model Owner and Model Validator cannot reconcile a documentation dispute → escalate to Accountable Executive.
+2. **Level 2**: Accountable Executive cannot resolve within 5 business days → escalate to CAIO and CCO jointly.
+3. **Level 3**: CAIO and CCO cannot reach agreement within 10 business days → escalate to CEO or designated executive committee member for binding resolution.
+4. **Level 4 (Regulatory)**: Any documentation issue that may impact regulatory compliance, particularly SR 11-7 obligations, must be escalated to the CCO within 24 hours of identification, regardless of other resolution efforts.
 
 ---
 
 ## 9. Training Requirements
 
-### 9.1 Mandatory Training
+### 9.1 Initial Training
 
-All personnel in the "Responsible" or "Accountable" roles in the RACI matrix must complete the following training.
+All personnel assigned to roles defined in Section 3 of this SOP shall complete the following training within 30 days of role assignment:
 
-| Training Module | Code | Frequency | Target Audience | Delivery Method |
-| :--- | :--- | :--- | :--- | :--- |
-| **SOP-AIML-014 Compliance Training** | TRN-AI-014 | Annually | Model Developers, Owners, QA, VPs | Meridian LMS (Workday) - Interactive Course & Assessment |
-| **SR 11-7 Model Risk Management for AI/ML** | TRN-RMG-110 | Annually | All HealthPay Model Developers, Owners, and the MRM Committee | Instructor-led by CCO Thomas Anderson |
-| **Writing Effective Intended Use and Limitations** | TRN-AI-015 | Once, and then upon SOP update | All Model Developers and Owners | Workshop led by Dr. Aisha Okafor's design team |
-| **Bias Detection and Fairness Analysis** | TRN-AI-008 | Annually | All Model Developers, QA Leads | Online Course via Coursera for Enterprise |
+| Training Module | Target Audience | Duration | Delivery Method |
+|---|---|---|---|
+| SOP-AIML-014 Awareness and Compliance | All Model Owners, AI/ML Engineers, Validators | 2 hours | LMS (Workday Learning) |
+| SR 11-7 Documentation Standards | Model Owners and Validators for SR 11-7 models | 3 hours | Instructor-led (quarterly sessions) |
+| Model Card Authoring Workshop | AI/ML Engineers | 4 hours | Hands-on workshop with sample datasets |
+| Bias Detection and Fairness Analysis | All AI/ML Engineers | 2 hours | LMS + case study exercise |
+| Model Inventory System Usage | All users | 1.5 hours | System walkthrough + sandbox exercise |
 
-### 9.2 Training Compliance Tracking
+### 9.2 Annual Refresher Training
 
-The Chief Human Resources Officer, Jennifer Walsh, is accountable for ensuring the Meridian LMS (Workday) accurately tracks training completion. A "Training Compliance" dashboard is published monthly, and 100% completion is required for any individual to be granted permissions to the MLflow `Staging` or `Production` environments. The Okta integration with MLflow will automatically suspend access for any user whose mandatory training is >30 days past due.
+All individuals with active Model Owner responsibilities or validation duties must complete an annual refresher covering:
+
+- Updates to this SOP (if version has changed since last training).
+- Lessons learned from documentation deficiencies identified during audits.
+- Changes to regulatory requirements affecting SR 11-7 compliance.
+
+Refresher training must be completed by December 15 of each calendar year. Completion rates are tracked and reported to the CAIO.
+
+### 9.3 Training Records
+
+Training completion is recorded in Workday Learning and linked to the individual's compliance profile. The CCO's office conducts quarterly reconciliation to identify any individuals with overdue training and notifies their managers.
 
 ---
 
 ## 10. Related Policies and References
 
-### 10.1 Internal Meridian SOPs
+### 10.1 Internal SOPs and Policies
 
-| SOP ID | Policy Name | Relationship |
-| :--- | :--- | :--- |
-| SOP-RMG-001 | Model Risk Management Governance and Committee Charter | Defines the MRM Committee that governs this procedure. |
-| SOP-SEC-005 | Access Control and Identity Management Policy | Governs the Okta RBAC for GRC and MLflow. |
-| SOP-AIML-008 | Algorithmic Fairness, Bias Testing, and Remediation | Details the fairness and bias analysis referenced in Section 5.3. |
-| SOP-AIML-022 | Model Inventory and Lifecycle Management | The procedural counterpart for model asset management. |
-| SOP-DATA-003 | Data Classification and Handling Standard | Governs PHI/PII data source annotations in the model card. |
-| SOP-GRC-010 | Regulatory Exam and Audit Management | Manages interactions with auditors reviewing model documentation. |
-| SOP-OPS-120 | Incident Management and Major Incident Response | Governs the emergency escalation in Section 8.2. |
+| Document ID | Title | Relationship |
+|---|---|---|
+| SOP-RISK-003 | Model Risk Classification and Materiality Assessment | Defines criteria for Critical Model designation |
+| SOP-RISK-004 | Model Stress Testing and Scenario Analysis | Defines adverse scenarios for stress testing documentation |
+| SOP-DATA-005 | Data Classification and Handling | Governs data classification referenced in documentation |
+| SOP-DATA-006 | Data Quality Management | Defines data quality checks for training pipelines |
+| SOP-MLOPS-002 | Model Deployment and Lifecycle Management | Governs production deployment gating |
+| SOP-COMP-008 | Records Retention and Archiving | Defines retention periods for documentation |
+| SOP-INC-001 | Incident Management and Response | Incident classification used in limitations review |
+| SOP-VALD-001 | Independent Model Validation | Validation standards and procedures |
 
 ### 10.2 External References
 
-| Reference | Description |
-| :--- | :--- |
-| Federal Reserve SR Letter 11-7 | Guidance on Model Risk Management |
-| Meridian Model Card Schema v2 (`meridian-model-card-schema-v2.json`) | JSON/YAML schema definition for model cards |
-| Meridian MLflow Tracking Server Operations Guide | Internal wiki for MLflow usage standards |
-| HITRUST CSF v11 | Control framework for security and privacy controls |
+- Board of Governors of the Federal Reserve System, SR Letter 11-7: "Supervisory Guidance on Model Risk Management" (April 4, 2011)
+- Federal Reserve SR Letter 11-7 Attachment: "Guidance on Model Risk Management"
+- Meridian Health Technologies Model Risk Management Policy (CORP-POL-011)
 
 ---
 
 ## 11. Revision History
 
-| Version No. | Effective Date | Author(s) | Description of Changes |
-| :--- | :--- | :--- | :--- |
-| 1.0 | 2021-05-15 | Dr. Elena Ross (former CAIO) | Initial creation of formal Model Card procedure. Aligned with initial SOC 2 requirements. |
-| 2.2 | 2022-11-08 | Dr. Marcus Rivera | Major revision. Introduced Tiered risk approach and mandatory model card JSON schema. Integrated with MLflow. |
-| 2.5 | 2023-03-22 | Thomas Anderson (CCO) | Added specific SR 11-7 evidentiary requirements in Section 5.6 for HealthPay models per Federal Reserve feedback. |
-| 2.8 | 2024-02-10 | Dr. Aisha Okafor & Robert Liu | Clarified Intended Use/Limitation sign-off roles. Added detailed SLAs to the review workflow (Section 5.4). |
-| 2.9 | 2024-10-02 | Dr. Marcus Rivera | Finalized retroactive documentation mandate (Section 5.10). Strengthened independent QA validation controls. Added emergency escalation contact list. Effective date for v2.9 mandate. |
+| Version | Date | Author | Description of Changes |
+|---|---|---|---|
+| 1.0 | 2020-03-15 | J. Martinez | Initial publication establishing basic Model Card framework. |
+| 2.4 | 2021-08-12 | K. Chen | Added Material Change definition; expanded Third-Party section; updated templates in Appendix A. |
+| 2.6 | 2023-02-28 | L. Osei | Comprehensive update: integrated SR 11-7 specific requirements; added fairness metrics; expanded validation procedures for SR 11-7 models; updated RACI to include Compliance Officer for SR 11-7 models. |
+| 2.7 | 2024-05-17 | M. Rivera | Revised scoring thresholds; added KS statistic monitoring; updated segregation of duties language; introduced annual recertification spot check; clarified training requirements for SR 11-7 documentation. |
+| 2.8 | 2025-06-10 | M. Rivera, T. Anderson | Added Section 4.5 timeliness and recertification policy; updated Section 5.6 archiving retention periods; refined KPI targets; added escalation path in Section 8.2; minor corrections to definitions. |
+| 2.9 | 2025-12-20 | M. Rivera, D. Park | Incorporated feedback from 2025 internal audit: strengthened exception handling controls; added 24-hour alert for undocumented production models; expanded training requirements matrix; reorganized Section 5 for clarity; updated thresholds for drift assessment; this version approved following full review by AI Governance Committee. |
+
+---
+
+**END OF DOCUMENT**
+
+*© Meridian Health Technologies, Inc. This document contains proprietary and confidential information. Unauthorized reproduction or distribution is prohibited. Access is restricted to authorized personnel per the classification designation.*

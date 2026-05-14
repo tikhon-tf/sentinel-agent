@@ -2,10 +2,10 @@
 sop_id: "SOP-AIML-012"
 title: "GPU and Compute Resource Management"
 business_unit: "AI/ML Engineering"
-version: "3.5"
-effective_date: "2025-12-03"
-last_reviewed: "2026-03-20"
-next_review: "2026-09-23"
+version: "5.2"
+effective_date: "2024-05-01"
+last_reviewed: "2025-08-20"
+next_review: "2026-02-24"
 owner: "Dr. Marcus Rivera, Chief AI Officer"
 approver: "David Park, VP of Engineering"
 classification: "Internal"
@@ -20,663 +20,447 @@ status: "Active"
 
 ### 1.1 Purpose
 
-This Standard Operating Procedure (SOP) establishes the framework for the lifecycle management, provisioning, monitoring, and decommissioning of Graphics Processing Unit (GPU) and high-performance compute (HPC) resources at Meridian Health Technologies, Inc. The exponential growth of large language models (LLMs), diffusion models for diagnostic imaging, and real-time patient risk scoring engines requires a disciplined approach to resource allocation that balances the velocity of AI innovation against the material cost footprint of our infrastructure.
-
-This document defines the operational controls necessary to ensure that compute resources—particularly the scarce and expensive GPU instances powering the Clinical AI Platform and MedInsight Analytics—are allocated based on business priority, utilized efficiently, and continuously optimized to prevent resource hoarding, idle capacity, and unbudgeted cloud expenditure.
+The purpose of this Standard Operating Procedure (SOP) is to establish a unified, enterprise-wide framework for the provisioning, allocation, monitoring, and cost governance of Graphics Processing Unit (GPU) and general compute resources across all business units of Meridian Health Technologies, Inc. Effective compute resource management is critical to maintaining the performance and reliability of production AI systems that directly impact patient care, financial operations, and population health analytics. This SOP defines the mechanisms by which Meridian balances the competing demands of model development velocity, production inference throughput, cost efficiency, and regulatory compliance obligations associated with high-risk AI systems.
 
 ### 1.2 Scope
 
-This SOP applies to all compute resources within the Meridian SaaS Platform infrastructure that are classified as accelerated compute, including but not limited to:
+This SOP applies to all compute and GPU resources utilized within the Meridian technology ecosystem, including but not limited to the following environments and services:
 
-| Resource Category | Examples | Primary Use Cases |
+| Environment | Scope | Primary Infrastructure |
 |---|---|---|
-| GPU Instances (Training) | Amazon EC2 p4d.24xlarge, p5.48xlarge | Model training, fine-tuning clinical LLMs, diffusion model training for diagnostic imaging |
-| GPU Instances (Inference) | Amazon EC2 g5.xlarge, g5.12xlarge, AWS Inferentia2 | Real-time inference endpoints for patient risk scoring, imaging analysis, fraud detection |
-| GPU Instances (Development) | Amazon EC2 g4dn.xlarge, g4dn.2xlarge | Model development, experimentation, Jupyter notebook environments |
-| HPC CPU Clusters | Amazon EC2 c6i.32xlarge, hpc6id.32xlarge | Population health analytics batch processing, claims data transformation |
-| Vector Database Compute | Pinecone index pods, GPU-accelerated vector search | MedInsight patient similarity search, clinical document retrieval |
+| Production | All customer-facing systems, Clinical AI inference endpoints, HealthPay scoring engines, MedInsight analytics pipelines | AWS us-east-1, eu-west-1, Azure DR |
+| Staging | Pre-production validation environments mirroring production configurations | AWS us-east-1, eu-west-1 |
+| Development | Model training, experimentation, JupyterHub workspaces, CI/CD pipelines | AWS us-east-1, eu-west-1, SageMaker |
+| DR / BCP | Azure failover compute clusters for Tier-1 services | Azure East US 2, North Europe |
 
-**In Scope:**
-- Provisioning, allocation, and decommissioning of all GPU and HPC compute instances across AWS us-east-1 and eu-west-1 regions.
-- Cost allocation, tagging enforcement, and chargeback mechanisms for compute resources.
-- Capacity planning and quota management for AI/ML Engineering, Clinical AI Products, HealthPay Financial Services, and MedInsight Analytics teams.
-- Monitoring of utilization metrics, idle resource detection, and automated reclamation.
-- Access control mechanisms and isolation boundaries for multi-tenant compute environments.
+**In-scope resources:**
+- All NVIDIA GPU instance types across AWS EC2 (P4d, P4de, G5, G6, G6e families) and Azure (ND-series, NCasT4_v3-series)
+- AWS SageMaker managed training and inference instances
+- Amazon EKS-based Kubernetes node pools (both CPU and GPU)
+- ECS Fargate and EC2-backed clusters
+- Reserved Instances, Savings Plans, and Spot Instance fleets
+- Snowflake virtual warehouses (compute clusters for analytical workloads)
+- Pinecone vector database indexes (to the extent that infrastructure sizing choices affect compute cost)
 
-**Out of Scope:**
-- End-user device compute (laptops, workstations) managed by IT Operations under SOP-IT-045.
-- Non-accelerated general-purpose compute for web application hosting and API gateways (covered under SOP-IT-022).
-- CI/CD pipeline compute resources managed by Platform Engineering (covered under SOP-ENG-018).
+**Out-of-scope:**
+- Employee laptops, workstations, and personal devices (governed by SOP-IT-002, Endpoint Management Standard)
+- Office network hardware and edge devices
+- Third-party SaaS platforms where Meridian does not provision or scale the underlying compute (e.g., Datadog agents, Okta tenant infrastructure)
 
 ### 1.3 Applicability
 
-This SOP applies to all Meridian Health Technologies personnel, contractors, and vendors who provision, configure, access, or decommission accelerated compute resources. Compliance is mandatory for:
+This SOP is binding upon all personnel, contractors, and vendors who provision, configure, access, or consume compute or GPU resources within the Meridian cloud environment. Specifically:
 
-- AI/ML Engineering (including ML Operations, MLOps, and Research teams)
-- Clinical AI Products team
-- HealthPay Financial Services data science and fraud detection teams
-- MedInsight Analytics engineering team
-- IT Operations (for infrastructure-level provisioning)
-- Any Meridian employee or contractor with IAM permissions to launch EC2 GPU instances or submit SageMaker training jobs
+- **AI/ML Engineering** — Primary consumers and operators of GPU-accelerated training and inference
+- **Clinical AI Products** — Owners of production inference service levels and model deployment specifications
+- **HealthPay Financial Services Engineering** — Operators of GPU-accelerated fraud detection and credit scoring models subject to SR 11-7
+- **MedInsight Analytics** — Owners of population-scale ETL and model scoring workloads on Snowflake and SageMaker
+- **IT Operations** — Infrastructure provisioning, capacity planning, and cloud financial operations
+- **Information Security** — Control validation, network segmentation, and access governance
 
-Non-compliance with this SOP may result in immediate revocation of compute provisioning privileges, mandatory training reassignment, and escalation to the Chief AI Officer and VP of Engineering for remediation.
+Compliance with this SOP is mandatory. Non-compliance shall be managed per SOP-HR-005, Employee Disciplinary Procedures.
 
 ## 2. Definitions and Acronyms
 
-| Term/Acronym | Definition |
+| Term / Acronym | Definition |
 |---|---|
-| **GPU** | Graphics Processing Unit; specialized processor designed for parallel computation, essential for deep learning workloads. |
-| **HPC** | High-Performance Computing; aggregated computing resources delivering performance at scale for complex analytical workloads. |
-| **CUDA** | Compute Unified Device Architecture; NVIDIA's parallel computing platform and programming model for GPUs. |
-| **VRAM** | Video Random Access Memory; dedicated memory on a GPU device, measured in gigabytes (GB). |
-| **Multi-Instance GPU (MIG)** | NVIDIA technology enabling a single physical GPU to be partitioned into multiple isolated GPU instances. |
-| **Compute Quota** | The maximum number of concurrent accelerator instances (by type) a team may provision within a given AWS region. |
-| **Resource Reservation** | A time-bound claim on a defined set of compute resources for a specific purpose, managed via the Meridian Compute Reservation System. |
-| **Idle Resource** | A GPU instance with <15% aggregate utilization sustained for >2 hours during business days (0600–2200 ET), excluding defined maintenance windows. |
-| **Chargeback** | The monthly allocation of compute infrastructure costs to the business unit that consumed the resources, based on resource tags. |
-| **Spot Instance** | AWS EC2 instance running on spare capacity that can be interrupted with two minutes' notice; used for interruptible training workloads. |
-| **Reserved Instance (RI)** | A billing commitment for one or three years providing significant discount over on-demand pricing for predictable workloads. |
-| **Savings Plan** | A flexible pricing model offering lower prices in exchange for a committed hourly spend over a one- or three-year term. |
-| **Model Training Job** | A reproducible, containerized workload that trains or fine-tunes a machine learning model, tracked via MLflow and orchestrated by Kubeflow. |
-| **Inference Endpoint** | A deployed model serving predictions in real-time, autoscaled based on request throughput. |
-| **PHI** | Protected Health Information; individually identifiable health information subject to HIPAA protections. |
-| **CAGE** | Clinical AI Governance Engine; Meridian's custom system for tracking model lineage, training data provenance, and compute resource utilization for AI risk management. |
-| **Resource Tag** | An AWS resource metadata label used to associate instances with projects, teams, cost centers, and compliance classifications. |
+| **A100** | NVIDIA Ampere-architecture data center GPU, 80GB HBM2e variant, available on AWS P4d instances. Designated as Tier-1 GPU for production training workloads. |
+| **Available Zone (AZ)** | Isolated location within an AWS region; GPU instance availability varies by AZ. |
+| **Carbon Intensity Score** | Internal metric measuring estimated CO₂-equivalent emissions per GPU-hour, calculated using AWS Customer Carbon Footprint Tool data and internal wattage models. |
+| **CFM (Cloud Financial Management)** | Meridian's practice of FinOps-aligned cost governance, led by IT Operations in partnership with Finance. |
+| **Compute Unit (CU)** | Abstracted billing unit for Snowflake virtual warehouses; not directly comparable to EC2 vCPUs. |
+| **Dedicated Tenancy** | EC2 instance launch mode where physical server hardware is not shared with other AWS accounts. Required for Clinical AI PHI workloads under SOP-AIML-003. |
+| **GPU Cluster** | A logically grouped set of GPU instances within an EKS-managed Kubernetes node group, typically sharing network placement group and storage endpoints. |
+| **GPU Reservation** | A pre-approved allocation of GPU instance hours for a specific project, team, or workload, with defined start/end dates and budget ceiling. |
+| **H100** | NVIDIA Hopper-architecture GPU, 80GB HBM3 variant, available on AWS P5 instances. Designated Tier-1 GPU for next-generation training workloads and large language model (LLM) fine-tuning. |
+| **Inference SLA** | The service level agreement defining minimum acceptable throughput (tokens/second or predictions/second) and maximum acceptable latency (p50, p95, p99) for production model endpoints. |
+| **Model Registry** | Central metadata repository maintained in MLflow, containing model version lineage, approval status, and deployment target environment tags. |
+| **Node Pool** | A Kubernetes construct grouping nodes with identical hardware specifications, scheduling labels, and taint/toleration policies within EKS. |
+| **P4d / P5** | AWS EC2 instance families providing NVIDIA A100 and H100 GPUs respectively. |
+| **Provisioned Concurrency** | The number of SageMaker endpoint instances kept "warm" to absorb inference traffic spikes without cold-start latency. |
+| **Spot Interruption Notice** | A 2-minute warning signal sent by AWS when a Spot Instance is about to be reclaimed. Production workloads receiving this signal must gracefully drain and redirect per SOP-AIML-008. |
+| **Spot-to-On-Demand Ratio** | The percentage of total GPU hours in an environment fulfilled by Spot versus On-Demand compute. Development environments target >70%; production environments target <15%. |
 
 ## 3. Roles and Responsibilities
 
-The following RACI matrix defines the roles, accountabilities, consultation relationships, and information flows for GPU and compute resource management:
+The following responsibility assignment matrix defines accountability for each critical function within GPU and compute resource management.
 
-| Activity | Chief AI Officer | VP of Engineering | AI/ML Engineering Leads | IT Operations | Data Science Teams | Finance (FP&A) |
-|---|---|---|---|---|---|---|
-| Strategic capacity planning | **A** | R | C | C | I | I |
-| Compute quota approval (>$50K/mo) | **A** | C | R | C | I | I |
-| Compute quota approval (<$50K/mo) | I | **A** | R | C | I | I |
-| Daily resource provisioning | I | I | R | **A** | C | I |
-| Resource tagging enforcement | I | **A** | R | R | C | I |
-| Idle resource detection and reclamation | I | C | R | **A** | I | I |
-| Monthly chargeback reconciliation | I | C | C | R | I | **A** |
-| Cost optimization (RI/SP purchasing) | C | **A** | C | R | I | R |
-| Compliance monitoring (CAGE integration) | **A** | R | R | C | I | I |
-| Access control and IAM governance | I | R | C | **A** | I | I |
+| Activity | AI/ML Engineer | ML Platform Team | IT Ops / FinOps | InfoSec Engineering | VP Engineering (Approver) |
+|---|---|---|---|---|---|
+| **Workload Classification** — Assigning data sensitivity tier and workload criticality to each training job or inference endpoint | R | C | I | C | A |
+| **Resource Provisioning** — Launching EC2 instances, creating EKS node groups, configuring SageMaker endpoints | C | R | A | I | I |
+| **GPU Reservation Requests** — Submitting formal requests for dedicated GPU capacity | R | C | A | I | C |
+| **Cost Tagging** — Ensuring 100% of GPU instances carry correct AWS resource tags (CostCenter, Project, Environment, DataClass) | R | R | A | C | I |
+| **Access Control** — Granting, reviewing, and revoking IAM roles and EKS RBAC permissions to launch or modify GPU instances | C | C | I | A | I |
+| **Capacity Planning Forecast** — Quarterly projections of GPU demand vs. cloud provider availability | C | R | A | I | I |
+| **Budget Exception Approval** — Authorizing spend beyond established project GPU budgets | I | I | R | C | A |
 
-**R** = Responsible (performs the work)
-**A** = Accountable (approves the work)
-**C** = Consulted (provides input)
-**I** = Informed (receives notification)
+### 3.3 Named Responsibilities
 
-### 3.1 Specific Role Descriptions
-
-**Dr. Marcus Rivera, Chief AI Officer (Owner):**
-- Serves as the executive sponsor for this SOP.
-- Approves annual compute capacity plans and total budget allocations.
-- Chairs the monthly AI Infrastructure Review Board meeting.
-- Adjudicates escalated resource conflicts between business units.
-- Approves any exception requests exceeding $100,000 in incremental monthly spend.
-
-**David Park, VP of Engineering (Approver):**
-- Authorizes infrastructure-as-code (IaC) changes that modify compute provisioning templates.
-- Approves Reserved Instance and Savings Plan purchase commitments.
-- Validates technical feasibility of capacity plans against AWS service quotas and regional availability.
-- Escalation point for GPU availability incidents that risk breaching Clinical AI Platform SLAs.
-
-**AI/ML Engineering Leads:**
-- Submit quarterly compute capacity forecasts with granular project-level justification.
-- Enforce resource tagging standards within their teams’ provisioning pipelines.
-- Review weekly utilization reports and initiate action on idle resources.
-- Maintain a prioritized queue of training jobs for resource scheduling.
-
-**Samantha Torres, VP of IT Operations:**
-- Owns the AWS Organizations and Service Control Policies governing GPU instance types.
-- Provisions Reserved Instances and Savings Plans per approved purchase orders.
-- Manages the Meridian Compute Reservation System (MCRS) platform.
-- Monitors real-time GPU availability and triggers pre-provisioned fallback instance types when primary types are unavailable.
-- Generates monthly chargeback reports.
-
-**Robert Liu, VP of Financial Services:**
-- Must approve any compute usage from HealthPay Financial Services that processes credit scoring or lending model training data, ensuring SR 11-7 model risk management requirements are met for the compute environment.
-
-**Thomas Anderson, Chief Compliance Officer:**
-- Reviews quarterly audit logs of compute resource access for environments processing regulated data.
-- Approves changes to compute resource tagging taxonomy that impact compliance classification.
+- **Dr. Marcus Rivera (Chief AI Officer):** Ultimate accountability for GPU resource allocation priority decisions affecting Clinical AI model training timelines versus production inference capacity. Chairs the monthly Compute Governance Council.
+- **David Park (VP of Engineering):** Approver of this SOP and all subsequent revisions. Budget exception authority for any GPU expenditure exceeding $50,000 within a single billing month.
+- **ML Platform Team Lead (currently TBD, reporting to Head of AI/ML):** Day-to-day operational responsibility for GPU cluster health, capacity dashboards, and provisioning automation.
+- **Cloud FinOps Lead (IT Operations):** Ownership of GPU cost anomaly detection, reserved instance portfolio management, and monthly chargeback reporting to business units.
+- **InfoSec Engineering Lead:** Ownership of IAM policies governing GPU instance launch and modification permissions, network boundary controls around GPU clusters, and quarterly access reviews.
 
 ## 4. Policy Statements
 
-### 4.1 Resource Allocation by Business Priority
+### 4.1 General Principles
 
-Meridian classifies all compute workloads into three priority tiers. Resource allocation and preemption rules follow these tiers absolutely:
+The following high-level policy commitments govern all GPU and compute resource activities at Meridian:
 
-| Priority Tier | Description | Example Workloads | Preemption Authorization |
-|---|---|---|---|
-| **Tier 1 – Critical** | Production inference serving patients or processing live financial transactions | Clinical AI Platform inference endpoints, HealthPay fraud detection scoring, MedInsight real-time risk calculation | Cannot be preempted. Must maintain ≥99.9% availability. |
-| **Tier 2 – Essential** | Model training for validated project roadmaps with regulatory deadlines | FDA submission model retraining, EU AI Act mandated bias audits, quarterly model refresh cycles | Can be preempted only for Tier 1 capacity recovery. 24-hour notice required. |
-| **Tier 3 – Discretionary** | Exploratory research, academic collaborations, hackathon infrastructure, non-validated proofs of concept | Early-stage LLM experimentation, internal tool prototyping, student intern projects | Subject to immediate preemption for Tier 1 or Tier 2. No notice required. |
+**P-001: Classification Before Provisioning**
+No GPU instance, SageMaker training job, or Snowflake virtual warehouse of size Medium or larger shall be provisioned until a data classification tier and workload criticality rating—as defined in this SOP—have been recorded in the provisioning request. This classification directly governs the selection of instance tenancy, encryption posture, and monitoring rigor.
 
-### 4.2 Tagging Mandate
+**P-002: Least Privilege Access**
+Access to provision, terminate, or modify GPU instances shall be governed exclusively through AWS Identity and Access Management (IAM) roles and EKS Role-Based Access Control (RBAC) policies. Direct use of AWS account root credentials is prohibited. Individual developer AWS IAM users with GPU provisioning permissions are prohibited; provisioning must occur through automation pipeline service roles or approved IT Operations personnel.
 
-Every GPU instance, SageMaker training job, and HPC cluster launched within Meridian's AWS environments must carry a minimum set of nine mandatory resource tags at the time of provisioning. Instances launched without compliant tagging will be automatically terminated after a 60-minute grace period.
+**P-003: Tagging and Attribution**
+Every GPU instance, EKS node, or SageMaker endpoint shall carry the mandatory Meridian resource tag set defined in Section 6.2. Resources lacking complete tag coverage at launch time shall be automatically terminated by the Cloud Custodian enforcement policy within 2 hours of detection.
 
-The mandatory tag set is enumerated in Section 6.2 of this SOP.
+**P-004: Environment Isolation**
+Production GPU clusters shall be deployed in dedicated AWS accounts (`meridian-prod`, `meridian-clinical-prod`) with network isolation from development and staging environments enforced via AWS Organization Service Control Policies (SCPs). Cross-account IAM role assumption from development to production accounts is strictly prohibited.
 
-### 4.3 Cost Allocation and Chargeback
+**P-005: Cost Transparency**
+GPU-related cloud spend shall be attributed to consuming cost centers and projects via the mandatory tag structure. Monthly chargeback reports will be distributed to cost center owners no later than the 10th business day following AWS invoice receipt.
 
-All accelerated compute costs are charged back to the consuming business unit within 45 days of month-end close. The Finance (FP&A) team, in coordination with IT Operations, publishes a monthly Compute Cost Attribution Report (CCAR) that details:
+**P-006: Reserved Capacity Governance**
+Purchases of AWS Reserved Instances (RIs) or Savings Plans with 1-year or 3-year terms exceeding $20,000 in aggregate up-front cost require documented business case with projected utilization >85% and approval from both VP of Engineering and CFO. Purchases below this threshold may be approved by VP of Engineering alone.
 
-- Total GPU compute spend by business unit and project
-- Idle resource cost waste (calculated as cost × duration of below-threshold utilization)
-- Reserved Instance and Savings Plan coverage rates
-- Month-over-month and year-over-year variance analysis
+### 4.2 Data Classification Tier Mapping
 
-Business unit leaders (clinical AI, healthpay, medinsight platform leads) must sign off on the CCAR within five business days of publication. Disputed charges are escalated to the Chief AI Officer for adjudication within 30 days.
+This SOP references the enterprise data classification tiers defined in SOP-DSEC-001, Data Classification Standard. For purposes of compute resource management, the following tier-to-control mapping applies:
 
-### 4.4 Resource Hoarding Prohibition
+| Data Classification Tier | Examples at Meridian | Required Tenancy | EBS Encryption Required | Logging Level | Permitted Spot Instance Use |
+|---|---|---|---|---|---|
+| **Tier 1 — Regulated** | PHI in Clinical AI inference payloads, PII in HealthPay credit decision data, MDR clinical evidence datasets | Dedicated | Yes (default KMS key minimum) | Full (data plane logs enabled) | Prohibited |
+| **Tier 2 — Confidential** | Proprietary model architectures, unredacted training datasets with PHI (dedicated tenancy enclave), business financials, audit evidence | Default or Dedicated | Yes | Full | Permitted with documented approval |
+| **Tier 3 — Internal** | De-identified training datasets, model metrics, operational logs, internal communications | Default | Optional (recommended) | Metadata + selected data plane | Permitted, standard guardrails |
+| **Tier 4 — Public** | Published model weights (open-source contributions), product documentation, press materials | Default | Not required | Metadata only | Permitted without restriction |
 
-Provisioning GPU instances and leaving them idle constitutes "resource hoarding" and is prohibited. Specifically:
+Any ambiguity in classification tier assignment shall be escalated to the Data Governance Committee (chair: Chief Privacy Officer) for resolution prior to compute provisioning.
 
-- GPU instances must not remain in a running state with <15% aggregate GPU utilization for >2 consecutive hours between 0600 and 2200 ET on business days.
-- Exceptions apply for instances actively running long-duration training jobs that are tracked in the Meridian Compute Reservation System (MCRS) or via MLflow with an active run ID.
-- Teams with >10% idle resource cost waste across three consecutive months will have their compute quotas reduced by 25% for the subsequent quarter.
+### 4.3 Workload Criticality Rating
 
-### 4.5 Capacity Planning Cadence
+All GPU workloads must be assigned a Tier rating reflecting business criticality. This rating determines high-availability configurations, disaster recovery replication, and incident response priority.
 
-All teams consuming GPU or HPC resources must submit quarterly capacity forecasts, due on the 15th of the final month of each fiscal quarter:
-
-| Quarter | Forecast Due Date | Covers Period |
-|---|---|---|
-| Q1 FY26 | March 15, 2026 | July–September 2026 |
-| Q2 FY27 | June 15, 2026 | October–December 2026 |
-| Q3 FY27 | September 15, 2026 | January–March 2027 |
-| Q4 FY26 | December 15, 2025 | April–June 2026 |
-
-Forecasts are submitted via the Meridian Capacity Planning Portal (MCPP) and must include project-level justification, expected instance types, hourly usage estimates, and funding source confirmation.
+| Workload Tier | Definition | Recovery Time Objective (RTO) | Recovery Point Objective (RPO) | HA Requirement |
+|---|---|---|---|---|
+| **Tier 1 — Mission Critical** | Direct patient safety impact or regulatory mandate; e.g., Clinical AI inference serving active patient encounters in EHR-integrated workflow | < 15 minutes | < 5 minutes | Multi-AZ, cross-region standby on Azure DR |
+| **Tier 2 — Business Critical** | Revenue-impacting or customer SLA-bound; e.g., HealthPay real-time fraud scoring API, MedInsight daily PHI pipeline | < 60 minutes | < 1 hour | Multi-AZ within primary region |
+| **Tier 3 — Business Essential** | Internal SLAs but non-customer-facing; e.g., weekly MedInsight population cohort builder, HealthPay monthly recalibration training | < 4 hours | < 24 hours | Single-AZ with AMI-based recovery |
+| **Tier 4 — Non-Critical** | Experimental, ad-hoc analysis; e.g., data scientist exploration workspace, hackathon environments | Best effort / next business day | No formal RPO | None |
 
 ## 5. Detailed Procedures
 
-### 5.1 GPU Instance Provisioning
+### 5.1 GPU Reservation Request Process
 
-**Procedure ID: PROC-AI-012-01**
+This procedure governs the pre-approved allocation of GPU compute hours for individual projects, ensuring budget alignment and capacity planning visibility prior to resource consumption.
 
-This procedure covers the end-to-end workflow for requesting, approving, and provisioning GPU instances for both interactive (e.g., JupyterLab development) and batch (e.g., training job) workloads.
+#### 5.1.1 Prerequisites
+- Project code assigned in Meridian's Cost Accounting system
+- AWS cost center tag value confirmed with Finance
+- Data classification tier determined per Section 4.2
+- Workload criticality rating assigned per Section 4.3
 
-#### 5.1.1 Request Submission
+#### 5.1.2 Procedure Steps
 
-All GPU instance provisioning requests must be submitted through the Meridian Compute Reservation System (MCRS), accessible at `https://mcrs.internal.meridian.health`. Direct EC2 console or AWS CLI provisioning is not permitted except under the emergency procedure defined in Section 5.1.6.
-
-The MCRS request form requires the following fields:
-
-| Field | Description | Validation |
+| Step | Actor | Action |
 |---|---|---|
-| Project ID | CAGE-registered project identifier (e.g., `CAGE-MRI-SEG-V4`) | Must exist in CAGE registry |
-| Requestor | Individual Meridian employee ID | AD-authenticated |
-| Instance Type | AWS EC2 instance type (e.g., `p4d.24xlarge`) | Must be in approved instance type catalog |
-| Instance Count | Number of concurrent instances (1–64) | Subject to team quota limits |
-| Estimated Duration | Hours or days (maximum 30-day reservation) | >30 days requires escalation |
-| Priority Tier | 1–3 per Section 4.1 definitions | Tier 1 requires VP-level approval |
-| Environment | dev, staging, production, sandbox | production triggers additional PHI controls |
-| Justification | Free-text technical justification (minimum 100 characters) | Required for Tier 2 and Tier 1 requests |
-| Cost Center | Finance department cost center code | Must match project funding |
-| PHI Processing | Yes/No indicator | Yes triggers HIPAA-compliant environment provisioning |
-
-#### 5.1.2 Approval Workflow
-
-Upon submission, MCRS routes the request for approval according to the following matrix:
-
-| Request Parameter | Approval Route |
-|---|---|
-| Tier 3, ≤4 g4dn.xlarge or equivalent, ≤24 hours | Auto-approved (no human review) |
-| Tier 3, any size, >24 hours | AI/ML Engineering Lead approval within 8 business hours |
-| Tier 2, any size, any duration | AI/ML Engineering Lead + Project Lead, within 24 hours |
-| Tier 1, any size, any duration | AI/ML Engineering Lead + Project Lead + VP of Engineering or Chief AI Officer, within 48 hours |
-| Monthly cost estimate >$50,000 | Additional Finance (FP&A) approval required |
-| PHI Processing = Yes | Additional Chief Compliance Officer notification (not approval, but automated notification for logging) |
-
-Approvers receive automated Slack notifications via the `#compute-approvals` channel. Unactioned approvals for Tier 2 or Tier 1 escalate first to the direct manager, then to the Chief AI Officer after 72 hours of dormancy.
-
-#### 5.1.3 Automated Provisioning
-
-Once all approvals are obtained, MCRS triggers the automated provisioning pipeline:
-
-1. **Template Selection:** The AWS CloudFormation or Terraform module appropriate to the instance type and environment class is selected from the Meridian IaC Repository (GitHub: `meridian-iac/compute-provisioning`).
-2. **Tag Injection:** The nine mandatory tags (see Section 6.2) are injected from MCRS metadata into the launch template user data and AWS resource tags.
-3. **IAM Role Attachment:** The appropriate instance profile is attached, granting only the minimum required permissions. The instance profile is determined by the environment and PHI-processing flag.
-4. **VPC Placement:** Instances are placed in the appropriate VPC subnet: development instances in the `dev-ai` VPC, staging in `staging-ai`, and production in `prod-ai` (isolated network).
-5. **Launch Confirmation:** The instance ID, private IP, and reservation expiration timestamp are written back to MCRS. The requestor receives an automated email and Slack DM with connection instructions.
-6. **CAGE Registration:** A compute session record is created in the Clinical AI Governance Engine (CAGE) linking the instance ID to the project, model lineage, and data provenance metadata.
-
-**Provisioning SLA:** Auto-approved Tier 3 requests must be fulfilled within 15 minutes of submission, 98% of the time. Tier 2 and Tier 1 requests must be fulfilled within 60 minutes of final approval, 95% of the time.
-
-#### 5.1.4 Connection and Access
-
-Provisioned instances are accessed exclusively via AWS Systems Manager Session Manager. SSH (port 22) is blocked at the security group level in all environments. Connection instructions:
-
-1. From the Meridian-managed workstation, authenticate to the AWS Management Console using Okta SSO with MFA.
-2. Navigate to AWS Systems Manager → Fleet Manager.
-3. Locate the provisioned instance by Instance ID (provided in the provisioning confirmation email).
-4. Select "Start Session" to initiate an interactive shell session.
-5. All session activity is logged to AWS CloudTrail and a session transcript is written to the `meridian-ssm-logs` S3 bucket.
-
-#### 5.1.5 Decommissioning and Reservation Expiry
-
-GPU instances are automatically decommissioned by MCRS at the reservation expiration timestamp. The decommissioning process:
-
-1. **15-minute pre-expiration warning:** A notification is emitted to the requestor via Slack, email, and (for Tier 1 instances) PagerDuty. The notification includes an option to extend the reservation subject to quota availability.
-2. **At expiration:** MCRS initiates an EC2 Stop or Terminate API call (Stop for development instances so that data volumes persist for 72 hours; Terminate for staging and production instances for cost optimization).
-3. **Post-termination processing:** Resource tags are archived to the Meridian Cost Attribution data warehouse. The CAGE compute session record is closed.
-4. **Data persistence:** EBS volumes attached to development instances persist in a stopped state for 72 hours before deletion. Teams must snapshot volumes they wish to retain beyond 72 hours (using SOP-IT-041 for backup procedures).
-
-#### 5.1.6 Emergency Provisioning Procedure
-
-In the event that a Tier 1 production inference endpoint requires immediate scale-out and the normal MCRS approval workflow would introduce unacceptable latency, the "break-glass" procedure may be invoked:
-
-1. The on-call MLOps engineer (contact via PagerDuty rotation `mlops-oncall`) assesses the situation and determines that the MCRS workflow SLA cannot be met.
-2. The engineer sends a templated Slack message to `#incident-response` with the header `EMERGENCY GPU PROVISION REQUEST`.
-3. The VP of Engineering or Chief AI Officer acknowledges the request in-channel within 15 minutes.
-4. The on-call engineer manually provisions instances via the `emergency-provision` Lambda function, which applies a minimal tag set (Instance ID, cost center, emergency reason).
-5. Within 24 hours post-incident, the provisioned instances must be retroactively registered in MCRS with full metadata and approvals (post-hoc).
-
-### 5.2 Compute Cost Management
-
-**Procedure ID: PROC-AI-012-02**
-
-This procedure defines the monthly cycle for monitoring, reporting, and optimizing GPU compute costs.
-
-#### 5.2.1 Daily Cost Anomaly Detection
-
-IT Operations maintains an automated cost anomaly detection system (AWS Cost Anomaly Detection integrated with Meridian custom dashboards). Alerts are triggered when:
-
-- Daily GPU compute spend exceeds the trailing 30-day average by >40%.
-- Any single instance incurs >$5,000 in 24-hour cost.
-- Any business unit exceeds its monthly forecast allocation by >20% before the 15th of the month.
-
-Alerts are routed to:
-- `#finops-alerts` Slack channel (real-time)
-- Weekly cost anomaly digest email to AI/ML Engineering Leads and Finance (FP&A)
-
-#### 5.2.2 Monthly Chargeback Reconciliation
-
-The monthly reconciliation procedure proceeds as follows:
-
-| Day | Action | Responsible |
-|---|---|---|
-| 1st of month | IT Operations freezes the prior month's cost and utilization data in the Meridian Cost Attribution data warehouse. | IT Operations |
-| 5th of month | Finance (FP&A) produces the draft Compute Cost Attribution Report (CCAR) from the warehouse. | Finance (FP&A) |
-| 10th of month | Draft CCAR distributed to business unit leads: Clinical AI (Dr. Rivera's team), HealthPay (Robert Liu's team), MedInsight. | Finance (FP&A) |
-| 15th of month | Business unit leads submit dispute tickets via the FinOps portal for any contested line items. | Business unit leads |
-| 25th of month | Disputes adjudicated by Chief AI Officer and VP of Engineering; final CCAR published. | Chief AI Officer |
-| 30th of month | Chargebacks posted to business unit Profit & Loss statements. | Finance (FP&A) |
-
-#### 5.2.3 Reserved Instance and Savings Plan Purchasing
-
-IT Operations, in coordination with VP of Engineering, executes Reserved Instance (RI) and Savings Plan (SP) purchases quarterly based on capacity forecasts.
-
-**Purchase Triggers:**
-- RI purchase when a workload demonstrates stable 24/7 usage for >3 consecutive months.
-- Compute Savings Plan purchase when aggregate on-demand GPU spend exceeds $150,000/month for >2 consecutive months.
-- All RI and SP commitments must be approved by VP of Engineering via the Meridian Purchase Order system.
-
-### 5.3 Capacity Planning
-
-**Procedure ID: PROC-AI-012-03**
-
-#### 5.3.1 Quarterly Forecast Submission
-
-By the 15th of the final month of each fiscal quarter (see Section 4.5), each AI/ML Engineering Lead submits a capacity forecast via the Meridian Capacity Planning Portal (MCPP).
-
-The forecast form requires:
-
-| Forecast Element | Granularity |
-|---|---|
-| Instance type × region × quarter | Monthly average running hours |
-| Reserved Instance coverage request | Instance type × count × 1yr or 3yr term |
-| New instance type qualification request | Instance type, justification, estimated adoption timeline |
-| Spot Instance eligibility (interruptible training) | Yes/No per workload, estimated spot percentage |
-| Multi-region failover requirements | Primary region, failover region, replication requirements |
-
-#### 5.3.2 Quarterly Capacity Review Board
-
-Within 10 business days of the forecast deadline, the Chief AI Officer convenes the AI Infrastructure Review Board. Attendees include:
-
-- Chief AI Officer (Chair)
-- VP of Engineering
-- AI/ML Engineering Leads (all business units)
-- IT Operations representative
-- Finance (FP&A) representative
-
-The Board reviews:
-1. Consolidated capacity demand vs. AWS service quotas and regional availability.
-2. Reserved Instance and Savings Plan optimization opportunities.
-3. Conflict resolution for over-subscribed instance types.
-4. New instance type qualification decisions.
-5. Budget allocation adjustments.
-
-Decisions are documented in the Meridian AI Infrastructure Review Board Decision Log (Confluence: `https://confluence.internal.meridian.health/display/AIIRB`).
-
-### 5.4 Idle Resource Detection and Reclamation
-
-**Procedure ID: PROC-AI-012-04**
-
-#### 5.4.1 Automated Detection
-
-The Meridian Idle Resource Detector (MIRD) is a scheduled Lambda function that runs every 15 minutes, scanning all running GPU instances across Meridian AWS accounts. For each instance:
-
-1. MIRD queries Amazon CloudWatch for the `gpu_utilization` and `gpu_memory_utilization` custom metrics (collected via NVIDIA DCGM exporter, shipped to CloudWatch via a unified CloudWatch agent installed in all Meridian GPU AMIs).
-2. If average aggregate GPU utilization is <15% for a rolling 120-minute window AND the current time is between 0600–2200 ET business day, the instance is flagged as "idle."
-3. MIRD cross-references the instance with MCRS active reservations. If the instance has a non-expired reservation and the justification indicates "long-running training job with periodic low utilization," the instance is exempted.
-4. MIRD posts the idle instance list to the `#idle-resources` Slack channel.
-
-#### 5.4.2 Notification and Remediation
-
-Upon detection:
-
-- **Tier 3 instances:** The instance owner receives an automated Slack DM and email with a 60-minute remediation window. If utilization has not risen above 15% after 60 minutes, the instance is automatically **stopped** (not terminated) by MIRD.
-- **Tier 2 instances:** The instance owner and their AI/ML Engineering Lead receive notification. The remediation window is 120 minutes. If not remediated, the instance is stopped.
-- **Tier 1 instances:** The AI/ML Engineering Lead and on-call DevOps engineer receive a PagerDuty alert (severity: LOW). No automated action is taken. Manual investigation is required within 4 hours.
-
-#### 5.4.3 Idle Cost Waste Dashboard
-
-IT Operations maintains a real-time Idle Cost Waste Dashboard (accessible via `https://grafana.internal.meridian.health/d/idle-gpu`) that displays:
-
-- Current idle instances (count and $/hour burn rate)
-- Idle cost waste trailing 7-day and 30-day totals by team
-- Top-10 worst offenders (individual users)
-- Automated reclamation actions taken in prior 24 hours
-
-### 5.5 Multi-Tenancy and GPU Sharing
-
-**Procedure ID: PROC-AI-012-05**
-
-#### 5.5.1 Multi-Instance GPU (MIG) Partitioning
-
-For workloads that do not fully utilize a large GPU (e.g., g5.12xlarge or p4d.24xlarge), Meridian enables NVIDIA Multi-Instance GPU (MIG) partitioning. MIG allows a physical A100 GPU to be partitioned into up to seven isolated GPU instances, each with dedicated VRAM and compute resources.
-
-**Partitioning Configuration:**
-- The default MIG profile on p4d instances splits each A100-40GB GPU into: `2g.20gb` (two instances with 20GB VRAM each) or `3g.40gb` (one full GPU; for workloads requiring >20GB VRAM).
-- MIG configurations are encoded in the AMI launch template and cannot be modified by end users.
-- Each MIG instance maintains hard isolation: workloads in one MIG slice cannot observe or impact the others.
-
-#### 5.5.2 Kubernetes GPU Scheduling
-
-All model training and batch inference workloads are orchestrated via Kubeflow on Amazon EKS. The Kubernetes GPU device plugin enforces hard VRAM and compute limits per pod:
-
-- Pods specify GPU requirements declaratively: `resources.limits.nvidia.com/gpu: 1`
-- The scheduler enforces node-level quotas: a p4d.24xlarge node with eight GPUs can host a maximum of eight concurrent single-GPU pods.
-- Teams are isolated via Kubernetes namespaces and ResourceQuotas.
-
-#### 5.5.3 Priority and Preemption
-
-Kubeflow pipelines are annotated with PriorityClass labels corresponding to the priority tiers defined in Section 4.1. The Kubernetes scheduler preempts lower-priority pods to make room for higher-priority ones:
-
-- Tier 1 scheduling: guaranteed, pods are never evicted.
-- Tier 2 scheduling: can be preempted by Tier 1 with 120-second graceful termination period.
-- Tier 3 scheduling: can be preempted by Tier 1 or Tier 2 with 30-second termination period.
-
-### 5.6 Spot Instance Utilization
-
-**Procedure ID: PROC-AI-012-06**
-
-Meridian uses AWS Spot Instances to reduce cost for interruptible workloads. Spot Instances can provide 60–70% discount over on-demand pricing.
-
-**Eligibility:**
-- All Tier 3 training workloads.
-- Tier 2 training workloads that are checkpointed at intervals ≤15 minutes (so that minimal work is lost on interruption).
-- Tier 1 inference workloads are **not** eligible for Spot Instances.
-
-**Spot Reclamation Handling:**
-When AWS reclaims a Spot Instance:
-1. The instance receives a two-minute interruption notice.
-2. The `meridian-spot-daemon` agent running on the instance receives this notice and triggers a checkpoint save to the designated S3 bucket.
-3. The training orchestration system (Kubeflow) resubmits the workload on a replacement instance (Spot if available, on-demand fallback if not).
-4. Training resumes from the last saved checkpoint.
-
-Failure to checkpoint within the two-minute window results in training progress loss; this is an acceptable risk for Tier 2 and Tier 3 workloads per Section 4.1 tolerances.
+| 1 | Requestor (AI/ML Engineer or Product Lead) | Navigate to ServiceNow Catalog Item "GPU Reservation Request — [SOP-AIML-012]" at `https://meridian.service-now.com/compute` |
+| 2 | Requestor | Complete all mandatory fields in the request form: Project Code, Cost Center, GPU Instance Family (P4d/G6/etc.), Number of Concurrent Instances Required, Estimated GPU-Hours per Month, Start Date, End Date, Data Classification Tier, Workload Criticality Tier, Justification Narrative |
+| 3 | Requestor | Attach workload sizing evidence: benchmark results, prior job duration telemetry, or vendor model sizing guidelines |
+| 4 | ServiceNow Workflow | Auto-route request to ML Platform Team Lead for technical review |
+| 5 | ML Platform Team Lead | Within 3 business days, evaluate: (a) whether the requested GPU family and count are technically appropriate; (b) whether sufficient AWS service quota exists; (c) whether the workload can be accommodated on Spot or must use On-Demand; (d) projected carbon intensity |
+| 6 | ML Platform Team Lead | Either "Approve" with recommended instance configuration, or "Return" with specific feedback on required modifications |
+| 7 | ServiceNow Workflow | If approved technically, route to Cloud FinOps Lead for budget validation |
+| 8 | Cloud FinOps Lead | Within 2 business days, verify: (a) total projected monthly cost against budgeted allocation for cost center; (b) that cost is tagged to correct chargeback center; (c) that cost does not cause cost center to exceed quarterly budget without documented exception |
+| 9 | Cloud FinOps Lead | Either "Approve — Budget Confirmed" or "Escalate — Budget Exception Required" (divert to Exception process per Section 8) |
+| 10 | ServiceNow Workflow | Upon dual approval, automatically provision the approved GPU node group(s) via Terraform Enterprise, applying the approved configuration and tags |
+| 11 | ServiceNow Workflow | Send confirmation email to requestor with Reservation ID (format: GPU-RES-YYYY-NNNN) and provisioning details |
+| 12 | ML Platform Team | Track Reservation ID in the GPU Inventory Dashboard (Grafana dashboard "GPU Fleet Overview") with expiration date |
+
+**Reservation Expiration:** Unless renewed by submission of a revised request 10 business days prior to expiration, GPU reservations automatically terminate on the End Date. Termination consists of draining and removing the associated EKS node group or terminating standalone EC2 instances. Expired reservations whose instances remain running beyond the End Date shall be flagged in nightly FinOps anomaly reports and terminated by IT Operations within 1 business day.
+
+### 5.2 Production Inference Scaling Protocol
+
+This procedure defines the operational rhythm for adjusting provisioned GPU capacity behind Clinical AI and HealthPay inference endpoints to maintain SLAs while controlling cost.
+
+#### 5.2.1 Scaling Thresholds
+
+| Metric | Scale-Out Trigger | Scale-In Trigger | Observation Window |
+|---|---|---|---|
+| **SageMaker Endpoint CPU Utilization** | >75% sustained for 5 minutes across all instances | <35% sustained for 60 minutes | CloudWatch `SageMaker/Endpoints` namespace |
+| **SageMaker Endpoint GPU Utilization** | >80% sustained for 5 minutes | <40% sustained for 60 minutes | Same |
+| **Model Invocation Latency p95** | Exceeds SLA threshold (Clinical AI: 300ms; HealthPay: 50ms) for 3 consecutive 5-minute periods | <50% of SLA threshold sustained for 120 minutes | CloudWatch Logs Insight query on model server access logs |
+| **Endpoint Invocation Errors per Minute** | >1% error rate for 5 minutes | N/A for scale-in | CloudWatch `4xx`/`5xx` metric count |
+| **SQS Queue Depth (per-endpoint)** | >1,000 queued requests for 3 consecutive minutes | <100 for 120 minutes | CloudWatch `ApproximateNumberOfMessagesVisible` |
+
+#### 5.2.2 Scale-Out Execution
+
+1.  **Detection:** CloudWatch alarm enters ALARM state. PagerDuty alert fires, routed to primary on-call rotation: Tier-1 Incidents -> ML Platform Team On-Call.
+2.  **Acknowledge:** On-call engineer acknowledges PagerDuty alert within 5 minutes per SOP-IT-OPS-001 (Incident Management). Acknowledge includes recording the alarm trigger and current instance count in the incident channel (#incident-ml-compute in Slack).
+3.  **Validate:** On-call engineer checks the SageMaker console and Datadog dashboard "Production Inference Overview" to confirm that the metric is not a transient spike and that scale-out is not already in progress from a prior alarm. If the alarm is determined to be a false positive (e.g., due to a synthetic load test not communicated), annotate the CloudWatch alarm and close the PagerDuty incident.
+4.  **Determine Scaling Magnitude:**
+    - **Normal Load Increase:** Increase endpoint instance count by **50% of current running instances**, rounded up to the nearest integer.
+    - **Sustained High Error Rate (5xx):** Do not scale out. Immediately roll back to the last known-good model version per SOP-AIML-008 (Model Deployment and Rollback). Scaling out a faulty model version amplifies the blast radius.
+5.  **Execute:** Apply the scaling action via the SageMaker `UpdateEndpointWeightsAndCapacities` API call. Use the approved Infrastructure as Code (IaC) module `meridian-sagemaker-scaling` version >= `2.1.0` from Meridian's Terraform Private Registry. **Direct console manipulation is prohibited for production endpoints.** If the IaC module fails, escalate to SRE Lead.
+6.  **Validate Post-Scale:** Monitor the triggering metric for 10 minutes. If the metric remains in ALARM state, iterate Step 4 up to a maximum of 3 scaling actions within a 60-minute window. If SLA breach persists after the third scaling action, declare a P1 incident and escalate per SOP-AIML-008.
+7.  **Update IaC:** If the new instance count is to become the new steady-state minimum, submit a pull request to the `meridian-platform-infra` repository updating the `min_instance_count` variable for the endpoint's IaC module. Do not leave IaC and live state divergent beyond the current sprint.
+
+#### 5.2.3 Scale-In Execution
+
+Scale-in operations carry higher risk than scale-out (prematurely reducing capacity below demand). They are therefore executed on a scheduled, deliberate cadence rather than purely automatically, except for Spot Instance rebalancing.
+
+1.  **Automatic Spot Rebalancing:** AWS EC2 Auto Scaling Group instances launched via Spot are configured with capacity-optimized allocation strategy and capacity rebalancing enabled. When AWS emits a Spot Instance Rebalance Recommendation, the ASG gracefully drains the affected node and launches a replacement Spot instance in an alternative pool. This is fully automated and requires no human intervention.
+2.  **Scheduled Review:** Scale-in candidate endpoints are identified by a weekly automated script that runs every Monday at 08:00 UTC. The script queries CloudWatch for all production SageMaker endpoints where GPU utilization has remained below 40% for the preceding 7-day sliding window.
+3.  **Review Queue:** Results are posted as a ticket in the "ML Platform — Scale-In Review" Jira queue, priority "Medium."
+4.  **ML Platform Team Triage:** On Tuesday, an ML Platform engineer reviews each candidate ticket. The engineer must manually validate:
+    - Is a known workload spike scheduled within the next 14 days that would require the current capacity? (Check against the shared "ML Workload Calendar" in Outlook.)
+    - Does reducing capacity below current levels violate the minimum instance count specified in the associated SLA document?
+5.  **Execution:** If validated safe, the engineer reduces the endpoint instance count by **25% of current running instances**, rounded down to a minimum of 1 instance. The same IaC module requirement as 5.2.2 Step 6 applies.
+
+### 5.3 GPU Node Pool Provisioning on EKS
+
+This procedure standardizes the creation of GPU-accelerated Kubernetes node groups for containerized workloads.
+
+**Prerequisites:**
+- Approved GPU Reservation ID (see Section 5.1)
+- `eksctl` version >= 0.175.0, installed on the designated DevOps workstation AMI
+- `terraform` version >= 1.8.0, with authenticated access to Meridian Terraform Enterprise instance
+- Valid Okta session for AWS CLI credential generation via `meridian-aws-okta`
+
+**Procedure:**
+
+1.  **Checkout IaC Repository:**
+    ```bash
+    git clone git@github.com:meridiantech/terraform-meridian-platform.git
+    git checkout -b gpu-node-pool-add-<RESERVATION-ID>
+    ```
+    Navigate to `environments/<env>/eks/gpu-node-groups/`.
+
+2.  **Define Node Group:** Create or modify a `.tf` file declaring the node group resource using the approved internal module `meridian-eks-gpu-node-group`. A complete configuration example is provided in Appendix A; mandatory parameters include:
+    - `reservation_id` — links node costs to the approved reservation
+    - `gpu_family` — allowed values: `A100x8`, `A100x1` (for fractional g5.12xlarge), `H100`
+    - `node_count_min`, `node_count_max`
+    - `instance_type_list` — priority-ordered list for capacity-optimized Spot allocation
+    - `ami_id` — Must reference the latest Meridian Gold AMI from `data.aws_ami_ids.meridian_gpu_gold`, updated monthly
+    - `taint` — Must include `nvidia.com/gpu=true:NoSchedule` to prevent non-GPU workload scheduling
+
+3.  **Security Context Validation:** The module must include the `security_group_ids` parameter populated with the Meridian Standard GPU Security Group (`sg-meridian-gpu-standard-<env>`). This security group, managed by InfoSec via a separate IaC workspace, enforces:
+    - Ingress only from the Meridian internal CIDR range (`10.0.0.0/8`) on ports 22 (SSH, bastion only), 443 (HTTPS), and 10250 (kubelet API)
+    - Egress limited to AWS service endpoints and approved container registry hosts
+    - No public IP assignment (parameter `associate_public_ip_address = false`)
+
+4.  **Submit Pull Request:** Commit configuration with message `feat(gpu): Node group for reservation GPU-RES-YYYY-NNNN` and push. Open a Pull Request (PR) targeting the `main` branch. The PR automatically triggers:
+    - Terraform Plan (via Atlantis automation)
+    - OPA (Open Policy Agent) policy checks: verifies tag completeness, dedicated tenancy for Tier-1 data workloads, no public IPs, approved GPU family list
+    - Required reviewer: at least one Senior ML Platform Engineer
+
+5.  **Merge and Apply:** After OPA checks pass and human review approval is obtained, merge the PR. The Atlantis automation applies the Terraform plan. Monitor the apply output in the `#ml-infra-cicd` Slack channel. The total provisioning time from apply to "Nodes Ready" in EKS typically ranges from 8–15 minutes for On-Demand instances and may extend to 30 minutes for Spot fleets depending on capacity pool availability.
+
+6.  **Validate Readiness:** Post-provisioning, verify node readiness:
+    ```bash
+    kubectl get nodes -l nvidia.com/gpu.present=true,reservation-id=<RESERVATION-ID>
+    ```
+    Expected output shows all nodes in `Ready` status with the `nvidia.com/gpu` allocatable resource > 0.
+
+7.  **Deploy NVIDIA Device Plugin:** If this is the first GPU node group in the EKS cluster or a new GPU family not previously used in the cluster, ensure the NVIDIA GPU Operator (Helm chart `nvidia/gpu-operator`, version >= `v23.6.0`) is deployed and running. The operator is deployed once per cluster by the ML Platform Team as a DaemonSet; verify pod readiness:
+    ```bash
+    kubectl get pods -n gpu-operator -l app=nvidia-gpu-operator
+    ```
+
+8.  **Register in CMDB:** Upon successful provisioning, the ML Platform engineer updates the Configuration Management Database (ServiceNow CMDB) record for the cluster, adding the new GPU node group details under the "Compute Resources" related list. This step is automated post-Terraform apply via a ServiceNow webhook but must be spot-checked.
+
+### 5.4 Snowflake Warehouse Provisioning and Scaling
+
+Snowflake virtual warehouses power the MedInsight Analytics business unit's data transformation and model scoring workloads on regulated data.
+
+**Provisioning Request:**
+1.  **Requestor** submits ServiceNow ticket "Snowflake Warehouse Request" including: Data Classification Tier, expected peak concurrent queries, estimated average data volume scanned per query, justification for requested warehouse size.
+2.  **MedInsight Data Engineering Lead** reviews and approves technical sizing.
+3.  **Snowflake Account Admin (IT Operations)** provisions the warehouse via a Snowflake Terraform module (`meridian-snowflake-infra`), ensuring:
+    - `MAX_CLUSTER_COUNT` set to a maximum of 5 (multi-cluster warehouse required for Tier-1/2; must be explicitly approved by VP of Engineering)
+    - `AUTO_SUSPEND` configured: 60 seconds for development warehouses, 300 seconds for production warehouses
+    - `AUTO_RESUME` = `true`
+    - Resource Monitor assigned to the warehouse with a monthly credit quota, configured to `SUSPEND_WAREHOUSE` at 100% of quota threshold and `NOTIFY` cost center owner at 85% threshold
+
+**Usage Enforcement:** Queries submitted against Tier-1 or Tier-2 data warehouses must include a mandatory query tag in Snowflake session parameters:
+```sql
+ALTER SESSION SET QUERY_TAG = 'dataclass:tier2|project:MEDINSIGHT-004|user:jdoe@meridian.com';
+```
+Warehouses processing Tier-1 PHI are configured by InfoSec to reject any query lacking a valid `dataclass:tier1` query tag.
 
 ## 6. Controls and Safeguards
 
-### 6.1 Access Controls and IAM Governance
+### 6.1 Identity and Access Management (IAM)
 
-Access to GPU compute resources is governed by AWS Identity and Access Management (IAM) policies enforced through AWS Organizations Service Control Policies (SCPs). No individual user possesses unrestricted permission to launch EC2 GPU instances.
+Access to GPU EC2 instances and EKS GPU node groups is controlled through a layered model:
 
-| Role | IAM Permissions | Restriction |
-|---|---|---|
-| ML Engineer (Standard) | `ec2:RunInstances` (g4dn.*, g5.* only) | Must specify a `project` tag matching their assigned projects in CAGE. Cannot launch p4d or p5 instances. |
-| Senior ML Engineer | `ec2:RunInstances` (all GPU types except p5) | Must specify `project` tag. Weekly quota: 8 × p4d instances concurrently. |
-| ML Operations (MLOps) | `ec2:RunInstances` (all GPU types) | Break-glass access for incident response. All launches logged with mandatory `emergency-reason` tag. |
-| IT Operations (Infrastructure) | Full EC2 access for provisioning IaC pipelines | No interactive EC2 console access. All actions via CDK/Terraform pipelines only. |
-| All other personnel | No GPU provisioning permissions | Can only use pre-provisioned SageMaker environments or shared JupyterHub clusters. |
-
-IAM policies enforce the following mandatory conditions:
-
-- `aws:RequestTag/project` must be present and match `^CAGE-[A-Z]{3,5}-[A-Z0-9-]+$`
-- `ec2:InstanceType` must be in the `approved-gpu-instance-types` condition key
-- Instance launches in `prod-ai` VPC require an additional `PHI-approved` tag (applied only by pre-authorized IAM roles)
-
-All IAM policy changes affecting GPU access require approval via the Meridian Change Advisory Board (CAB), with the Chief AI Officer as mandatory approver.
-
-### 6.2 Resource Tagging Enforcement
-
-The mandatory tag taxonomy is enforced at two levels: AWS Service Control Policies (SCP) prevent launching untagged instances, and the MIRD automated detection system terminates non-compliant instances.
-
-**Mandatory Tags (All Accelerated Compute Instances):**
-
-| Tag Key | Description | Example Value | Enforcement |
+| Access Level | IAM Policy Name | Scope | Granting Process |
 |---|---|---|---|
-| `meridian:project` | CAGE project identifier | `CAGE-MRI-SEG-V4` | SCP: `ec2:RunInstances` fails without it |
-| `meridian:environment` | Deployment environment tier | `production` | SCP: Must be one of `dev`, `staging`, `production`, `sandbox` |
-| `meridian:cost-center` | Finance cost center code | `FIN-AI-2024-0182` | SCP: Must match active cost center list |
-| `meridian:owner` | Individual Meridian email | `alice.chen@meridian.health` | SCP: Must be valid AD user |
-| `meridian:priority-tier` | Priority classification | `tier-2` | Cloud Custodian rule: Terminates mismatched tier/instance-type combinations |
-| `meridian:expires-at` | ISO 8601 reservation expiry | `2026-03-21T18:00:00Z` | MIRD: Terminates instances 24 hours past expiry |
-| `meridian:phi-processing` | Boolean indicating PHI exposure | `true` | MIRD: Instances tagged `true` without `prod-ai` VPC placement are immediately terminated |
-| `meridian:sop-version` | SOP version governing the instance | `SOP-AIML-012 v3.5` | Audit: Flagged if version is stale (>2 versions behind current) |
-| `meridian:workload-type` | Category of workload | `training`, `inference`, `development` | Cloud Custodian: Validates alignment with instance type (e.g., p4d for training) |
+| **Read-Only Metadata** | `MeridianCompute-ReadOnly` | DescribeInstances, ListComputeEnvironments, view CloudWatch dashboards. No console SSH, no SSM session. | Granted automatically to all AI/ML Engineering personnel via Okta group `all-ml-engineers` |
+| **Development Provisioner** | `MeridianCompute-DevProvisioner` | Full EC2 lifecycle permissions within sandbox account `meridian-dev-sandbox` only, conditional on tag compliance | ServiceNow access request with ML Platform Team Lead approval; 90-day expiry with mandatory re-certification |
+| **Production Operator** | `MeridianCompute-ProdOperator` | Start/Stop/Reboot of tagged production instances; no launch or termination permissions | ServiceNow access request with InfoSec Engineering Lead + VP Engineering approval; mandatory quarterly access review |
+| **Production Administrator** | `MeridianCompute-ProdAdmin` | Full EC2 lifecycle across production accounts, GPU node pool provisioning | Limited to ML Platform Team service accounts and 3 named individuals (break-glass roles); full audit logging enabled; quarterly review by InfoSec; PagerDuty alert on any human role assumption |
 
-**Tag Governance Dashboard:**
-IT Operations maintains a Tag Compliance Dashboard (in Grafana) that shows, for each business unit: tag compliance rate, most common missing tags, and instances at risk of termination. Business units below 98% compliance for three consecutive weeks will have provisioning quotas frozen until compliance is restored.
+**SSH Access Restriction:** Direct SSH access to GPU EC2 instances is prohibited. All interactive access must occur through AWS Systems Manager Session Manager, which provides an audited, IAM-controlled shell session. Session Manager access is governed by the `MeridianCompute-ProdOperator` and higher-level policies. SSM Session logs are forwarded to the centralized Splunk index (`meridian_compute_access_logs`) with 365-day retention.
 
-### 6.3 Isolation Boundaries
+**EKS RBAC for GPU Scheduling:** Kubernetes namespaces designated for GPU workloads are protected by a ResourceQuota preventing unauthorized GPU consumption:
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: gpu-quota
+  namespace: <project-namespace>
+spec:
+  hard:
+    requests.nvidia.com/gpu: "<number-approved-in-reservation>"
+```
+This quota is injected by the admission controller during namespace creation and must be modified only via IaC changes to the namespace configuration.
 
-Meridian enforces three isolation boundaries for GPU compute environments:
+### 6.2 Mandatory Resource Tags
 
-| Boundary | Mechanism | Purpose |
+All provisioned GPU instances must carry the following tags. The Cloud Custodian `deny-untagged-gpu` policy enforces at launch time by terminating instances that do not comply within 2 hours.
+
+| Tag Key | Description | Allowed Values / Example |
 |---|---|---|
-| **Network** | VPC segmentation: `dev-ai` (CIDR 10.32.0.0/16), `staging-ai` (10.33.0.0/16), `prod-ai` (10.34.0.0/16) | Prevents cross-environment network access. `prod-ai` has no internet egress (traffic routed through VPC endpoints + internal proxy). |
-| **IAM** | Separate AWS accounts: `meridian-ai-dev` (123456789012), `meridian-ai-prod` (210987654321) | Blast-radius containment. Production account has separate root credentials. |
-| **Data** | PHI-processing instances launch in `prod-ai` VPC with encrypted EBS (CMK) and no outbound internet access | HIPAA technical safeguards for compute processing PHI. |
+| `CostCenter` | Meridian Finance cost center code | `1100-Clinical-AI`, `2300-HealthPay-ML` |
+| `Project` | Jira project key or approved project code | `CLINAI-042`, `HP-MODEL-RETRAIN` |
+| `Environment` | Deployment environment | `prod`, `staging`, `dev`, `sandbox` |
+| `DataClass` | Data classification tier per 4.2 | `tier1_regulated`, `tier2_confidential`, `tier3_internal`, `tier4_public` |
+| `WorkloadTier` | Criticality rating per 4.3 | `tier1_mission`, `tier2_bizcrit`, `tier3_bizess`, `tier4_noncrit` |
+| `CreatedBy` | Email or service account of provisioner | `ci-pipeline@meridian.com`, `maria.sanchez@meridian.com` |
+| `ExpiryDate` | Date when resource should be reviewed for decommissioning | `YYYY-MM-DD`; set to exactly 90 days from launch for dev, 365 days for prod |
+| `Repo` | Git repository IaC source | `meridiantech/terraform-meridian-platform` |
 
-Multi-tenant environments (Kubeflow + EKS) use Kubernetes Namespaces with NetworkPolicy restrictions, preventing pods in namespace `healthpay` from communicating with pods in namespace `clinical-ai` unless explicitly authorized via NetworkPolicy allow-lists.
+### 6.3 Network Segmentation
 
-### 6.4 GPU Driver and Firmware Management
+Production GPU clusters operate within a dedicated Virtual Private Cloud (VPC) (`vpc-meridian-prod-us-east-1`, CIDR `10.100.0.0/16`) with the following enforced network boundaries:
 
-NVIDIA GPU drivers and CUDA toolkit versions are managed through a controlled AMI pipeline:
-
-- All Meridian GPU AMIs are built from a golden image pipeline that bakes in validated NVIDIA driver versions.
-- New NVIDIA driver releases are tested by IT Operations for a 30-day validation period before promotion to the production AMI catalog.
-- Critical security patches to NVIDIA drivers bypass the 30-day validation window but require VP of Engineering approval.
-
-Current validated driver versions (as of March 2026):
-
-| Environment | Driver Version | CUDA Version | AMI ID (us-east-1) |
-|---|---|---|---|
-| Development | NVIDIA 545.23.08 | CUDA 12.3 | `ami-0a1b2c3d4e5f60001` |
-| Staging | NVIDIA 550.54.15 | CUDA 12.4 | `ami-0a1b2c3d4e5f60002` |
-| Production | NVIDIA 550.54.15 | CUDA 12.4 | `ami-0a1b2c3d4e5f60003` |
-
-End users are prohibited from installing drivers or CUDA versions outside the AMI catalog. Instances detected with non-standard GPU drivers will be terminated within 60 minutes by MIRD.
-
-### 6.5 Network Security
-
-GPU compute instances reside in security groups that enforce the principle of least privilege:
-
-- **Inbound:** All ports blocked except: port 443 for HTTPS from the Meridian corporate CIDR for JupyterLab/notebook access; and ephemeral ports for inter-service communication within the same VPC and security group.
-- **Outbound (prod-ai):** Only approved AWS service endpoints (S3, ECR, CloudWatch Logs, Systems Manager) via VPC endpoints. No outbound internet connectivity.
-- **Outbound (dev-ai, staging-ai):** Permitted to approved package registries (PyPI, Conda-forge, NVIDIA NGC) via a transparent HTTP proxy with content filtering.
+- **Private Subnet Only:** GPU instances have no route to an Internet Gateway. Egress to internet is mediated exclusively through VPC endpoints (for AWS services) or a centralized NAT Gateway cluster with TLS inspection (for external dependencies such as PyPI, NVIDIA driver repositories). The NAT Gateway inspection layer is managed by InfoSec and enforced by security groups.
+- **Cross-VPC Peering Restriction:** The production GPU VPC does not accept peering connections from development or sandbox VPCs. Connectivity to shared services (e.g., shared MLflow Tracking Server in `vpc-meridian-shared-svc`) is via AWS PrivateLink only, ensuring traffic does not traverse public network paths.
+- **Clinical AI Inference Enclave:** A dedicated subnet (`10.100.77.0/24`) with no outbound internet access of any kind—not even via NAT—is designated for Clinical AI inference GPU instances processing PHI. Model artifacts and container images are pre-staged via AWS VPC Endpoint to ECR. This subnet is further protected by AWS Network Firewall, which logs and can block anomalous outbound connection attempts in real-time.
+- **Amazon EKS Pod Security Standards:** The `gpu-workload` namespace enforces the `restricted` Pod Security Standard (PSS) profile, preventing containers from running as root or with privileged access to the underlying GPU node OS.
 
 ## 7. Monitoring, Metrics, and Reporting
 
-### 7.1 Real-Time Monitoring Dashboard
+### 7.1 Operational Dashboards
 
-The Meridian GPU Operations Dashboard (Grafana, `https://grafana.internal.meridian.health/d/gpu-ops`) provides a unified operational view. The dashboard is displayed on the AI/ML Engineering office wall monitors and accessible via any authenticated browser.
+The following Grafana dashboards provide real-time GPU fleet visibility and are mandatory additions to the on-call engineer's operational view during business hours and incident response:
 
-**Dashboard Panels:**
+**Dashboard: "GPU Fleet Operational Overview"** (Grafana UID: `meridian-gpu-fleet-ops`)
+- **Panel — GPU Availability by AZ:** Stacked area chart of active GPU instances (count) grouped by AWS AZ and GPU family. Refresh: 1 min. Alert: Trigger if any production cluster's active GPU count drops below 75% of declared minimum for more than 15 minutes.
+- **Panel — GPU Utilization (Percent):** Time-series of weighted average GPU core utilization (`nvidia_smi_utilization_gpu_percent` via DCGM exporter) across all nodes in the `prod` EKS environment. Alert: Trigger if sustained >92% for 30 minutes for Tier-1 workloads.
+- **Panel — GPU Memory Utilization (Percent):** Same as above, monitoring `nvidia_smi_memory_used_bytes / total`. Alert: Trigger if >90% sustained for 15 minutes (suggests incorrect batch sizing or memory leak).
+- **Panel — Instance Fleet Cost Rate ($/Hour):** Calculated real-time aggregated on-demand equivalent hourly cost of all running GPU instances. Includes Spot discounts.
 
-| Panel | Metrics Displayed | Refresh Interval |
-|---|---|---|
-| Fleet Overview | Total running GPU instances; count by instance type, environment, priority tier, and team | 1 minute |
-| Utilization Heatmap | GPU utilization and VRAM utilization (% of total) per instance; color-coded: green (>70%), yellow (30–70%), red (<30%) | 5 minutes |
-| Cost Burn Rate | Current dollar-per-hour burn rate by team; projected daily total | 15 minutes |
-| Idle Resource Alert Feed | Chronological list of idle resource detections with instance ID, owner, cost impact | 15 minutes |
-| Spot Interruption Tracker | Real-time feed of Spot Instance reclaim notifications; tracks successful vs. failed checkpoint completions | Real-time (stream) |
-| Quota Consumption Gauge | Per-team quota consumption as percentage of allocation | 1 minute |
+**Dashboard: "SageMaker Endpoint Health"** (Grafana UID: `meridian-sagemaker-endpoints`)
+- Filters: Endpoint Name, Environment, Workload Tier
+- Panels: Invocations per Second, Invocation Latency (p50, p95, p99), Invocation Errors (4xx, 5xx), Instance Count
 
-### 7.2 Key Performance Indicators (KPIs)
+### 7.2 Financial Reporting Cadence
 
-The following KPIs are tracked monthly and reviewed at the AI Infrastructure Review Board:
-
-| KPI | Definition | Target | Measurement Method |
+| Report | Frequency | Audience | Delivery Mechanism |
 |---|---|---|---|
-| GPU Utilization Efficiency (GUE) | Average aggregate GPU utilization across all running instances during business hours | ≥65% | CloudWatch metrics aggregation |
-| Idle Resource Waste Rate (IRWR) | Cost of idle instances as percentage of total GPU spend | ≤5% | MIRD log × AWS Cost Explorer |
-| Reserved Instance Coverage Rate (RICR) | Percentage of total GPU running hours covered by Reserved Instances or Savings Plans | ≥70% | AWS Cost Explorer RI/SP report |
-| Tag Compliance Rate | Percentage of GPU instances with all nine mandatory tags | ≥99% | Tag Governance Dashboard query |
-| Spot Interruption Recovery Rate | Percentage of interrupted spot workloads successfully checkpointed and resumed | ≥95% | Kubeflow pipeline logs + Spot interruption events |
-| Provisioning SLA Attainment | Percentage of Tier 3 auto-approved requests fulfilled within 15-minute SLA | ≥98% | MCRS audit log analysis |
-| Chargeback Dispute Rate | Percentage of monthly CCAR line items disputed by business units | ≤3% | Finance (FP&A) dispute tracking |
+| **Cost Center GPU Spend Summary** | Monthly, by 10th business day | All cost center owners (Director-level+) | Automated email from CloudZero, includes month-over-month delta and top-5 spend drivers |
+| **GPU Reservation Utilization Report** | Monthly | Dr. Marcus Rivera, ML Platform Team Lead | Tableau workbook "GPU Reservation Compliance" shows each active Reservation ID, allocated hours, consumed hours, and % utilized; <50% utilized reservations flagged for review |
+| **Spot vs. On-Demand Savings Report** | Quarterly | VP of Engineering, CFO | AWS Cost Explorer report quantifying realized savings from Spot and Savings Plans relative to On-Demand list price |
+| **Carbon Footprint Summary** | Quarterly | Chief AI Officer, Sustainability Committee | Aggregated tCO2e attributable to GPU compute, trended quarterly, sourced from AWS Customer Carbon Footprint Tool |
 
-### 7.3 Weekly Utilization Report
+### 7.3 Key Performance Indicators (KPIs)
 
-Every Monday at 0900 ET, MCRS distributes a Weekly GPU Utilization Report to all AI/ML Engineering Leads (via email and Confluence publication). The report includes:
-
-- Per-team utilization breakdown (average utilization, peak utilization, idle hours, cost)
-- Per-project utilization breakdown (same metrics)
-- Top 10 idle offenders (individual users with highest idle cost waste)
-- Instance type availability snapshot (current on-demand capacity status for Meridian's commonly used instance types in us-east-1 and eu-west-2)
-- Recommendations: instances recommended for termination, rightsizing opportunities, RI/SP coverage gaps
-
-Team leads must acknowledge the report within 48 hours by commenting on the Confluence page (acknowledgement tracked via Confluence page view analytics and required explicit `@mention` confirmation).
-
-### 7.4 Monthly Compute Cost Attribution Report (CCAR)
-
-As described in Section 5.2.2, the monthly CCAR is the authoritative cost allocation report. It is published to the Meridian Financial Reporting portal and retained for a minimum of seven fiscal years.
-
-### 7.5 Compliance and Audit Reporting
-
-The Chief Compliance Officer (CCO) receives a quarterly GPU Compute Audit Package containing:
-
-- All instances that processed PHI data, including instance ID, project, duration, and IAM access logs.
-- All break-glass emergency provisioning invocations, including post-hoc approvals.
-- Tag compliance trend line.
-- Log of all policy exception approvals.
-
-The CCO reviews and signs the audit package. Signed packages are retained for seven fiscal years.
+| KPI | Target | Measurement Method |
+|---|---|---|
+| **GPU Instance Tag Compliance** | 99.5% of running instances | Cloud Custodian nightly report: tagged_instance_count / total_running_instance_count |
+| **Spot Instance Utilization (Dev/Staging)** | >65% of total GPU hours | AWS Cost Explorer spot vs. on-demand usage for non-production linked accounts |
+| **Mean Time to Provision (MTTP)** | <24 hours from final approval to node readiness for standard GPU node pools | ServiceNow ticket timestamp delta: `time_provisioned` — `time_approved` |
+| **Production GPU Incident Rate** | <2 P1/P2 incidents per month attributable to GPU/capacity failures | PagerDuty incident count tagged `component:gpu_infrastructure` |
 
 ## 8. Exception Handling and Escalation
 
-### 8.1 Exception Request Process
+### 8.1 Exception Types
 
-Requests for deviations from this SOP must be submitted via the Meridian Policy Exception Portal (`https://exceptions.internal.meridian.health`). The exception request must include:
+Deviations from this SOP are categorized and managed as follows:
 
-- **SOP Reference:** `SOP-AIML-012 v3.5`
-- **Section Reference:** Specific policy section for which exception is sought
-- **Justification:** Business or technical justification with supporting evidence (minimum 250 words)
-- **Duration:** Start and end dates for the exception (maximum 90 days; extensions require a new request)
-- **Impact Assessment:** Acknowledged risk and impact of the deviation
-- **Alternative Mitigations:** Any compensating controls to be implemented during the exception period
+| Exception Type | Definition | Approval Authority | Max Validity |
+|---|---|---|---|
+| **Budget Exception** | GPU spend for a reservation will or does exceed approved monthly allocation by >10% | VP of Engineering | End of current quarter |
+| **Capacity Exception** | Insufficient On-Demand GPU capacity in primary region/AZ; requesting use of alternate instance family or region | ML Platform Team Lead + Chief AI Officer | Until AWS capacity is restored, reviewed monthly |
+| **Scheduling Exception** | Request to run Tier-1 regulated workload on Spot instances contrary to Section 4.2 prohibition | Chief AI Officer + Chief Privacy Officer | Project-specific, max 30 days per approval |
+| **Tenancy Exception** | Request to use Default tenancy for Tier-1 data workload | Chief AI Officer + CISO | Project-specific, needs re-approval per project phase |
 
-### 8.2 Exception Approval Authority
+### 8.2 Exception Handling Process
 
-| Exception Type | Approver | Maximum Duration |
-|---|---|---|
-| Quota exceeding ≤25% of current allocation, duration ≤14 days | AI/ML Engineering Lead | 14 days |
-| Quota exceeding ≤50% of current allocation, duration ≤30 days | VP of Engineering | 30 days |
-| Quota exceeding >50% of allocation OR any Tier 1 quota exception | Chief AI Officer | 90 days |
-| PHI-processing exception | Chief AI Officer + Chief Compliance Officer (joint approval) | 30 days |
-| Cost exception >$100,000 incremental monthly spend | Chief AI Officer + CFO | 90 days |
-| Tagging exception (any) | VP of Engineering | 14 days |
+1.  **Submission:** Requestor submits a ServiceNow ticket type "GPU Compute Exception — [Type]" containing:
+    - Link to the violated policy statement
+    - Detailed business justification
+    - Proposed compensating controls
+    - Duration for which exception is needed
+    - Risk acknowledgement
 
-### 8.3 Escalation Path
+2.  **Risk Assessment:** The ML Platform Team Lead, in consultation with InfoSec Engineering if security controls are impacted, assesses the technical and business risk within 3 business days. The assessment is documented in the ticket.
 
-Resource conflicts and policy violations escalate as follows:
+3.  **Approval Workflow:**
+    - Budget Exception: ServiceNow routes to Cloud FinOps Lead (review) -> VP of Engineering (approve/reject)
+    - All other exceptions: ServiceNow routes to ML Platform Team Lead (recommend) -> Specified Approval Authority from table 8.1 (approve/reject)
 
-1. **Level 1 – Team Lead Resolution:** AI/ML Engineering Leads negotiate directly to resolve inter-team resource conflicts, documented in `#ai-infra-resolution` Slack channel.
-2. **Level 2 – VP of Engineering:** Escalated if Level 1 fails to resolve within three business days or if conflict involves production (Tier 1) resources. VP of Engineering renders a binding decision within two business days.
-3. **Level 3 – Chief AI Officer:** Escalated for any conflict with >$50,000/month cost impact, any conflict involving both GPU compute and data pipeline resources, or any conflict that DP cannot resolve within two business days.
+4.  **Implement Controls:** If approved, the exception is recorded in the "Exception Register" (a maintained Confluence page under the AI/ML Engineering space). The compensating controls accepted in the risk assessment must be implemented and validated by the requestor within 5 business days. Failure to implement compensating controls invalidates the exception.
 
-### 8.4 Incident Response for GPU Availability
+5.  **Expiration and Review:** Exceptions automatically expire on their max validity date unless renewed by resubmission. The Compute Governance Council (monthly meeting) reviews all active exceptions.
 
-If GPU capacity in us-east-1 becomes unavailable (e.g., AWS InstanceType availability failures), the following escalation procedure triggers:
+### 8.3 GPU Instance Interrupt Escalation
 
-1. **IT Operations monitoring** detects GPU capacity constraint via AWS Service Health Dashboard and Meridian synthetic provisioning tests.
-2. **Pre-provisioned fallback instance types** (defined in the MCRS launch template) are automatically attempted:
-   - `p4d.24xlarge` → `p4de.24xlarge` → `p3dn.24xlarge`
-   - `g5.12xlarge` → `g5.24xlarge` → `g4dn.12xlarge`
-3. If fallback types are also unavailable, the on-call DevOps engineer is paged (PagerDuty severity: HIGH).
-4. The on-call engineer evaluates cross-region failover to eu-west-2 for non-PHI workloads (PHI workloads cannot leave us-east-1 production VPC).
-5. VP of Engineering is notified for any availability incident lasting >2 hours.
+In the event of an unexpected, widespread loss of GPU capacity (e.g., multi-AZ AWS instance termination event, large-scale Spot market disruption):
+
+1.  **Immediate (0-15 min):** On-call ML Platform engineer declares incident, pages SRE Lead. Implement standard Spot interruption draining (automated for Spot; manual drain-and-replace for On-Demand if capacity is available).
+2.  **15-60 min:** If Tier-1 inference workloads are impacted and capacity cannot be restored in primary AZ/region, SRE initiates failover to secondary region (Azure DR for Clinical AI per SOP-AIML-011). HealthPay Tier-2 workloads may absorb queued load; MedInsight batch workloads are paused.
+3.  **60+ min:** Chief AI Officer notified. If capacity remains unavailable, invoke emergency GPU capacity reservation in alternate AWS account (`meridian-dr-prod`). Escalate to AWS Enterprise Support / Technical Account Manager (TAM) for capacity routing assistance. VP of Engineering briefed for potential customer SLA communication.
 
 ## 9. Training Requirements
 
-### 9.1 Initial Training
+### 9.1 Initial and Recurring Training
 
-All personnel who provision or access GPU compute resources must complete the following training within 30 days of onboarding or role transition:
+| Audience | Training Module | Frequency | Delivery Method | Tracking |
+|---|---|---|---|---|
+| **All AI/ML Engineers** | "GPU Resource Management at Meridian" (custom SCORM module covering SOP contents, cost awareness, tag discipline) | Within 30 days of hire; annually thereafter | Workday Learning | Completion recorded in Workday; non-compliance flagged to manager within 45 days |
+| **ML Platform Team** | "Hands-on GPU Provisioning Lab" (workshop covering Terraform modules, EKS GPU node groups, incident response runbooks) | Quarterly, aligned to Meridian's "Tech Skills Day" | Instructor-led, virtual | Registration via Workday; attendance tracked by instructor. Must complete within two quarters to retain Production Administrator IAM privileges. |
+| **Cost Center Owners** | "FinOps for GPU Consumers" (30-min e-learning on chargeback reports, reservation ROI) | Annually | Workday Learning | Required to receive FY GPU budget allocation |
+| **On-Call Rotation Personnel** | "GPU Incident Response Drill" (simulated GPU capacity outage using Chaos Engineering framework; exercises failover to Azure DR) | Semi-annually | Facilitated simulation by SRE team | Drill report published to Confluence; participants named. Failure to participate in >1 drill per year results in removal from on-call rotation. |
 
-| Training Module | Delivery Method | Duration | Frequency |
-|---|---|---|---|
-| **GPU-CMPL-101: Meridian Compute Resource Management Fundamentals** | LMS (self-paced with knowledge check) | 2 hours | Once, at onboarding |
-| **GPU-CMPL-201: MCRS Provisioning Walkthrough** | Hands-on lab (instructor-led via video conference + sandbox environment) | 3 hours | Once, at onboarding |
-| **GPU-CMPL-301: Cost Awareness and Tagging Compliance** | LMS (self-paced, interactive) | 1 hour | Once, at onboarding |
-| **GPU-CMPL-401: PHI-Aware Compute Environment Operations** | Instructor-led (mandatory for any personnel working in `prod-ai` VPC) | 2 hours | Once, at onboarding; reassigned upon any HIPAA incident |
+### 9.2 Compute Governance Council Onboarding
 
-### 9.2 Refresher Training
-
-All personnel who provision GPU resources must complete refresher training:
-
-- **Annual Refresher: GPU-CMPL-501: Annual GPU Policy Refresher** (LMS, 1 hour) — covers policy changes, new instance types, updated procedures.
-- **Spot Instance Training: GPU-CMPL-601: Running Spot-Interruptible Workloads on Meridian** (LMS, 45 minutes) — mandatory for any team using Spot Instances for Tier 2 training.
-
-### 9.3 Non-Compliance Remediation
-
-Personnel who violate this SOP (e.g., provisioning untagged instances, hoarding idle resources, bypassing MCRS) are subject to the following progressive remediation:
-
-1. **First Violation (rolling 12 months):** Automated email warning; required re-completion of GPU-CMPL-101 within 7 days.
-2. **Second Violation (rolling 12 months):** Manager notification; one-week suspension of GPU provisioning privileges; mandatory instructor-led retraining (GPU-CMPL-201, in-person or live remote).
-3. **Third Violation (rolling 12 months):** Permanent revocation of GPU provisioning privileges; access reduced to pre-provisioned shared environments only. Escalation to VP of Engineering for final determination.
-
-### 9.4 Training Tracking and Reporting
-
-All training completion records are maintained in the Meridian LMS (Workday Learning). IT Operations produces a monthly training compliance report for the Chief AI Officer, listing any individual whose GPU-CMPL training is expired or incomplete. Individuals who are out of compliance for >30 days have their GPU provisioning IAM permissions suspended until training is completed.
+New members of the Compute Governance Council (Chief AI Officer delegates, ML Platform Team Lead, Cloud FinOps Lead, InfoSec liaison) must complete a "GPU Governance Deep Dive" session within 30 days of joining. This 90-minute session reviews all active exceptions, current AWS reservation portfolio, capacity planning forecast models, and the quarterly GPU budget outlook. The session is led by the current Cloud FinOps Lead.
 
 ## 10. Related Policies and References
 
-### 10.1 Meridian Internal SOP Cross-References
+### 10.1 Internal Meridian SOPs
 
-| SOP ID | Title | Relationship |
+| Reference | SOP ID | Relationship to GPU Management |
 |---|---|---|
-| SOP-IT-022 | General-Purpose Compute Resource Management | Complementary SOP covering non-GPU compute (EC2 CPU instances, Lambda, ECS tasks) |
-| SOP-IT-045 | End-User Device and Workstation Management | Manages laptop and workstation GPU allocation; not covered by this SOP |
-| SOP-ENG-018 | CI/CD Pipeline Infrastructure Management | Pipeline compute resources are managed by Platform Engineering under separate governance |
-| SOP-IT-041 | Data Backup and Retention | Cross-referenced for EBS volume snapshot procedures |
-| SOP-SEC-104 | IAM Access Governance | IAM policy governance framework for all AWS access |
-| SOP-AIML-008 | MLflow Experiment Tracking and Model Registry | Tracks training jobs referenced by this SOP |
-| SOP-AIML-009 | Clinical AI Governance Engine (CAGE) Operations | CAGE compute session record management |
-| SOP-CMPL-019 | Vendor Security Risk Management | Reference for third-party access to compute environments (if applicable) |
+| **Data Classification Standard** | SOP-DSEC-001 | Defines data tiers used in Section 4.2 tenancy and encryption controls |
+| **Model Deployment and Rollback** | SOP-AIML-008 | Defines inference endpoint deployment patterns referenced in 5.2 scaling |
+| **PHI Data Handling for AI Workloads** | SOP-AIML-003 | Mandates Dedicated Tenancy for Clinical AI PHI workloads |
+| **Incident Management** | SOP-IT-OPS-001 | Defines P1-P4 severity and response timelines referenced in escalation |
+| **Cloud Financial Management (FinOps)** | SOP-FIN-022 | Defines chargeback model, budget governance, and RI purchasing authority |
+| **AWS IAM and Access Governance** | SOP-ISEC-007 | Defines IAM policy lifecycle, access review cadence, and break-glass procedure |
+| **Infrastructure as Code (IaC) Standard** | SOP-IT-INFRA-005 | Mandates Terraform Enterprise for all production provisioning |
+| **Employee Disciplinary Procedures** | SOP-HR-005 | Consequences for deliberate policy violation |
+| **Endpoint Management Standard** | SOP-IT-002 | Out-of-scope compute management |
+| **BC/DR Plan — Clinical AI** | SOP-AIML-011 | Failover procedure to Azure DR for Tier-1 Clinical AI inference |
 
 ### 10.2 External Standards and References
 
-| Reference | Description | Applicability |
-|---|---|---|
-| NIST SP 800-53 Rev. 5 | Security and Privacy Controls for Information Systems | Controls related to audit logging, access enforcement |
-| AWS Well-Architected Framework – Cost Optimization Pillar | Cloud financial management best practices | Reserved Instance/Savings Plan strategy |
-| NVIDIA Multi-Instance GPU (MIG) Documentation | GPU partitioning for multi-tenant environments | MIG configuration and isolation |
-| NVIDIA DCGM | Data Center GPU Manager for telemetry export | Utilization metric collection |
+This SOP is informed by best practices published by the FinOps Foundation (GPU-specific cost optimization patterns), NVIDIA's GPU Operator documentation for Kubernetes, and AWS's operational guidance on EC2 Spot Instances for machine learning. No direct compliance obligation arises from these external sources; they serve as implementation guidance only.
 
 ## 11. Revision History
 
-| Version | Effective Date | Author/Owner | Summary of Changes |
-|---|---|---|---|
-| 1.0 | 2022-06-15 | Dr. Marcus Rivera | Initial SOP publication. Established basic GPU provisioning, tagging, and cost management framework for the newly formed AI/ML Engineering team. Covered only us-east-1; no MIG support; manual provisioning via Jira tickets. |
-| 2.0 | 2023-02-10 | Dr. Marcus Rivera | Major revision: Introduced MCRS automated provisioning system. Added priority tier classification (Tier 1–3) with preemption rules. Added idle resource detection (manual review). Expanded chargeback procedure. Added initial Spot Instance guidance. |
-| 2.1 | 2023-07-19 | Dr. Marcus Rivera | Minor revision: Updated Kubernetes GPU scheduling section to reflect migration to EKS with Kubeflow. Added NVIDIA driver version table (pinned to Driver 535). Updated IAM policy conditions for SCP enforcement. |
-| 3.0 | 2024-04-02 | David Park (VP of Engineering) | Major revision: Introduced MIG partitioning support. Added automated idle resource detection and reclamation (MIRD Lambda). Added `prod-ai` isolated VPC for PHI workloads. Added CAGE integration for compute session tracking. Updated tagging taxonomy from 5 to 9 mandatory tags. Added MCPP capacity planning portal. Break-glass emergency provisioning procedure added. |
-| 3.2 | 2025-01-21 | Dr. Marcus Rivera | Revised cost thresholds upward by 15% to reflect 2025 infrastructure pricing adjustments. Updated Kubernetes priority class preemption timings. Added `eu-west-2` region cross-reference for failover planning. Updated NVIDIA driver to 545.23.08 for development environments. |
-| 3.5 | 2025-12-03 | Dr. Marcus Rivera | Current revision. Updated for new p5.48xlarge instance type availability (H100 GPUs). Updated NVIDIA driver table to v550.54.15 for staging and production. Revised Reserved Instance/Savings Plan triggers to reflect 2025 purchasing benchmarks. Added `Spot Interruption Recovery Rate` KPI. Expanded exception handling escalation path with specific dollar thresholds. Added `GPU-CMPL-601` Spot Instance training requirement. Formalized the Weekly GPU Utilization Report cadence. Updated cross-references to SOP-AIML-009, SOP-SEC-104, SOP-ENG-018. |
-| 3.5 (this rev) | 2026-03-20 | Dr. Marcus Rivera | Last reviewed. No changes. Next review scheduled for September 23, 2026. |
+| Version | Date | Author | Approver | Summary of Changes |
+|---|---|---|---|---|
+| **1.0** | 2021-03-15 | Dr. Marcus Rivera | David Park | Initial publication. Established basic GPU provisioning and tagging requirements for Clinical AI training workloads on P3 instances. |
+| **2.0** | 2021-11-10 | Dr. Marcus Rivera | David Park | Expanded scope to include HealthPay GPU inference and general compute; introduced GPU Reservation Request process and initial cost chargeback; migrated tagging taxonomy to align with AWS Cost Allocation Tags. |
+| **3.1** | 2022-06-05 | ML Platform Team (J. Chen) | Dr. Marcus Rivera | Replaced P3 with P4d as standard GPU; added Production Inference Scaling Protocol (Section 5.2) in response to Clinical API latency incidents; added workload criticality tier definitions. |
+| **4.0** | 2023-02-18 | Cloud FinOps Lead (M. Okonkwo) | Dr. Marcus Rivera, CISO | Major revision: introduced Spot usage policy for non-production, mandatory Cloud Custodian tagging enforcement, EKS GPU node group IaC module requirement, and Snowflake warehouse compute governance. Added exception handling process. |
+| **5.0** | 2024-05-01 | Dr. Marcus Rivera | David Park | Added H100 (P5) support; introduced Carbon Intensity Score concept; revised scaling thresholds for next-gen inference SLAs; updated IAM policies for SSM-only access; added semi-annual incident response drill requirement. |
+| **5.1** | 2024-12-12 | ML Platform Team (A. Petrov) | Dr. Marcus Rivera | Minor revision: updated EKS GPU node group Terraform module version to >= 4.1; modified Spot-to-On-Demand ratio target for development from 60% to 70%; clarified IAM break-glass role audit PagerDuty alert; added P5 availability zone guidance for us-east-1. |
+| **5.2** | 2025-08-20 | Dr. Marcus Rivera | David Park | Routine review: updated role assignments to reflect current org chart; added G6/G6e instance families for inference; extended SSM log retention period to 365 days; added requirement for OPA policy checks in GPU node pool provisioning PR workflow. No substantive policy changes. Next scheduled review February 2026. |
