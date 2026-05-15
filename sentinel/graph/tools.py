@@ -233,6 +233,7 @@ def audit_single_sop(sop_id: str) -> str:
         base_url=NEBIUS_BASE_URL,
         temperature=0.1,
         max_tokens=MODEL_MAX_TOKENS,
+        metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
     )
 
     subagent = create_react_agent(

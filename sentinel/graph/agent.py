@@ -52,6 +52,7 @@ def _build_model(provider: str = "nebius") -> ChatOpenAI:
             base_url="https://api.anthropic.com/v1/",
             temperature=0.1,
             max_tokens=4000,
+            metadata={"ls_provider": "anthropic", "ls_model_name": ANTHROPIC_MODEL},
         )
     return ChatOpenAI(
         model=MODEL,
@@ -59,6 +60,7 @@ def _build_model(provider: str = "nebius") -> ChatOpenAI:
         base_url=NEBIUS_BASE_URL,
         temperature=0.1,
         max_tokens=4000,
+        metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
     )
 
 
