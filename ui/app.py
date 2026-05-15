@@ -27,11 +27,10 @@ st.set_page_config(
 )
 
 TOOL_LABELS = {
-    "list_regulation_clauses": "Listing regulation clauses...",
-    "retrieve_sops_for_clause": "Retrieving SOPs...",
-    "audit_single_clause": "Auditing clause...",
+    "list_regulations": "Listing regulations in knowledge base...",
+    "retrieve_regulation_text_tool": "Retrieving regulation text...",
     "audit_single_sop": "Auditing SOP...",
-    "audit_all_clauses": "Running full audit across all SOPs...",
+    "audit_all_sops": "Running full audit across all SOPs...",
 }
 
 
@@ -110,20 +109,20 @@ def _format_tool_status(tool_call: dict) -> str:
 
 
 def _parse_audit_table(tool_result: str) -> list[dict] | None:
-    """Try to extract structured findings from an audit_all_clauses result."""
+    """Try to extract structured findings from an audit_all_sops result."""
     if "Audit complete:" not in tool_result:
         return None
 
     findings = []
     for line in tool_result.split("\n"):
         line = line.strip()
-        if not line or line.startswith("Audit complete") or line.startswith("Compliant") or line.startswith("Partial") or line.startswith("Gap"):
+        if not line or line.startswith("Audit complete") or line.startswith("Compliant") or line.startswith("Partial") or line.startswith("Gap") or line.startswith("Per-SOP"):
             continue
-        match = re.match(r"([\w-]+):\s+(\d+)\s+SOPs?\s+.*?(\d+)C/(\d+)P/(\d+)G", line)
+        match = re.match(r"([\w/.:-]+):\s+(\d+)\s+findings?\s+.*?(\d+)C/(\d+)P/(\d+)G", line)
         if match:
             findings.append({
-                "clause": match.group(1),
-                "sops": int(match.group(2)),
+                "sop": match.group(1),
+                "findings": int(match.group(2)),
                 "compliant": int(match.group(3)),
                 "partial": int(match.group(4)),
                 "gap": int(match.group(5)),
@@ -148,7 +147,7 @@ def render_audit_results(tool_result: str):
 
         import pandas as pd
         df = pd.DataFrame(findings)
-        df.columns = ["Clause", "SOPs", "Compliant", "Partial", "Gap"]
+        df.columns = ["SOP", "Findings", "Compliant", "Partial", "Gap"]
 
         def _color_row(row):
             if row["Gap"] > 0:
@@ -186,15 +185,16 @@ def render_sidebar():
                 "piece of evidence from the SOP, a recommended remediation, and a severity rating."
             )
 
-        if st.button("List Regulation Clauses", use_container_width=True):
-            st.session_state.pending_message = "List all regulation clauses that need to be audited."
+        if st.button("List Regulations", use_container_width=True):
+            st.session_state.pending_message = "List all regulations available in the knowledge base."
 
-        if st.button("Audit CC6 (Access Controls)", use_container_width=True):
-            st.session_state.pending_message = "Audit clause CC6 — Logical and Physical Access Controls."
+        if st.button("Audit All SOPs", use_container_width=True):
+            st.session_state.pending_message = "Run the full audit across all SOPs against their tagged regulations."
 
-        if st.button("Audit HIPAA Technical Safeguards", use_container_width=True):
+        if st.button("Audit HIPAA SOPs", use_container_width=True):
             st.session_state.pending_message = (
-                "Audit clauses HIPAA-TECH-1 through HIPAA-TECH-5 (technical safeguards)."
+                "Audit all SOPs tagged with HIPAA regulations — focus on Security Rule technical "
+                "and administrative safeguards (45 CFR 164.308, 164.310, 164.312)."
             )
 
         st.divider()
@@ -221,7 +221,7 @@ def main():
     render_sidebar()
 
     st.title("Sentinel Compliance Auditor")
-    st.caption("AI-powered regulatory audit for SOC 2 and HIPAA Security Rule")
+    st.caption("AI-powered regulatory audit for HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF & more")
 
     if "messages" not in st.session_state:
         st.session_state.messages = []

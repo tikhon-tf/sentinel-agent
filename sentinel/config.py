@@ -8,6 +8,7 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 SOPS_DIR = DATA_DIR / "sops"
+REGULATIONS_DIR = DATA_DIR / "regulations"
 
 NEBIUS_API_KEY = os.environ.get("NEBIUS_API_KEY", "")
 NEBIUS_BASE_URL = "https://api.studio.nebius.com/v1/"

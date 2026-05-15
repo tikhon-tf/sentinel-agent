@@ -8,6 +8,9 @@ install:
 ingest:
 	$(PYTHON) -m sentinel.retrieval.ingest
 
+ingest-regulations:
+	$(PYTHON) -m sentinel.retrieval.ingest_regulations
+
 act1:
 	$(PYTHON) -m demo.act1_prototype --mode rag
 

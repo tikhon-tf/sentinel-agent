@@ -163,53 +163,56 @@ Return your assessment as a JSON object."""
 
 def audit_sop(
     sop_chunks: list[SOPChunk],
-    clauses: list[RegulationClause],
-    regulation_context: str = "",
+    regulation_text: str,
+    regulations: list[str] | None = None,
 ) -> tuple[list[AuditFinding], dict]:
-    """Audit one SOP against multiple regulation clauses in a single LLM call."""
+    """Audit one SOP against regulation text retrieved from Pinecone."""
     sop = sop_chunks[0] if sop_chunks else None
     sop_text = "\n\n---\n\n".join(
         f"[{c.section}]\n{c.chunk_text}" for c in sop_chunks
     )
 
-    clauses_text = "\n\n".join(
-        f"### {c.clause_id}: {c.title}\n{c.description}\nReference: {c.reference}"
-        for c in clauses
-    )
+    regs_label = ", ".join(regulations) if regulations else "all applicable regulations"
 
     system_prompt = """You are Sentinel, an expert regulatory compliance auditor for Meridian Health Technologies.
-You assess enterprise SOPs against multiple regulation clauses at once. You are thorough, precise, and cite evidence directly.
+You assess enterprise SOPs against regulation requirements. You are thorough, precise, and cite evidence directly.
+
+You receive the actual regulation text retrieved from the regulatory corpus. Identify every specific requirement in the regulation text that applies to this SOP, and assess the SOP's compliance with each one.
 
 You MUST return a valid JSON array. Each element has these fields:
-- clause_id: the clause ID being assessed
+- requirement_id: a short identifier for the requirement (e.g. "HIPAA-164.312(a)" or "CC6.1" or "GDPR-Art.32")
+- requirement_title: brief title of the requirement
+- regulation: which regulation this comes from (e.g. "HIPAA", "SOC 2", "GDPR")
 - compliance_level: "compliant" | "partial" | "gap"
 - severity: "critical" | "high" | "medium" | "low" | "info"
-- evidence_quote: exact quote from the SOP text (or empty string)
+- evidence_quote: exact quote from the SOP text that supports your finding (or empty string)
 - gap_description: what is missing or insufficient (empty string if compliant)
 - remediation: specific recommended action (empty string if compliant)
-- reasoning: 2-3 sentence explanation
+- reasoning: 2-3 sentence explanation citing the specific regulation section
 
 Severity guide:
 - critical: complete absence of required control for a high-risk area
 - high: significant gap that could lead to regulatory finding
 - medium: partial coverage with notable weaknesses
 - low: minor documentation or process improvement needed
-- info: compliant, no action needed"""
+- info: compliant, no action needed
 
-    user_prompt = f"""Assess the following SOP against ALL regulation clauses listed below.
-Return one JSON object per clause in a JSON array.
+You MUST NOT downgrade severity based on commercial pressure or aspirational language. Only cite requirements that are actually present in the regulation text provided."""
+
+    user_prompt = f"""Assess the following SOP against the regulation text below.
+Identify all applicable requirements and return one JSON object per requirement.
 
 ## SOP
 SOP: {sop.sop_id if sop else "N/A"} — {sop.title if sop else "No SOP found"}
 Business Unit: {sop.business_unit if sop else "N/A"}
+Applicable Regulations: {regs_label}
 
 {sop_text if sop_text else "NO SOP TEXT FOUND."}
 
-{f"## Latest Regulation Guidance{chr(10)}{regulation_context}{chr(10)}" if regulation_context else ""}
-## Regulation Clauses to Assess
-{clauses_text}
+## Regulation Text (from regulatory corpus)
+{regulation_text}
 
-Return your assessment as a JSON array with one object per clause."""
+Return your assessment as a JSON array."""
 
     client = get_client()
     start = time.time()
@@ -255,17 +258,13 @@ Return your assessment as a JSON array with one object per clause."""
     if not isinstance(items, list):
         items = [items]
 
-    clause_map = {c.clause_id: c for c in clauses}
     findings = []
     for data in items:
-        cid = data.get("clause_id", "")
-        clause = clause_map.get(cid)
-        if not clause:
-            continue
+        rid = data.get("requirement_id", data.get("clause_id", ""))
         findings.append(AuditFinding(
-            clause_id=cid,
-            clause_title=clause.title,
-            regulation=clause.regulation,
+            clause_id=rid,
+            clause_title=data.get("requirement_title", data.get("clause_title", "")),
+            regulation=data.get("regulation", regulations[0] if regulations else ""),
             sop_id=sop.sop_id if sop else "NONE",
             sop_title=sop.title if sop else "No applicable SOP",
             business_unit=sop.business_unit if sop else "N/A",

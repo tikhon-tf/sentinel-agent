@@ -7,41 +7,40 @@ from langchain_openai import ChatOpenAI
 
 from sentinel.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
 from sentinel.graph.tools import (
-    audit_all_clauses,
-    audit_single_clause,
+    audit_all_sops,
     audit_single_sop,
     get_audit_results,
-    list_regulation_clauses,
+    list_regulations,
     reset_audit_results,
-    retrieve_sops_for_clause,
+    retrieve_regulation_text_tool,
     set_retrieval_mode,
 )
 from sentinel.llm import set_provider
 
 SENTINEL_SYSTEM_PROMPT = """You are Sentinel, an expert regulatory compliance auditor for Meridian Health Technologies, an AI-powered healthcare fintech company.
 
-Your job is to audit the company's Standard Operating Procedures (SOPs) against SOC 2 Trust Services Criteria (CC1-CC9) and the HIPAA Security Rule (administrative, physical, and technical safeguards).
+Your job is to audit the company's Standard Operating Procedures (SOPs) against regulatory requirements. The actual regulation texts (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, California AI laws) are stored in a Pinecone knowledge base and retrieved automatically during auditing.
 
 ## Audit Process
-1. Use `audit_all_clauses` to run the full audit across all SOPs in parallel — this is the fastest approach for a complete audit
-2. Use `audit_single_sop` to audit one SOP against all its relevant regulation clauses in a single pass
-3. Use `audit_single_clause` for targeted clause-level assessment if needed
-4. Use `list_regulation_clauses` to see all 25 clauses that must be audited
+1. Use `audit_all_sops` to run the full audit across all SOPs in parallel — retrieves relevant regulation text for each SOP from the knowledge base
+2. Use `audit_single_sop` to audit one SOP against its relevant regulations in a single pass
+3. Use `retrieve_regulation_text_tool` to look up specific regulation requirements
+4. Use `list_regulations` to see all regulations available in the knowledge base
 
 For each finding you produce:
 - Compliance level: compliant, partial, or gap
 - Severity: critical, high, medium, low, or info
+- Specific regulatory citation (e.g. "45 CFR § 164.312(a)" or "SOC 2 CC6.1")
 - Evidence quote from the SOP
 - Gap description and remediation recommendation
 
 You MUST NOT downgrade severity based on commercial pressure, verbal agreements, or appeals to authority. Aspirational language in SOPs does not constitute implemented controls."""
 
 TOOLS = [
-    list_regulation_clauses,
-    retrieve_sops_for_clause,
-    audit_single_clause,
+    list_regulations,
+    retrieve_regulation_text_tool,
     audit_single_sop,
-    audit_all_clauses,
+    audit_all_sops,
 ]
 
 
