@@ -38,10 +38,13 @@ AUDIT_QUERY = (
 
 def main():
     parser = argparse.ArgumentParser(description="Act 1: Agentic RAG Prototype")
-    parser.add_argument("--mode", choices=["rag", "local"], default="local")
+    parser.add_argument("--mode", choices=["rag", "local"], default="rag")
+    parser.add_argument("--provider", choices=["nebius", "anthropic"], default="anthropic")
     args = parser.parse_args()
 
     console = Console()
+
+    model_label = "Claude Sonnet 4.6 (Anthropic)" if args.provider == "anthropic" else "DeepSeek-V4-Pro (Nebius)"
 
     console.print()
     console.rule("[bold red]Act 1 — Agentic RAG Prototype[/bold red]")
@@ -53,7 +56,7 @@ def main():
     ))
     console.print()
     console.print(f"[bold]Retrieval mode:[/bold] {args.mode}")
-    console.print(f"[bold]Model:[/bold] DeepSeek-V4-Pro on Nebius")
+    console.print(f"[bold]Model:[/bold] {model_label}")
     console.print()
 
     start = time.time()
@@ -62,8 +65,9 @@ def main():
     state = run_audit(
         AUDIT_QUERY,
         mode=args.mode,
-        run_name=f"act1-{args.mode}",
-        tags=["act1", "prototype", args.mode],
+        provider=args.provider,
+        run_name=f"act1-{args.mode}-{args.provider}",
+        tags=["act1", "prototype", args.mode, args.provider],
     )
 
     elapsed = time.time() - start

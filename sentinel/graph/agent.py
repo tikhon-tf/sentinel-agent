@@ -5,25 +5,28 @@ from typing import Literal
 
 from langchain_openai import ChatOpenAI
 
-from sentinel.config import MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
+from sentinel.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
 from sentinel.graph.tools import (
     audit_all_clauses,
     audit_single_clause,
+    audit_single_sop,
     get_audit_results,
     list_regulation_clauses,
     reset_audit_results,
     retrieve_sops_for_clause,
     set_retrieval_mode,
 )
+from sentinel.llm import set_provider
 
 SENTINEL_SYSTEM_PROMPT = """You are Sentinel, an expert regulatory compliance auditor for Meridian Health Technologies, an AI-powered healthcare fintech company.
 
 Your job is to audit the company's Standard Operating Procedures (SOPs) against SOC 2 Trust Services Criteria (CC1-CC9) and the HIPAA Security Rule (administrative, physical, and technical safeguards).
 
 ## Audit Process
-1. Use `list_regulation_clauses` to see all 25 clauses that must be audited
-2. Use `audit_all_clauses` to run the full audit across all clauses in parallel — this is the fastest approach for a complete audit
-3. Alternatively, use `audit_single_clause` for individual clauses if you need targeted assessment
+1. Use `audit_all_clauses` to run the full audit across all SOPs in parallel — this is the fastest approach for a complete audit
+2. Use `audit_single_sop` to audit one SOP against all its relevant regulation clauses in a single pass
+3. Use `audit_single_clause` for targeted clause-level assessment if needed
+4. Use `list_regulation_clauses` to see all 25 clauses that must be audited
 
 For each finding you produce:
 - Compliance level: compliant, partial, or gap
@@ -37,11 +40,20 @@ TOOLS = [
     list_regulation_clauses,
     retrieve_sops_for_clause,
     audit_single_clause,
+    audit_single_sop,
     audit_all_clauses,
 ]
 
 
-def _build_model() -> ChatOpenAI:
+def _build_model(provider: str = "nebius") -> ChatOpenAI:
+    if provider == "anthropic":
+        return ChatOpenAI(
+            model=ANTHROPIC_MODEL,
+            api_key=ANTHROPIC_API_KEY,
+            base_url="https://api.anthropic.com/v1/",
+            temperature=0.1,
+            max_tokens=4000,
+        )
     return ChatOpenAI(
         model=MODEL,
         api_key=NEBIUS_API_KEY,
@@ -101,18 +113,27 @@ def agent():
 def run_audit(
     query: str,
     mode: Literal["rag", "nexus", "local"] = "local",
+    provider: str = "nebius",
     run_name: str | None = None,
     tags: list[str] | None = None,
 ) -> dict:
     """Run the full Sentinel audit and return findings + metrics."""
     reset_audit_results()
     set_retrieval_mode(mode)
+    set_provider(provider)
 
-    agent = build_agent()
+    model = _build_model(provider)
+    try:
+        agent = _build_deep_agent(model)
+    except ImportError:
+        agent = _build_react_agent(model)
+
+    active_model = ANTHROPIC_MODEL if provider == "anthropic" else MODEL
     config = {
         "metadata": {
             "mode": mode,
-            "model": MODEL,
+            "model": active_model,
+            "provider": provider,
         },
     }
     if run_name:

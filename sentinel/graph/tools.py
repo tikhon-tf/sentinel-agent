@@ -1,14 +1,14 @@
 """LangChain tools wrapping Sentinel's retrieval and auditing functions."""
 from __future__ import annotations
 
-import json
+import re
 from typing import Literal
 
 from langchain_core.tools import tool
 
 from sentinel.config import RETRIEVAL_MODE
 from sentinel.grounding.tavily_search import ground_clause
-from sentinel.llm import audit_cell
+from sentinel.llm import audit_cell, audit_sop
 from sentinel.models import (
     ALL_CLAUSES,
     AuditFinding,
@@ -35,6 +35,27 @@ def get_audit_results() -> dict:
 def reset_audit_results() -> None:
     _audit_results["findings"] = []
     _audit_results["cell_metrics"] = []
+
+
+def _find_clause(clause_id: str) -> RegulationClause | None:
+    for c in ALL_CLAUSES:
+        if c.clause_id == clause_id:
+            return c
+    return None
+
+
+def _clauses_for_sop(sop_meta: dict) -> list[RegulationClause]:
+    """Determine which regulation clauses apply to a given SOP based on its tagged regulations."""
+    regs = sop_meta.get("regulations", [])
+    if not regs:
+        return []
+    matched = []
+    for clause in ALL_CLAUSES:
+        for reg in regs:
+            if clause.regulation.lower() in reg.lower() or reg.lower() in clause.regulation.lower():
+                matched.append(clause)
+                break
+    return matched
 
 
 @tool
@@ -81,7 +102,7 @@ def retrieve_sops_for_clause(clause_id: str) -> str:
 
 @tool
 def audit_single_clause(clause_id: str) -> str:
-    """Run the full audit for one regulation clause: retrieve SOPs, assess compliance, and record findings. Use this for each clause that needs auditing."""
+    """Run the full audit for one regulation clause: retrieve SOPs, assess compliance, and record findings."""
     clause = _find_clause(clause_id)
     if clause is None:
         return f"Unknown clause ID: {clause_id}"
@@ -158,84 +179,90 @@ def audit_single_clause(clause_id: str) -> str:
 
 
 @tool
+def audit_single_sop(sop_id: str) -> str:
+    """Audit one SOP against all relevant regulation clauses in a single pass. Much faster than auditing clause-by-clause. Use this for SOP-level assessment."""
+    from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
+
+    sop = load_sop_by_id(sop_id)
+    if sop is None:
+        return f"SOP not found: {sop_id}"
+
+    fm = sop["frontmatter"]
+    chunks = load_sop_chunks(sop)
+    if not chunks:
+        return f"SOP {sop_id} has no content"
+
+    clauses = _clauses_for_sop(fm)
+    if not clauses:
+        return f"SOP {sop_id} ({fm.get('title', '')}) has no tagged regulations — skipping"
+
+    try:
+        findings, metrics = audit_sop(chunks, clauses)
+    except Exception as e:
+        return f"SOP {sop_id}: audit failed — {e}"
+
+    for f in findings:
+        _audit_results["findings"].append(f)
+    _audit_results["cell_metrics"].append({
+        "sop_id": sop_id,
+        "clauses_checked": len(clauses),
+        "findings": len(findings),
+        **metrics,
+    })
+
+    compliant = sum(1 for f in findings if f.compliance_level == ComplianceLevel.COMPLIANT)
+    partial = sum(1 for f in findings if f.compliance_level == ComplianceLevel.PARTIAL)
+    gap = sum(1 for f in findings if f.compliance_level == ComplianceLevel.GAP)
+
+    lines = [f"{sop_id} ({fm.get('title', '')}): {len(clauses)} clauses — {compliant}C/{partial}P/{gap}G"]
+    for f in findings:
+        lines.append(f"  {f.clause_id}: {f.compliance_level.value} ({f.severity.value}) — {f.gap_description or 'Compliant'}")
+    return "\n".join(lines)
+
+
+@tool
 def audit_all_clauses() -> str:
-    """Run the full audit across ALL regulation clauses at once. This audits all 25 clauses (9 SOC 2 + 16 HIPAA) against relevant SOPs. Use this when asked to perform a complete audit."""
+    """Run the full audit across ALL regulation clauses by auditing each SOP against its relevant clauses. Fans out by SOP for lower latency. Use this for a complete audit."""
     import concurrent.futures
+    from sentinel.retrieval.local import list_all_sops, load_sop_by_id, load_sop_chunks
 
-    def _audit_one(clause: RegulationClause) -> str:
-        reg_context = ground_clause(clause)
-        mode = _retrieval_mode
+    all_sops = list_all_sops()
 
-        if mode == "rag":
-            from sentinel.retrieval.vector_search import retrieve_for_clause_rag
-            sop_groups = retrieve_for_clause_rag(clause)
-        elif mode == "nexus":
-            from sentinel.retrieval.nexus import retrieve_for_clause_nexus
-            sop_groups = retrieve_for_clause_nexus(clause)
-        else:
-            from sentinel.retrieval.local import retrieve_local
-            sop_groups = retrieve_local(clause)
+    def _audit_one_sop(sop_meta: dict) -> str:
+        sid = sop_meta["sop_id"]
+        clauses = _clauses_for_sop(sop_meta)
+        if not clauses:
+            return f"{sid}: skipped (no matching regulations)"
 
-        if not sop_groups:
-            finding = AuditFinding(
-                clause_id=clause.clause_id,
-                clause_title=clause.title,
-                regulation=clause.regulation,
-                sop_id="NONE",
-                sop_title="No applicable SOP found",
-                business_unit="N/A",
-                compliance_level=ComplianceLevel.GAP,
-                severity=Severity.CRITICAL,
-                evidence_quote="",
-                gap_description=f"No SOP found addressing {clause.title} ({clause.reference})",
-                remediation=f"Create a dedicated SOP addressing {clause.reference}",
-                reasoning="No relevant SOP content was retrieved for this regulation clause.",
-            )
-            _audit_results["findings"].append(finding)
-            _audit_results["cell_metrics"].append({
-                "clause_id": clause.clause_id,
-                "sops_checked": 0,
-                "input_tokens": 0,
-                "output_tokens": 0,
-                "latency": 0,
-            })
-            return f"{clause.clause_id}: GAP (critical) — No SOP found"
+        sop = load_sop_by_id(sid)
+        if sop is None:
+            return f"{sid}: skipped (not found)"
 
-        clause_results = []
-        for sop_id, chunks in sop_groups.items():
-            try:
-                finding, cell_metrics = audit_cell(clause, chunks, reg_context)
-            except Exception as e:
-                finding = AuditFinding(
-                    clause_id=clause.clause_id,
-                    clause_title=clause.title,
-                    regulation=clause.regulation,
-                    sop_id=sop_id,
-                    sop_title=chunks[0].title if chunks else sop_id,
-                    business_unit=chunks[0].business_unit if chunks else "N/A",
-                    compliance_level=ComplianceLevel.GAP,
-                    severity=Severity.HIGH,
-                    evidence_quote="",
-                    gap_description=f"LLM assessment failed: {e}",
-                    remediation="Manual review required",
-                    reasoning="Automated assessment failed due to API error.",
-                )
-                cell_metrics = {"input_tokens": 0, "output_tokens": 0, "latency": 0}
-            _audit_results["findings"].append(finding)
-            _audit_results["cell_metrics"].append({
-                "clause_id": clause.clause_id,
-                "sop_id": sop_id,
-                **cell_metrics,
-            })
-            clause_results.append(f"{finding.compliance_level.value}")
+        chunks = load_sop_chunks(sop)
+        if not chunks:
+            return f"{sid}: skipped (no content)"
 
-        compliant = clause_results.count("compliant")
-        partial = clause_results.count("partial")
-        gap = clause_results.count("gap")
-        return f"{clause.clause_id}: {len(sop_groups)} SOPs — {compliant}C/{partial}P/{gap}G"
+        try:
+            findings, metrics = audit_sop(chunks, clauses)
+        except Exception as e:
+            return f"{sid}: FAILED — {e}"
+
+        for f in findings:
+            _audit_results["findings"].append(f)
+        _audit_results["cell_metrics"].append({
+            "sop_id": sid,
+            "clauses_checked": len(clauses),
+            "findings": len(findings),
+            **metrics,
+        })
+
+        compliant = sum(1 for f in findings if f.compliance_level == ComplianceLevel.COMPLIANT)
+        partial = sum(1 for f in findings if f.compliance_level == ComplianceLevel.PARTIAL)
+        gap = sum(1 for f in findings if f.compliance_level == ComplianceLevel.GAP)
+        return f"{sid}: {len(clauses)} clauses — {compliant}C/{partial}P/{gap}G"
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(_audit_one, c): c for c in ALL_CLAUSES}
+        futures = {executor.submit(_audit_one_sop, s): s for s in all_sops}
         results = []
         for future in concurrent.futures.as_completed(futures):
             results.append(future.result())
@@ -247,17 +274,10 @@ def audit_all_clauses() -> str:
     gap = sum(1 for f in findings if f.compliance_level == ComplianceLevel.GAP)
 
     summary = (
-        f"Audit complete: {total} findings across {len(ALL_CLAUSES)} clauses\n"
+        f"Audit complete: {total} findings across {len(all_sops)} SOPs\n"
         f"  Compliant: {compliant} ({100*compliant//max(total,1)}%)\n"
         f"  Partial:   {partial} ({100*partial//max(total,1)}%)\n"
         f"  Gap:       {gap} ({100*gap//max(total,1)}%)\n\n"
-        "Per-clause breakdown:\n" + "\n".join(sorted(results))
+        "Per-SOP breakdown:\n" + "\n".join(sorted(results))
     )
     return summary
-
-
-def _find_clause(clause_id: str) -> RegulationClause | None:
-    for c in ALL_CLAUSES:
-        if c.clause_id == clause_id:
-            return c
-    return None

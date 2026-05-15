@@ -14,6 +14,9 @@ NEBIUS_BASE_URL = "https://api.studio.nebius.com/v1/"
 MODEL = "deepseek-ai/DeepSeek-V4-Pro"
 MODEL_MAX_TOKENS = 16_000
 
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL = "claude-sonnet-4-6"
+
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", "")
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "sentinel-sops")
 

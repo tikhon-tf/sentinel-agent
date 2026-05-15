@@ -23,6 +23,71 @@ def _load_sops(business_units: list[str] | None = None) -> list[dict]:
     return sops
 
 
+def load_sop_by_id(sop_id: str) -> dict | None:
+    """Load a single SOP by its sop_id from any business unit."""
+    from sentinel.config import SOP_BUSINESS_UNITS
+    for bu in SOP_BUSINESS_UNITS:
+        bu_dir = SOPS_DIR / bu
+        if not bu_dir.is_dir():
+            continue
+        for fp in sorted(bu_dir.glob("*.md")):
+            parsed = parse_sop(fp)
+            if parsed["frontmatter"].get("sop_id") == sop_id:
+                return parsed
+    return None
+
+
+def list_all_sops() -> list[dict]:
+    """Return metadata for all SOPs across all business units."""
+    from sentinel.config import SOP_BUSINESS_UNITS
+    results = []
+    for bu in SOP_BUSINESS_UNITS:
+        bu_dir = SOPS_DIR / bu
+        if not bu_dir.is_dir():
+            continue
+        for fp in sorted(bu_dir.glob("*.md")):
+            parsed = parse_sop(fp)
+            fm = parsed["frontmatter"]
+            results.append({
+                "sop_id": fm.get("sop_id", fp.stem),
+                "title": fm.get("title", fp.stem),
+                "business_unit": fm.get("business_unit", bu),
+                "regulations": fm.get("regulations", []),
+            })
+    return results
+
+
+def load_sop_chunks(sop: dict, max_chunk_chars: int = 8000) -> list[SOPChunk]:
+    """Convert a parsed SOP dict into SOPChunk objects."""
+    fm = sop["frontmatter"]
+    body = sop["body"]
+    sop_id = fm.get("sop_id", "UNKNOWN")
+    title = fm.get("title", "")
+    business_unit = fm.get("business_unit", "")
+
+    sections = re.split(r"(?=^## )", body, flags=re.MULTILINE)
+    chunks = []
+    total_chars = 0
+    for section in sections:
+        section = section.strip()
+        if not section or total_chars >= max_chunk_chars:
+            break
+        header = ""
+        lines = section.split("\n", 1)
+        if lines[0].startswith("## "):
+            header = lines[0].lstrip("# ").strip()
+        text = section[:max_chunk_chars - total_chars]
+        chunks.append(SOPChunk(
+            sop_id=sop_id,
+            title=title,
+            business_unit=business_unit,
+            chunk_text=text,
+            section=header,
+        ))
+        total_chars += len(text)
+    return chunks
+
+
 def _score_relevance(text: str, clause: RegulationClause) -> float:
     """Simple keyword-overlap relevance score."""
     keywords = set(
