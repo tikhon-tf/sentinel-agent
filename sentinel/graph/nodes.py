@@ -51,7 +51,15 @@ def route_to_clauses(state: AuditState) -> list[Send]:
 
 
 def audit_clause(state: ClauseAuditState) -> dict:
-    """Audit a single regulation clause against retrieved SOPs."""
+    """Audit a single regulation clause against retrieved SOPs.
+
+    NOTE: A full audit run (``run_audit``) already invokes this node once for
+    every clause via ``route_to_clauses`` and accumulates every structured
+    ``AuditFinding`` into ``AuditState['findings']``. Do NOT call this again
+    per-clause after a full run has completed — the detailed findings are
+    already in the returned state. Re-invoke this node only when re-running
+    or focusing on a single clause.
+    """
     clause = RegulationClause(**state["clause"]) if isinstance(state["clause"], dict) else state["clause"]
     mode = state["mode"]
     reg_context = state.get("regulation_context", "")
@@ -101,8 +109,20 @@ def audit_clause(state: ClauseAuditState) -> dict:
 
 
 def compile_results(state: AuditState) -> dict:
-    """Compile all findings into the final audit state."""
+    """Compile all findings into the final audit state.
+
+    Returns the complete list of structured per-clause ``AuditFinding`` objects
+    alongside the aggregate status string. A single ``run_audit`` call
+    produces the full audit — callers should NOT iterate ``audit_clause`` per
+    clause after this node runs to "recover" details; those details are
+    already present in ``findings`` and ``cell_metrics``.
+    """
     findings = state.get("findings", [])
+    clauses = state.get("clauses", [])
     return {
-        "status": f"Audit complete: {len(findings)} findings across {len(state['clauses'])} clauses",
+        "status": (
+            f"Audit complete: {len(findings)} findings across {len(clauses)} clauses. "
+            f"All per-clause findings are available in state['findings']; "
+            f"no further per-clause audits are needed."
+        ),
     }

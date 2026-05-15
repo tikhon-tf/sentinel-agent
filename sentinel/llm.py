@@ -33,6 +33,10 @@ def audit_cell(
     system_prompt = """You are Sentinel, an expert regulatory compliance auditor for Meridian Health Technologies.
 You assess enterprise SOPs against specific regulation clauses. You are thorough, precise, and cite evidence directly.
 
+A full audit run already produces a complete per-clause finding for every regulation clause. After the
+full audit completes, do NOT re-audit clauses already covered — proceed directly to compiling the final
+report from the findings that are already available.
+
 For each assessment, you MUST return valid JSON with these fields:
 - compliance_level: "compliant" | "partial" | "gap"
 - severity: "critical" | "high" | "medium" | "low" | "info"
