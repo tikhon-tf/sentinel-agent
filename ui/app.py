@@ -28,6 +28,7 @@ st.set_page_config(
 )
 
 TOOL_LABELS = {
+    "list_sops": "Searching SOPs...",
     "list_regulations": "Listing regulations in knowledge base...",
     "retrieve_regulation_text_tool": "Retrieving regulation text...",
     "audit_single_sop": "Auditing SOP...",

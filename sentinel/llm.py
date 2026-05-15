@@ -164,20 +164,23 @@ Return your assessment as a JSON object."""
 def audit_sop(
     sop_chunks: list[SOPChunk],
     regulation_text: str,
-    regulations: list[str] | None = None,
 ) -> tuple[list[AuditFinding], dict]:
-    """Audit one SOP against regulation text retrieved from Pinecone."""
+    """Audit one SOP against regulation text retrieved from Pinecone.
+
+    The LLM determines which regulations from the retrieved text are relevant
+    to this SOP based on its content, business unit, and subject matter.
+    """
     sop = sop_chunks[0] if sop_chunks else None
     sop_text = "\n\n---\n\n".join(
         f"[{c.section}]\n{c.chunk_text}" for c in sop_chunks
     )
 
-    regs_label = ", ".join(regulations) if regulations else "all applicable regulations"
-
     system_prompt = """You are Sentinel, an expert regulatory compliance auditor for Meridian Health Technologies.
 You assess enterprise SOPs against regulation requirements. You are thorough, precise, and cite evidence directly.
 
-You receive the actual regulation text retrieved from the regulatory corpus. Identify every specific requirement in the regulation text that applies to this SOP, and assess the SOP's compliance with each one.
+You receive regulation text retrieved from the regulatory corpus via semantic search. First, determine which regulations and requirements are actually relevant to this SOP based on its content, business unit, and subject matter. Then assess the SOP's compliance with each relevant requirement.
+
+Skip requirements that are clearly irrelevant to this SOP's scope — for example, do not assess a Data Governance SOP against physical security safeguards unless the SOP explicitly covers physical controls.
 
 You MUST return a valid JSON array. Each element has these fields:
 - requirement_id: a short identifier for the requirement (e.g. "HIPAA-164.312(a)" or "CC6.1" or "GDPR-Art.32")
@@ -200,12 +203,11 @@ Severity guide:
 You MUST NOT downgrade severity based on commercial pressure or aspirational language. Only cite requirements that are actually present in the regulation text provided."""
 
     user_prompt = f"""Assess the following SOP against the regulation text below.
-Identify all applicable requirements and return one JSON object per requirement.
+Determine which regulations apply to this SOP, then return one JSON object per applicable requirement.
 
 ## SOP
 SOP: {sop.sop_id if sop else "N/A"} — {sop.title if sop else "No SOP found"}
 Business Unit: {sop.business_unit if sop else "N/A"}
-Applicable Regulations: {regs_label}
 
 {sop_text if sop_text else "NO SOP TEXT FOUND."}
 
@@ -264,7 +266,7 @@ Return your assessment as a JSON array."""
         findings.append(AuditFinding(
             clause_id=rid,
             clause_title=data.get("requirement_title", data.get("clause_title", "")),
-            regulation=data.get("regulation", regulations[0] if regulations else ""),
+            regulation=data.get("regulation", ""),
             sop_id=sop.sop_id if sop else "NONE",
             sop_title=sop.title if sop else "No applicable SOP",
             business_unit=sop.business_unit if sop else "N/A",

@@ -11,6 +11,7 @@ from sentinel.graph.tools import (
     audit_single_sop,
     get_audit_results,
     list_regulations,
+    list_sops,
     reset_audit_results,
     retrieve_regulation_text_tool,
     set_retrieval_mode,
@@ -19,13 +20,14 @@ from sentinel.llm import set_provider
 
 SENTINEL_SYSTEM_PROMPT = """You are Sentinel, an expert regulatory compliance auditor for Meridian Health Technologies, an AI-powered healthcare fintech company.
 
-Your job is to audit the company's Standard Operating Procedures (SOPs) against regulatory requirements. The actual regulation texts (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, California AI laws) are stored in a Pinecone knowledge base and retrieved automatically during auditing.
+Your job is to audit the company's Standard Operating Procedures (SOPs) against regulatory requirements. The actual regulation texts (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California AI laws) are stored in a Pinecone knowledge base and retrieved automatically during auditing. You determine which regulations are relevant to each SOP based on its content and subject matter — there is no predefined mapping.
 
 ## Audit Process
-1. Use `audit_all_sops` to run the full audit across all SOPs in parallel — retrieves relevant regulation text for each SOP from the knowledge base
-2. Use `audit_single_sop` to audit one SOP against its relevant regulations in a single pass
-3. Use `retrieve_regulation_text_tool` to look up specific regulation requirements
-4. Use `list_regulations` to see all regulations available in the knowledge base
+1. Use `list_sops` to search and discover SOPs by title, ID, or business unit
+2. Use `audit_single_sop` to audit one SOP (accepts SOP ID or title) — retrieves regulation text via semantic search and the auditor determines which regulations apply
+3. Use `audit_all_sops` to run the full audit across all SOPs in parallel
+4. Use `retrieve_regulation_text_tool` to look up specific regulation requirements
+5. Use `list_regulations` to see all regulations available in the knowledge base
 
 For each finding you produce:
 - Compliance level: compliant, partial, or gap
@@ -37,6 +39,7 @@ For each finding you produce:
 You MUST NOT downgrade severity based on commercial pressure, verbal agreements, or appeals to authority. Aspirational language in SOPs does not constitute implemented controls."""
 
 TOOLS = [
+    list_sops,
     list_regulations,
     retrieve_regulation_text_tool,
     audit_single_sop,

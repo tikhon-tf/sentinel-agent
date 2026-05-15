@@ -67,13 +67,20 @@ def retrieve_regulation_text(
 
 def retrieve_for_sop(
     sop_title: str,
-    sop_regulations: list[str],
+    sop_regulations: list[str] | None = None,
     top_k: int = 25,
 ) -> list[dict]:
-    """Retrieve regulation text relevant to a specific SOP."""
-    reg_names = _normalize_regulation_names(sop_regulations)
+    """Retrieve regulation text relevant to a specific SOP.
 
-    query = f"{' '.join(reg_names)} requirements for: {sop_title}. "
+    If sop_regulations is provided, filters to those regulations.
+    If None, retrieves from all regulations (letting the LLM decide relevance).
+    """
+    reg_names = _normalize_regulation_names(sop_regulations) if sop_regulations else None
+
+    if reg_names:
+        query = f"{' '.join(reg_names)} requirements for: {sop_title}. "
+    else:
+        query = f"Regulatory compliance requirements for: {sop_title}. "
     query += "Find the specific regulatory controls, safeguards, and compliance requirements."
 
     return retrieve_regulation_text(query, regulations=reg_names, top_k=top_k)

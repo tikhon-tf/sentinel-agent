@@ -1,15 +1,13 @@
 """LangChain tools wrapping Sentinel's retrieval and auditing functions."""
 from __future__ import annotations
 
+import json
+import time
+
 from langchain_core.tools import tool
 
-from sentinel.config import PINECONE_API_KEY, RETRIEVAL_MODE
-from sentinel.llm import audit_sop
-from sentinel.models import (
-    AuditFinding,
-    ComplianceLevel,
-    Severity,
-)
+from sentinel.config import PINECONE_API_KEY, RETRIEVAL_MODE, TAVILY_API_KEY
+from sentinel.models import AuditFinding, ComplianceLevel, Severity
 
 _audit_results: dict = {"findings": [], "cell_metrics": []}
 _retrieval_mode: str = RETRIEVAL_MODE
@@ -28,18 +26,6 @@ def get_audit_results() -> dict:
 def reset_audit_results() -> None:
     _audit_results["findings"] = []
     _audit_results["cell_metrics"] = []
-
-
-def _get_regulation_context(sop_title: str, regulations: list[str]) -> str:
-    """Retrieve regulation text from Pinecone for a given SOP."""
-    if not PINECONE_API_KEY:
-        return ""
-    try:
-        from sentinel.retrieval.regulations import retrieve_for_sop, format_regulation_context
-        chunks = retrieve_for_sop(sop_title, regulations)
-        return format_regulation_context(chunks)
-    except Exception:
-        return ""
 
 
 @tool
@@ -105,6 +91,23 @@ def _list_regulations_local() -> str:
 
 
 @tool
+def list_sops(query: str = "") -> str:
+    """List all available SOPs. Optionally filter by a search query (matches against title, SOP ID, or business unit)."""
+    from sentinel.retrieval.local import list_all_sops
+
+    all_sops = list_all_sops()
+    if query:
+        q = query.lower()
+        all_sops = [s for s in all_sops if q in s["title"].lower() or q in s["sop_id"].lower() or q in s.get("business_unit", "").lower()]
+
+    if not all_sops:
+        return f"No SOPs found matching '{query}'"
+
+    lines = [f"- {s['sop_id']}: {s['title']} ({s.get('business_unit', '')})" for s in all_sops]
+    return f"{len(all_sops)} SOPs:\n" + "\n".join(lines)
+
+
+@tool
 def retrieve_regulation_text_tool(query: str, regulation: str = "") -> str:
     """Retrieve regulation text from the knowledge base for a given query. Optionally filter by regulation name (e.g. 'HIPAA', 'SOC 2', 'GDPR')."""
     if not PINECONE_API_KEY:
@@ -121,9 +124,97 @@ def retrieve_regulation_text_tool(query: str, regulation: str = "") -> str:
         return f"Regulation retrieval failed: {e}"
 
 
+def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str):
+    """Build the tool set for the audit sub-agent."""
+
+    @tool
+    def retrieve_regulation(query: str, regulation: str = "") -> str:
+        """Search the regulation knowledge base (Pinecone) for specific regulatory requirements. Use targeted queries like 'HIPAA access control requirements' or 'SOC 2 CC6 logical access'. Optionally filter by regulation name."""
+        if not PINECONE_API_KEY:
+            return "Pinecone not configured."
+        try:
+            from sentinel.retrieval.regulations import retrieve_regulation_text, format_regulation_context
+            regs = [regulation] if regulation else None
+            chunks = retrieve_regulation_text(query, regulations=regs, top_k=15)
+            if not chunks:
+                return f"No regulation text found for: {query}"
+            context = format_regulation_context(chunks)
+            return f"Retrieved {len(chunks)} sections:\n{context}"
+        except Exception as e:
+            return f"Retrieval failed: {e}"
+
+    @tool
+    def search_web(query: str) -> str:
+        """Search the web via Tavily for latest regulatory guidance, enforcement actions, or interpretation. Use for questions the knowledge base can't answer — e.g. recent HHS enforcement, updated NIST guidance, or regulatory FAQs."""
+        if not TAVILY_API_KEY:
+            return "Tavily not configured — web search unavailable."
+        try:
+            from tavily import TavilyClient
+            client = TavilyClient(api_key=TAVILY_API_KEY)
+            response = client.search(
+                query=query,
+                search_depth="advanced",
+                max_results=3,
+                include_answer=True,
+            )
+            parts = []
+            if response.get("answer"):
+                parts.append(f"Summary: {response['answer']}")
+            for result in response.get("results", [])[:3]:
+                parts.append(f"Source: {result.get('title', '')}\nURL: {result.get('url', '')}\n{result.get('content', '')[:500]}")
+            return "\n\n".join(parts) if parts else "No results found."
+        except Exception as e:
+            return f"Web search failed: {e}"
+
+    @tool
+    def read_sop() -> str:
+        """Read the full SOP text being audited. Call this to review the SOP content before or during your assessment."""
+        return f"SOP: {sop_id} — {sop_title}\n\n{sop_text}"
+
+    return [retrieve_regulation, search_web, read_sop]
+
+
+_AUDIT_SUBAGENT_PROMPT = """You are an expert regulatory compliance auditor assessing a single SOP for Meridian Health Technologies, an AI-powered healthcare fintech company.
+
+## Your Task
+Audit the SOP against ALL applicable regulations. You must determine which regulations are relevant based on the SOP's content and business unit.
+
+## Process
+1. First, call `read_sop` to review the SOP content
+2. Based on the SOP's subject matter, search the regulation knowledge base with targeted queries for each potentially applicable regulation (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California AI laws)
+3. For each regulation that applies, retrieve the specific sections/requirements relevant to this SOP
+4. If you need clarification on a regulation's current interpretation or recent enforcement, use `search_web`
+5. Assess the SOP against each applicable requirement
+6. Output your complete findings as a JSON array in your FINAL message
+
+## Rules
+- Be thorough: check EVERY regulation that could apply
+- Be specific: cite exact regulatory sections
+- Do NOT downgrade severity for aspirational language
+- Skip regulations clearly irrelevant to this SOP's scope
+
+## CRITICAL: Output Format
+Your FINAL message MUST contain a JSON array (and nothing else) where each element has these exact fields:
+- requirement_id: short identifier (e.g. "HIPAA-164.312(a)", "CC6.1", "GDPR-Art.32")
+- requirement_title: brief title
+- regulation: which regulation (e.g. "HIPAA", "SOC 2", "GDPR")
+- compliance_level: "compliant" | "partial" | "gap"
+- severity: "critical" | "high" | "medium" | "low" | "info"
+- evidence_quote: exact quote from the SOP (empty string if none)
+- gap_description: what is missing (empty string if compliant)
+- remediation: specific recommendation (empty string if compliant)
+- reasoning: 2-3 sentences citing the specific regulation section
+
+Do NOT include any text before or after the JSON array in your final message. Just the raw JSON array."""
+
+
 @tool
 def audit_single_sop(sop_id: str) -> str:
-    """Audit one SOP against all relevant regulations by retrieving actual regulation text from the knowledge base. Returns compliance findings with specific regulatory citations."""
+    """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base (Pinecone) and web search (Tavily). Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
+    from langchain_openai import ChatOpenAI
+    from langgraph.prebuilt import create_react_agent
+
+    from sentinel.config import MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
     from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
 
     sop = load_sop_by_id(sop_id)
@@ -135,33 +226,135 @@ def audit_single_sop(sop_id: str) -> str:
     if not chunks:
         return f"SOP {sop_id} has no content"
 
-    regulations = fm.get("regulations", [])
-    if not regulations:
-        return f"SOP {sop_id} ({fm.get('title', '')}) has no tagged regulations — skipping"
+    actual_id = fm.get("sop_id", sop_id)
+    title = fm.get("title", "")
+    business_unit = fm.get("business_unit", "")
+    sop_text = "\n\n---\n\n".join(f"[{c.section}]\n{c.chunk_text}" for c in chunks)
 
-    reg_context = _get_regulation_context(fm.get("title", sop_id), regulations)
-    if not reg_context:
-        return f"SOP {sop_id}: no regulation text retrieved — check Pinecone connection"
+    subagent_tools = _build_subagent_tools(sop_text, actual_id, title)
+
+    from sentinel.config import MODEL_MAX_TOKENS
+    model = ChatOpenAI(
+        model=MODEL,
+        api_key=NEBIUS_API_KEY,
+        base_url=NEBIUS_BASE_URL,
+        temperature=0.1,
+        max_tokens=MODEL_MAX_TOKENS,
+    )
+
+    subagent = create_react_agent(
+        model=model,
+        tools=subagent_tools,
+        prompt=_AUDIT_SUBAGENT_PROMPT,
+        name="sop_auditor",
+    )
+
+    start = time.time()
+    result = subagent.invoke({
+        "messages": [{
+            "role": "user",
+            "content": f"Audit SOP {actual_id}: {title} (Business Unit: {business_unit})",
+        }],
+    })
+    elapsed = time.time() - start
+
+    findings_json = ""
+    messages = result.get("messages", [])
+
+    for msg in reversed(messages):
+        content = msg.content if hasattr(msg, "content") else str(msg)
+        if not isinstance(content, str) or "[" not in content:
+            continue
+
+        # Strip markdown code fences
+        if "```" in content:
+            fence_start = content.find("```")
+            lang_end = content.find("\n", fence_start)
+            inner_start = lang_end + 1 if lang_end > fence_start else fence_start + 3
+            fence_end = content.find("```", inner_start)
+            if fence_end > inner_start:
+                content = content[inner_start:fence_end].strip()
+
+        start_idx = content.find("[")
+        if start_idx < 0:
+            continue
+
+        candidate = content[start_idx:]
+        end_idx = candidate.rfind("]")
+        if end_idx > 0:
+            candidate = candidate[: end_idx + 1]
+
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+                findings_json = candidate
+                break
+        except json.JSONDecodeError:
+            # JSON may be truncated — try to repair by closing open objects/array
+            repaired = candidate.rstrip().rstrip(",")
+            if not repaired.endswith("}"):
+                last_brace = repaired.rfind("}")
+                if last_brace > 0:
+                    repaired = repaired[: last_brace + 1]
+            repaired += "]"
+            try:
+                parsed = json.loads(repaired)
+                if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+                    findings_json = repaired
+                    break
+            except json.JSONDecodeError:
+                continue
+
+    if not findings_json:
+        return f"SOP {actual_id}: sub-agent did not produce structured findings"
 
     try:
-        findings, metrics = audit_sop(chunks, reg_context, regulations)
-    except Exception as e:
-        return f"SOP {sop_id}: audit failed — {e}"
+        items = json.loads(findings_json)
+    except json.JSONDecodeError:
+        start_idx = findings_json.find("[")
+        end_idx = findings_json.rfind("]") + 1
+        if start_idx >= 0 and end_idx > start_idx:
+            try:
+                items = json.loads(findings_json[start_idx:end_idx])
+            except json.JSONDecodeError:
+                return f"SOP {actual_id}: failed to parse sub-agent findings"
+        else:
+            return f"SOP {actual_id}: failed to parse sub-agent findings"
+
+    if not isinstance(items, list):
+        items = [items]
+
+    findings = []
+    for data in items:
+        rid = data.get("requirement_id", data.get("clause_id", ""))
+        findings.append(AuditFinding(
+            clause_id=rid,
+            clause_title=data.get("requirement_title", data.get("clause_title", "")),
+            regulation=data.get("regulation", ""),
+            sop_id=actual_id,
+            sop_title=title,
+            business_unit=business_unit,
+            compliance_level=ComplianceLevel(data.get("compliance_level", "gap")),
+            severity=Severity(data.get("severity", "high")),
+            evidence_quote=data.get("evidence_quote", ""),
+            gap_description=data.get("gap_description", ""),
+            remediation=data.get("remediation", ""),
+            reasoning=data.get("reasoning", ""),
+        ))
 
     for f in findings:
         _audit_results["findings"].append(f)
     _audit_results["cell_metrics"].append({
-        "sop_id": sop_id,
-        "regulations": regulations,
+        "sop_id": actual_id,
         "findings": len(findings),
-        **metrics,
+        "latency": elapsed,
     })
 
     compliant = sum(1 for f in findings if f.compliance_level == ComplianceLevel.COMPLIANT)
     partial = sum(1 for f in findings if f.compliance_level == ComplianceLevel.PARTIAL)
     gap = sum(1 for f in findings if f.compliance_level == ComplianceLevel.GAP)
 
-    lines = [f"{sop_id} ({fm.get('title', '')}): {len(findings)} findings — {compliant}C/{partial}P/{gap}G"]
+    lines = [f"{actual_id} ({title}): {len(findings)} findings — {compliant}C/{partial}P/{gap}G"]
     for f in findings:
         lines.append(f"  {f.clause_id}: {f.compliance_level.value} ({f.severity.value}) — {f.gap_description or 'Compliant'}")
     return "\n".join(lines)
@@ -169,51 +362,22 @@ def audit_single_sop(sop_id: str) -> str:
 
 @tool
 def audit_all_sops() -> str:
-    """Run the full audit across ALL SOPs, retrieving regulation text from the knowledge base for each. Fans out by SOP with 10-wide parallelism."""
+    """Run the full audit across ALL SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base and web search. Fans out with 10-wide parallelism."""
     import concurrent.futures
-    from sentinel.retrieval.local import list_all_sops, load_sop_by_id, load_sop_chunks
+    from sentinel.retrieval.local import list_all_sops
 
     all_sops = list_all_sops()
 
-    def _audit_one_sop(sop_meta: dict) -> str:
+    def _audit_one(sop_meta: dict) -> str:
         sid = sop_meta["sop_id"]
-        regulations = sop_meta.get("regulations", [])
-        if not regulations:
-            return f"{sid}: skipped (no tagged regulations)"
-
-        sop = load_sop_by_id(sid)
-        if sop is None:
-            return f"{sid}: skipped (not found)"
-
-        chunks = load_sop_chunks(sop)
-        if not chunks:
-            return f"{sid}: skipped (no content)"
-
-        reg_context = _get_regulation_context(sop_meta.get("title", sid), regulations)
-        if not reg_context:
-            return f"{sid}: skipped (no regulation text retrieved)"
-
         try:
-            findings, metrics = audit_sop(chunks, reg_context, regulations)
+            result = audit_single_sop.invoke(sid)
+            return result
         except Exception as e:
             return f"{sid}: FAILED — {e}"
 
-        for f in findings:
-            _audit_results["findings"].append(f)
-        _audit_results["cell_metrics"].append({
-            "sop_id": sid,
-            "regulations": regulations,
-            "findings": len(findings),
-            **metrics,
-        })
-
-        compliant = sum(1 for f in findings if f.compliance_level == ComplianceLevel.COMPLIANT)
-        partial = sum(1 for f in findings if f.compliance_level == ComplianceLevel.PARTIAL)
-        gap = sum(1 for f in findings if f.compliance_level == ComplianceLevel.GAP)
-        return f"{sid}: {len(findings)} findings — {compliant}C/{partial}P/{gap}G"
-
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(_audit_one_sop, s): s for s in all_sops}
+        futures = {executor.submit(_audit_one, s): s for s in all_sops}
         results = []
         for future in concurrent.futures.as_completed(futures):
             results.append(future.result())

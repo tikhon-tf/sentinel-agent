@@ -24,17 +24,35 @@ def _load_sops(business_units: list[str] | None = None) -> list[dict]:
 
 
 def load_sop_by_id(sop_id: str) -> dict | None:
-    """Load a single SOP by its sop_id from any business unit."""
+    """Load a single SOP by its sop_id or title (fuzzy match) from any business unit."""
     from sentinel.config import SOP_BUSINESS_UNITS
+
+    query = sop_id.strip().lower()
+    best_match = None
+    best_score = 0
+
     for bu in SOP_BUSINESS_UNITS:
         bu_dir = SOPS_DIR / bu
         if not bu_dir.is_dir():
             continue
         for fp in sorted(bu_dir.glob("*.md")):
             parsed = parse_sop(fp)
-            if parsed["frontmatter"].get("sop_id") == sop_id:
+            fm = parsed["frontmatter"]
+            sid = fm.get("sop_id", "")
+            title = fm.get("title", "")
+
+            if sid == sop_id or sid.lower() == query:
                 return parsed
-    return None
+            if title.lower() == query:
+                return parsed
+
+            if query in title.lower() or query in sid.lower():
+                score = len(query) / max(len(title), 1)
+                if score > best_score:
+                    best_score = score
+                    best_match = parsed
+
+    return best_match
 
 
 def list_all_sops() -> list[dict]:
@@ -57,8 +75,8 @@ def list_all_sops() -> list[dict]:
     return results
 
 
-def load_sop_chunks(sop: dict, max_chunk_chars: int = 8000) -> list[SOPChunk]:
-    """Convert a parsed SOP dict into SOPChunk objects."""
+def load_sop_chunks(sop: dict) -> list[SOPChunk]:
+    """Convert a parsed SOP dict into SOPChunk objects (one per section)."""
     fm = sop["frontmatter"]
     body = sop["body"]
     sop_id = fm.get("sop_id", "UNKNOWN")
@@ -67,24 +85,21 @@ def load_sop_chunks(sop: dict, max_chunk_chars: int = 8000) -> list[SOPChunk]:
 
     sections = re.split(r"(?=^## )", body, flags=re.MULTILINE)
     chunks = []
-    total_chars = 0
     for section in sections:
         section = section.strip()
-        if not section or total_chars >= max_chunk_chars:
-            break
+        if not section:
+            continue
         header = ""
         lines = section.split("\n", 1)
         if lines[0].startswith("## "):
             header = lines[0].lstrip("# ").strip()
-        text = section[:max_chunk_chars - total_chars]
         chunks.append(SOPChunk(
             sop_id=sop_id,
             title=title,
             business_unit=business_unit,
-            chunk_text=text,
+            chunk_text=section,
             section=header,
         ))
-        total_chars += len(text)
     return chunks
 
 
