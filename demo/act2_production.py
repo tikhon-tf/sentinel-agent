@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 """
-Act 2 — Pinecone Nexus completes in one shot.
+Act 2 — Production sub-agent audit.
 
-Same model. Same corpus. Structured one-shot retrieval via Pinecone Nexus.
-One KnowQL query returns typed, cited findings.
+Same model. Same corpus. Each SOP gets a dedicated sub-agent with
+Pinecone regulation retrieval and Tavily web search.
 
 Usage:
     python -m demo.act2_production
-    python -m demo.act2_production --mode nexus  # Pinecone Nexus
-    python -m demo.act2_production --mode local   # Local structured retrieval (default)
 """
-import argparse
 import sys
 import time
 from pathlib import Path
@@ -36,10 +33,6 @@ AUDIT_QUERY = (
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Act 2: Production Stack with Nexus")
-    parser.add_argument("--mode", choices=["nexus", "local"], default="local")
-    args = parser.parse_args()
-
     console = Console()
 
     console.print()
@@ -51,19 +44,17 @@ def main():
         border_style="green",
     ))
     console.print()
-    console.print(f"[bold]Retrieval mode:[/bold] {args.mode} (structured one-shot)")
     console.print(f"[bold]Model:[/bold] DeepSeek-V4-Pro on Nebius")
-    console.print(f"[bold]Grounding:[/bold] Tavily live regulation search")
+    console.print(f"[bold]Retrieval:[/bold] Pinecone knowledge base + Tavily web search")
     console.print()
 
     start = time.time()
-    console.print("[dim]Decomposing query → Grounding regulations via Tavily → One-shot Nexus retrieval...[/dim]")
+    console.print("[dim]Running sub-agent audit with Pinecone regulation retrieval...[/dim]")
 
     state = run_audit(
         AUDIT_QUERY,
-        mode=args.mode,
-        run_name=f"act2-{args.mode}",
-        tags=["act2", "production", args.mode],
+        run_name="act2-production",
+        tags=["act2", "production"],
     )
 
     elapsed = time.time() - start

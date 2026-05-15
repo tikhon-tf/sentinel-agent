@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-Act 1 — Agentic RAG falls short.
+Act 1 — Claude Sonnet sub-agent audit.
 
-Same model, same corpus. Conventional agentic RAG with query expansion,
-multi-step retrieval, and top-k reranking. Shows where retrieval breaks.
+Same sub-agent architecture as Act 2, but uses Claude Sonnet 4.6 (Anthropic)
+instead of DeepSeek-V4-Pro (Nebius). No Tavily web search.
 
 Usage:
     python -m demo.act1_prototype
-    python -m demo.act1_prototype --mode rag   # Pinecone agentic RAG
-    python -m demo.act1_prototype --mode local  # Local file retrieval (default)
+    python -m demo.act1_prototype --provider nebius  # Use Nebius instead
 """
 import argparse
 import sys
@@ -38,7 +37,6 @@ AUDIT_QUERY = (
 
 def main():
     parser = argparse.ArgumentParser(description="Act 1: Agentic RAG Prototype")
-    parser.add_argument("--mode", choices=["rag", "local"], default="rag")
     parser.add_argument("--provider", choices=["nebius", "anthropic"], default="anthropic")
     args = parser.parse_args()
 
@@ -55,7 +53,6 @@ def main():
         border_style="blue",
     ))
     console.print()
-    console.print(f"[bold]Retrieval mode:[/bold] {args.mode}")
     console.print(f"[bold]Model:[/bold] {model_label}")
     console.print()
 
@@ -64,10 +61,9 @@ def main():
 
     state = run_audit(
         AUDIT_QUERY,
-        mode=args.mode,
         provider=args.provider,
-        run_name=f"act1-{args.mode}-{args.provider}",
-        tags=["act1", "prototype", args.mode, args.provider],
+        run_name=f"act1-{args.provider}",
+        tags=["act1", "prototype", args.provider],
     )
 
     elapsed = time.time() - start

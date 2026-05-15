@@ -1,8 +1,6 @@
 """Sentinel audit agent — LangGraph ReAct agent with deepagents upgrade path."""
 from __future__ import annotations
 
-from typing import Literal
-
 from langchain_openai import ChatOpenAI
 
 from sentinel.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
@@ -14,7 +12,6 @@ from sentinel.graph.tools import (
     list_sops,
     reset_audit_results,
     retrieve_regulation_text_tool,
-    set_retrieval_mode,
 )
 from sentinel.llm import set_provider
 
@@ -114,14 +111,12 @@ def agent():
 
 def run_audit(
     query: str,
-    mode: Literal["rag", "nexus", "local"] = "local",
     provider: str = "nebius",
     run_name: str | None = None,
     tags: list[str] | None = None,
 ) -> dict:
     """Run the full Sentinel audit and return findings + metrics."""
     reset_audit_results()
-    set_retrieval_mode(mode)
     set_provider(provider)
 
     model = _build_model(provider)
@@ -133,7 +128,6 @@ def run_audit(
     active_model = ANTHROPIC_MODEL if provider == "anthropic" else MODEL
     config = {
         "metadata": {
-            "mode": mode,
             "model": active_model,
             "provider": provider,
         },

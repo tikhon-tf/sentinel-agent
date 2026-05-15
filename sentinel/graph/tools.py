@@ -6,17 +6,10 @@ import time
 
 from langchain_core.tools import tool
 
-from sentinel.config import PINECONE_API_KEY, RETRIEVAL_MODE, TAVILY_API_KEY
+from sentinel.config import PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
 
 _audit_results: dict = {"findings": [], "cell_metrics": []}
-_retrieval_mode: str = RETRIEVAL_MODE
-
-
-def set_retrieval_mode(mode: str) -> None:
-    _audit_results["mode"] = mode
-    global _retrieval_mode
-    _retrieval_mode = mode
 
 
 def get_audit_results() -> dict:
@@ -324,23 +317,38 @@ def audit_single_sop(sop_id: str) -> str:
     if not isinstance(items, list):
         items = [items]
 
+    _COMPLIANCE_LEVEL_MAP = {
+        "compliant": "compliant", "partial": "partial", "gap": "gap",
+        "info": "compliant", "non-compliant": "gap", "non_compliant": "gap",
+    }
+    _SEVERITY_MAP = {
+        "critical": "critical", "high": "high", "medium": "medium",
+        "low": "low", "info": "info",
+        "compliant": "info", "partial": "medium", "gap": "high",
+    }
+
     findings = []
     for data in items:
         rid = data.get("requirement_id", data.get("clause_id", ""))
-        findings.append(AuditFinding(
-            clause_id=rid,
-            clause_title=data.get("requirement_title", data.get("clause_title", "")),
-            regulation=data.get("regulation", ""),
-            sop_id=actual_id,
-            sop_title=title,
-            business_unit=business_unit,
-            compliance_level=ComplianceLevel(data.get("compliance_level", "gap")),
-            severity=Severity(data.get("severity", "high")),
-            evidence_quote=data.get("evidence_quote", ""),
-            gap_description=data.get("gap_description", ""),
-            remediation=data.get("remediation", ""),
-            reasoning=data.get("reasoning", ""),
-        ))
+        raw_cl = data.get("compliance_level", "gap").lower().strip()
+        raw_sev = data.get("severity", "high").lower().strip()
+        try:
+            findings.append(AuditFinding(
+                clause_id=rid,
+                clause_title=data.get("requirement_title", data.get("clause_title", "")),
+                regulation=data.get("regulation", ""),
+                sop_id=actual_id,
+                sop_title=title,
+                business_unit=business_unit,
+                compliance_level=ComplianceLevel(_COMPLIANCE_LEVEL_MAP.get(raw_cl, "gap")),
+                severity=Severity(_SEVERITY_MAP.get(raw_sev, "high")),
+                evidence_quote=data.get("evidence_quote", ""),
+                gap_description=data.get("gap_description", ""),
+                remediation=data.get("remediation", ""),
+                reasoning=data.get("reasoning", ""),
+            ))
+        except (ValueError, KeyError):
+            continue
 
     for f in findings:
         _audit_results["findings"].append(f)

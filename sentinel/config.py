@@ -34,8 +34,6 @@ if LANGSMITH_API_KEY:
 EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-8B"
 EMBEDDING_DIMENSION = 4096
 
-RETRIEVAL_MODE = os.environ.get("RETRIEVAL_MODE", "nexus")
-
 SOP_BUSINESS_UNITS = [
     "01_ai_ml_engineering",
     "02_clinical_ai_products",

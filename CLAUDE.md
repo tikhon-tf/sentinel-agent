@@ -29,8 +29,13 @@ Key modules:
 - `sentinel/retrieval/regulations.py` — retrieves regulation text from Pinecone for a given SOP
 - `scripts/extract_pdf_text.py` — extracts text from regulation PDFs (pymupdf) for ingestion
 
-### SOP-centric fan-out (not clause-centric)
-Auditing fans out by SOP, not by clause. Each SOP is audited against all its relevant regulations in a single LLM call (`audit_sop()` in `sentinel/llm.py`). The LLM identifies applicable requirements from the retrieved regulation text and produces findings with specific regulatory citations. `audit_all_sops` in `tools.py` runs 200 SOPs through a 10-wide `ThreadPoolExecutor`. Do not revert to per-clause fan-out.
+### Sub-agent architecture (not single-shot LLM calls)
+Each SOP is audited by a dedicated LangGraph ReAct sub-agent (`audit_single_sop` in `tools.py`). The sub-agent has its own tool loop with access to Pinecone (regulation retrieval), Tavily (web search), and the SOP text. It determines which regulations apply based on the SOP's content and business unit, iteratively queries the knowledge base for each applicable regulation, then outputs structured JSON findings. `audit_all_sops` fans out 200 sub-agents through a 10-wide `ThreadPoolExecutor`. Do not revert to single-shot LLM calls.
+
+Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
+- `retrieve_regulation` — semantic search on Pinecone `regulations` namespace with optional regulation filter
+- `search_web` — Tavily advanced search for latest guidance/enforcement
+- `read_sop` — returns the full SOP text (closure over the loaded content)
 
 ### Dual-model support
 - **Act 1**: Claude Sonnet 4.6 via Anthropic's OpenAI-compatible endpoint (`https://api.anthropic.com/v1/`)
@@ -42,30 +47,21 @@ Auditing fans out by SOP, not by clause. Each SOP is audited against all its rel
 `deepagents` is an optional dep (`[deep]` extra). It's lazy-imported in `agent.py` inside `_build_deep_agent()`. If the import fails, we fall back to `langgraph.prebuilt.create_react_agent`. This is required because deepagents pulls heavy transitive deps (grpcio, google-genai) that conflict with LangGraph Cloud's constraint file.
 
 ### Lazy imports for cloud compatibility
-`tavily` (in `grounding/tavily_search.py`) and `pinecone`/`openai` (in `retrieval/ingest.py`) are imported lazily inside functions, not at module level. This prevents import failures in the LangGraph Cloud container where these packages may not be installed or configured. Do not move these to top-level imports.
-
-### Retrieval modes
-Three modes controlled by `RETRIEVAL_MODE` env var (default: `nexus`):
-- `local` — keyword matching against local markdown files in `data/sops/`
-- `rag` — Pinecone agentic RAG with query expansion (Act 1)
-- `nexus` — Pinecone Nexus one-shot structured retrieval (Act 2)
+`tavily` (in sub-agent tools in `tools.py`), `pinecone` (in `retrieval/ingest.py`, `retrieval/regulations.py`, `tools.py`), and `openai` (in `retrieval/ingest.py`) are imported lazily inside functions, not at module level. This prevents import failures in the LangGraph Cloud container where these packages may not be installed or configured. Do not move these to top-level imports.
 
 ## Key modules
 
 | Module | Purpose |
 |--------|---------|
 | `sentinel/graph/agent.py` | ReAct agent definition, `build_agent()`, `run_audit()` entry point |
-| `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_all_sops`, `audit_single_sop`, `list_regulations`, `retrieve_regulation_text_tool` |
-| `sentinel/llm.py` | Raw OpenAI client, `audit_sop()` (per-SOP against regulation text) |
-| `sentinel/models.py` | Pydantic models (`AuditFinding`, `SOPChunk`), enums (`ComplianceLevel`, `Severity`) |
+| `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_single_sop` (sub-agent), `audit_all_sops`, `list_sops`, `list_regulations`, `retrieve_regulation_text_tool`; sub-agent builder `_build_subagent_tools()` |
+| `sentinel/llm.py` | OpenAI client provider switching (`set_provider()`, `get_client()`, `get_model()`) |
+| `sentinel/models.py` | Pydantic models (`AuditFinding`, `SOPChunk`, `AuditMetrics`), enums (`ComplianceLevel`, `Severity`) |
 | `sentinel/config.py` | API keys, model names, paths, business unit list |
-| `sentinel/retrieval/local.py` | File-based SOP retrieval + `list_all_sops()`, `load_sop_by_id()`, `load_sop_chunks()` |
+| `sentinel/retrieval/local.py` | SOP loading: `list_all_sops()`, `load_sop_by_id()`, `load_sop_chunks()` |
 | `sentinel/retrieval/regulations.py` | Pinecone regulation text retrieval: `retrieve_regulation_text()`, `retrieve_for_sop()`, `format_regulation_context()` |
 | `sentinel/retrieval/ingest_regulations.py` | Regulation text chunker + Pinecone ingestion (`REGULATION_MAP`, `EDITION_PATTERNS`, edition metadata) |
 | `sentinel/retrieval/ingest.py` | SOP markdown parser (`parse_sop()`), chunker, Pinecone ingestion |
-| `sentinel/retrieval/nexus.py` | Pinecone Nexus retrieval |
-| `sentinel/retrieval/vector_search.py` | Pinecone agentic RAG retrieval |
-| `sentinel/grounding/tavily_search.py` | Live regulation search via Tavily |
 | `sentinel/simulation/snowglobe.py` | Adversarial red-team scenarios (Act 3) |
 | `sentinel/output/heatmap.py` | Rich console heatmap rendering |
 | `sentinel/output/register.py` | CSV/JSON/metrics output |
@@ -84,7 +80,7 @@ Three modes controlled by `RETRIEVAL_MODE` env var (default: `nexus`):
 
 ### SOPs
 - 200 SOPs across 10 business units in `data/sops/` (markdown with YAML frontmatter)
-- SOP frontmatter `regulations` field determines which regulations apply during audit
+- SOP frontmatter `regulations` field is informational — the sub-agent determines applicable regulations dynamically
 - 152 of 200 SOPs are tagged with SOC 2 or HIPAA (the rest cover EU AI Act, GDPR, etc.)
 - Compliance matrix ground truth: `data/compliance_matrix.json`
 - SOP generation scripts in `scripts/` (one-time use, not part of the agent)
@@ -103,10 +99,12 @@ Required: `NEBIUS_API_KEY`. Optional: `ANTHROPIC_API_KEY` (Act 1), `PINECONE_API
 
 ## Patterns to follow
 
-- All LLM calls go through `sentinel/llm.py` (`get_client()` / `get_model()`)
+- The outer agent (Sentinel) uses `langchain_openai.ChatOpenAI` via `_build_model()` in `agent.py`
+- Sub-agents (`audit_single_sop`) also use `ChatOpenAI` directly — they do NOT go through `llm.py`
 - Tools in `sentinel/graph/tools.py` are decorated with `@tool` from `langchain_core.tools`
 - Audit results are accumulated in the module-level `_audit_results` dict in `tools.py`
-- SOP frontmatter `regulations` field determines which regulations to retrieve from Pinecone
-- Regulation retrieval uses metadata filters (`regulation`, `edition`) on the `regulations` namespace
+- SOP lookup (`load_sop_by_id`) supports exact ID, exact title, and fuzzy substring matching
+- The sub-agent determines which regulations apply — there is no predefined SOP-to-regulation mapping
+- Regulation retrieval uses metadata filters (`regulation`, `edition`) on the Pinecone `regulations` namespace
 - The `list_regulations` tool queries Pinecone with per-regulation metadata filters (not a single semantic query) to ensure all regulation types are represented
-- JSON parsing from LLM responses always strips markdown code fences and falls back to substring extraction
+- JSON parsing from sub-agent responses scans messages in reverse, strips markdown code fences, repairs truncated arrays, and maps unexpected enum values (`_COMPLIANCE_LEVEL_MAP`, `_SEVERITY_MAP`)
