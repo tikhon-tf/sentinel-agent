@@ -70,8 +70,10 @@ def build_agent():
     )
 
 
-# Module-level compiled graph for LangGraph deployments
-agent = build_agent()
+# Module-level compiled graph for LangGraph deployments.
+# Uses a function so langgraph can call it at server start (not at import/build time).
+def agent():
+    return build_agent()
 
 
 def run_audit(

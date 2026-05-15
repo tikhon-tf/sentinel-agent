@@ -1,8 +1,5 @@
 {
-  "dependencies": [
-    ".",
-    "langchain_openai"
-  ],
+  "dependencies": ["."],
   "graphs": {
     "sentinel": "./sentinel/graph/agent.py:agent"
   },
