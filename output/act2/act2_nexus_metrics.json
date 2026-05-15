@@ -1,17 +1,17 @@
 {
   "total_clauses": 25,
   "total_sops_audited": 46,
-  "total_findings": 200,
-  "compliant_count": 3,
-  "partial_count": 42,
-  "gap_count": 155,
-  "critical_count": 134,
-  "high_count": 48,
-  "medium_count": 15,
+  "total_findings": 400,
+  "compliant_count": 8,
+  "partial_count": 96,
+  "gap_count": 296,
+  "critical_count": 267,
+  "high_count": 88,
+  "medium_count": 37,
   "low_count": 0,
-  "total_tokens": 491563,
+  "total_tokens": 986778,
   "total_retrieval_steps": 0,
-  "avg_latency_per_cell": 15.580777794122696,
-  "total_latency": 3116.155558824539,
-  "total_cost": 0.29493779999999997
+  "avg_latency_per_cell": 21.77380329191685,
+  "total_latency": 8709.521316766739,
+  "total_cost": 0.5920667999999999
 }

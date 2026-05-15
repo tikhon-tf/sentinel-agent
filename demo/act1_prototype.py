@@ -59,7 +59,12 @@ def main():
     start = time.time()
     console.print("[dim]Decomposing query into regulation clauses...[/dim]")
 
-    state = run_audit(AUDIT_QUERY, mode=args.mode)
+    state = run_audit(
+        AUDIT_QUERY,
+        mode=args.mode,
+        run_name=f"act1-{args.mode}",
+        tags=["act1", "prototype", args.mode],
+    )
 
     elapsed = time.time() - start
     findings = state["findings"]

@@ -21,6 +21,12 @@ TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
 SNOWGLOBE_API_KEY = os.environ.get("SNOWGLOBE_API_KEY", "")
 
+LANGSMITH_API_KEY = os.environ.get("LANGSMITH_API_KEY", "")
+if LANGSMITH_API_KEY:
+    os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
+    os.environ.setdefault("LANGCHAIN_PROJECT", "sentinel-agent")
+    os.environ.setdefault("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
+
 EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-8B"
 EMBEDDING_DIMENSION = 4096
 

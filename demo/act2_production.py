@@ -59,7 +59,12 @@ def main():
     start = time.time()
     console.print("[dim]Decomposing query → Grounding regulations via Tavily → One-shot Nexus retrieval...[/dim]")
 
-    state = run_audit(AUDIT_QUERY, mode=args.mode)
+    state = run_audit(
+        AUDIT_QUERY,
+        mode=args.mode,
+        run_name=f"act2-{args.mode}",
+        tags=["act2", "production", args.mode],
+    )
 
     elapsed = time.time() - start
     findings = state["findings"]
