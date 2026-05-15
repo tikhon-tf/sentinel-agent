@@ -5,9 +5,6 @@ import re
 import yaml
 from pathlib import Path
 
-from openai import OpenAI
-from pinecone import Pinecone, ServerlessSpec
-
 from sentinel.config import (
     EMBEDDING_DIMENSION,
     EMBEDDING_MODEL,
@@ -107,6 +104,7 @@ def chunk_sop(filepath: Path, chunk_size: int = 1500, overlap: int = 200) -> lis
 
 def embed_texts(texts: list[str], batch_size: int = 64) -> list[list[float]]:
     """Embed texts using Nebius-hosted BGE model."""
+    from openai import OpenAI
     client = OpenAI(base_url=NEBIUS_BASE_URL, api_key=NEBIUS_API_KEY)
     all_embeddings = []
 
@@ -118,8 +116,9 @@ def embed_texts(texts: list[str], batch_size: int = 64) -> list[list[float]]:
     return all_embeddings
 
 
-def create_index() -> Pinecone:
+def create_index():
     """Create Pinecone index if it doesn't exist."""
+    from pinecone import Pinecone, ServerlessSpec
     pc = Pinecone(api_key=PINECONE_API_KEY)
 
     existing = [idx.name for idx in pc.list_indexes()]

@@ -3,5 +3,7 @@
   "graphs": {
     "sentinel": "./sentinel/graph/agent.py:agent"
   },
-  "env": "./.env"
+  "env": "./.env",
+  "python_version": "3.12",
+  "image_distro": "wolfi"
 }

@@ -1,9 +1,9 @@
 PYTHON = .venv/bin/python
 
-.PHONY: install ingest act1 act2 act3 demo all dev up build ui
+.PHONY: install ingest act1 act2 act3 demo all dev up build deploy ui
 
 install:
-	$(PYTHON) -m pip install -e ".[dev]"
+	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag]"
 
 ingest:
 	$(PYTHON) -m sentinel.retrieval.ingest
@@ -40,5 +40,11 @@ up:
 build:
 	langgraph build -t sentinel-agent:latest
 
+deploy:
+	langgraph deploy
+
 ui:
 	.venv/bin/streamlit run ui/app.py --server.port 8501
+
+ui-local:
+	LANGGRAPH_URL=http://localhost:2024 .venv/bin/streamlit run ui/app.py --server.port 8501

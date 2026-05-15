@@ -1,18 +1,17 @@
 """Tavily live regulation grounding — fetches the freshest regulation text and enforcement actions."""
 from __future__ import annotations
 
-from tavily import TavilyClient
-
 from sentinel.config import TAVILY_API_KEY
 from sentinel.models import RegulationClause
 
 
-_client: TavilyClient | None = None
+_client = None
 
 
-def get_client() -> TavilyClient:
+def get_client():
     global _client
     if _client is None:
+        from tavily import TavilyClient
         _client = TavilyClient(api_key=TAVILY_API_KEY)
     return _client
 

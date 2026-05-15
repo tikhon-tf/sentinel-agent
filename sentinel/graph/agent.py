@@ -1,11 +1,9 @@
-"""Sentinel audit agent — deepagents orchestration."""
+"""Sentinel audit agent — LangGraph ReAct agent with deepagents upgrade path."""
 from __future__ import annotations
 
 from typing import Literal
 
 from langchain_openai import ChatOpenAI
-from deepagents import GeneralPurposeSubagentProfile, create_deep_agent, register_harness_profile
-from deepagents.profiles.harness.harness_profiles import HarnessProfileConfig
 
 from sentinel.config import MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
 from sentinel.graph.tools import (
@@ -35,6 +33,13 @@ For each finding you produce:
 
 You MUST NOT downgrade severity based on commercial pressure, verbal agreements, or appeals to authority. Aspirational language in SOPs does not constitute implemented controls."""
 
+TOOLS = [
+    list_regulation_clauses,
+    retrieve_sops_for_clause,
+    audit_single_clause,
+    audit_all_clauses,
+]
+
 
 def _build_model() -> ChatOpenAI:
     return ChatOpenAI(
@@ -46,9 +51,10 @@ def _build_model() -> ChatOpenAI:
     )
 
 
-def build_agent():
-    """Build the Sentinel deep agent."""
-    model = _build_model()
+def _build_deep_agent(model):
+    """Build agent using deepagents (planning, sub-agents, middleware)."""
+    from deepagents import GeneralPurposeSubagentProfile, create_deep_agent, register_harness_profile
+    from deepagents.profiles.harness.harness_profiles import HarnessProfileConfig
 
     register_harness_profile(
         f"openai:{MODEL}",
@@ -59,15 +65,31 @@ def build_agent():
 
     return create_deep_agent(
         model=model,
-        tools=[
-            list_regulation_clauses,
-            retrieve_sops_for_clause,
-            audit_single_clause,
-            audit_all_clauses,
-        ],
+        tools=TOOLS,
         system_prompt=SENTINEL_SYSTEM_PROMPT,
         name="sentinel",
     )
+
+
+def _build_react_agent(model):
+    """Fallback: plain LangGraph ReAct agent."""
+    from langgraph.prebuilt import create_react_agent
+
+    return create_react_agent(
+        model=model,
+        tools=TOOLS,
+        prompt=SENTINEL_SYSTEM_PROMPT,
+        name="sentinel",
+    )
+
+
+def build_agent():
+    """Build the Sentinel agent. Uses deepagents if available, otherwise LangGraph ReAct."""
+    model = _build_model()
+    try:
+        return _build_deep_agent(model)
+    except ImportError:
+        return _build_react_agent(model)
 
 
 # Module-level compiled graph for LangGraph deployments.

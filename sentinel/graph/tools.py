@@ -6,6 +6,7 @@ from typing import Literal
 
 from langchain_core.tools import tool
 
+from sentinel.config import RETRIEVAL_MODE
 from sentinel.grounding.tavily_search import ground_clause
 from sentinel.llm import audit_cell
 from sentinel.models import (
@@ -18,7 +19,7 @@ from sentinel.models import (
 )
 
 _audit_results: dict = {"findings": [], "cell_metrics": []}
-_retrieval_mode: str = "local"
+_retrieval_mode: str = RETRIEVAL_MODE
 
 
 def set_retrieval_mode(mode: str) -> None:

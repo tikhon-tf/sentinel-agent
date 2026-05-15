@@ -1,13 +1,21 @@
 """Sentinel Audit Agent — Streamlit UI."""
 from __future__ import annotations
 
-import asyncio
-import json
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 import streamlit as st
-from langgraph_sdk import get_client
+from langgraph_sdk import get_sync_client
 
-LANGGRAPH_URL = "http://localhost:2024"
+DEFAULT_URL = os.environ.get(
+    "LANGGRAPH_URL",
+    "https://sentinel-agent-c4dfa65772015432b388f980262380a8.us.langgraph.app",
+)
+LANGSMITH_API_KEY = os.environ.get("LANGSMITH_API_KEY", "")
 GRAPH_ID = "sentinel"
 
 st.set_page_config(
@@ -16,51 +24,38 @@ st.set_page_config(
     layout="wide",
 )
 
-SEVERITY_COLORS = {
-    "critical": "#dc2626",
-    "high": "#ea580c",
-    "medium": "#ca8a04",
-    "low": "#2563eb",
-    "info": "#6b7280",
-}
 
-COMPLIANCE_COLORS = {
-    "gap": "#dc2626",
-    "partial": "#ca8a04",
-    "compliant": "#16a34a",
-}
+def _get_client():
+    url = st.session_state.get("langgraph_url", DEFAULT_URL)
+    kwargs = {"url": url}
+    if LANGSMITH_API_KEY and "localhost" not in url:
+        kwargs["api_key"] = LANGSMITH_API_KEY
+    return get_sync_client(**kwargs)
 
 
-async def get_or_create_thread():
-    client = get_client(url=LANGGRAPH_URL)
+def get_or_create_thread():
+    client = _get_client()
     if "thread_id" not in st.session_state:
-        thread = await client.threads.create()
+        thread = client.threads.create()
         st.session_state.thread_id = thread["thread_id"]
     return st.session_state.thread_id
 
 
-async def stream_response(thread_id: str, message: str):
-    client = get_client(url=LANGGRAPH_URL)
-    chunks = []
-    async for event in client.runs.stream(
+def stream_tokens(thread_id: str, message: str):
+    """Yield individual text chunks as they arrive from the agent."""
+    client = _get_client()
+    for event in client.runs.stream(
         thread_id=thread_id,
         assistant_id=GRAPH_ID,
         input={"messages": [{"role": "user", "content": message}]},
         stream_mode="messages-tuple",
     ):
         if event.event == "messages" and event.data:
-            msg_type, msg_data = event.data
-            if msg_type == "ai" and isinstance(msg_data, dict):
-                content = msg_data.get("content", "")
+            msg = event.data[0] if isinstance(event.data, list) else event.data
+            if isinstance(msg, dict) and "AIMessage" in msg.get("type", ""):
+                content = msg.get("content", "")
                 if isinstance(content, str) and content:
-                    chunks.append(content)
-                    yield "".join(chunks)
-
-
-async def get_thread_messages(thread_id: str):
-    client = get_client(url=LANGGRAPH_URL)
-    state = await client.threads.get_state(thread_id)
-    return state.get("values", {}).get("messages", [])
+                    yield content
 
 
 def render_sidebar():
@@ -99,33 +94,16 @@ def render_sidebar():
             st.rerun()
 
         st.divider()
+        st.text_input(
+            "LangGraph API URL",
+            value=DEFAULT_URL,
+            key="langgraph_url",
+            help="Cloud deployment or http://localhost:2024 for local dev",
+        )
+
+        st.divider()
         st.caption("Powered by DeepSeek-V4-Pro on Nebius")
         st.caption("Orchestrated by deepagents + LangGraph")
-
-
-def render_findings_table(findings: list[dict]):
-    if not findings:
-        return
-
-    gap_count = sum(1 for f in findings if f.get("compliance_level") == "gap")
-    partial_count = sum(1 for f in findings if f.get("compliance_level") == "partial")
-    compliant_count = sum(1 for f in findings if f.get("compliance_level") == "compliant")
-    total = len(findings)
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Findings", total)
-    col2.metric("Gaps", gap_count, delta=f"{100*gap_count//max(total,1)}%", delta_color="inverse")
-    col3.metric("Partial", partial_count, delta=f"{100*partial_count//max(total,1)}%", delta_color="off")
-    col4.metric("Compliant", compliant_count, delta=f"{100*compliant_count//max(total,1)}%", delta_color="normal")
-
-    critical = sum(1 for f in findings if f.get("severity") == "critical")
-    high = sum(1 for f in findings if f.get("severity") == "high")
-    medium = sum(1 for f in findings if f.get("severity") == "medium")
-
-    severity_cols = st.columns(3)
-    severity_cols[0].metric("Critical", critical)
-    severity_cols[1].metric("High", high)
-    severity_cols[2].metric("Medium", medium)
 
 
 def main():
@@ -151,33 +129,13 @@ def main():
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            placeholder = st.empty()
-            placeholder.markdown("Thinking...")
-
-            thread_id = asyncio.run(get_or_create_thread())
-
-            full_response = ""
-            try:
-                async def _stream():
-                    nonlocal full_response
-                    async for text in stream_response(thread_id, prompt):
-                        full_response = text
-                        placeholder.markdown(text + " |")
-                asyncio.run(_stream())
-            except Exception:
-                if not full_response:
-                    messages = asyncio.run(get_thread_messages(thread_id))
-                    for m in reversed(messages):
-                        content = m.get("content", "") if isinstance(m, dict) else getattr(m, "content", "")
-                        msg_type = m.get("type", "") if isinstance(m, dict) else getattr(m, "type", "")
-                        if msg_type == "ai" and content:
-                            full_response = content
-                            break
+            thread_id = get_or_create_thread()
+            full_response = st.write_stream(stream_tokens(thread_id, prompt))
 
             if not full_response:
                 full_response = "Audit is running. Check the output files for results."
+                st.markdown(full_response)
 
-            placeholder.markdown(full_response)
             st.session_state.messages.append({"role": "assistant", "content": full_response})
 
 
