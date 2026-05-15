@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 import time
 
 from openai import OpenAI
@@ -67,7 +68,9 @@ Return your assessment as a JSON object."""
     client = get_client()
     start = time.time()
 
-    max_retries = 3
+    max_retries = 5
+    response = None
+    last_exc: Exception | None = None
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
@@ -79,14 +82,45 @@ Return your assessment as a JSON object."""
                     {"role": "user", "content": user_prompt},
                 ],
             )
+            last_exc = None
             break
         except Exception as e:
+            last_exc = e
             if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)
+                time.sleep(min(30, 2 ** attempt + random.uniform(0, 1)))
                 continue
-            raise
 
     elapsed = time.time() - start
+
+    if response is None:
+        # All retries exhausted on an upstream model error. Instead of
+        # re-raising (which aborts the whole audit run and discards the
+        # work already done for other clauses), surface a partial-failure
+        # finding so the fan-out can complete and the user gets a usable,
+        # if incomplete, report.
+        exc_name = type(last_exc).__name__ if last_exc is not None else "Exception"
+        finding = AuditFinding(
+            clause_id=clause.clause_id,
+            clause_title=clause.title,
+            regulation=clause.regulation,
+            sop_id=sop.sop_id if sop else "NONE",
+            sop_title=sop.title if sop else "No applicable SOP",
+            business_unit=sop.business_unit if sop else "N/A",
+            compliance_level=ComplianceLevel.GAP,
+            severity=Severity.INFO,
+            evidence_quote="",
+            gap_description=f"Audit failed for {clause.clause_id} due to upstream model error",
+            remediation="Re-run audit for this clause",
+            reasoning=f"audit_cell raised after retries: {exc_name}",
+        )
+        cell_metrics = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "latency": elapsed,
+            "error": True,
+        }
+        return finding, cell_metrics
+
     raw = response.choices[0].message.content.strip()
 
     if raw.startswith("```"):
