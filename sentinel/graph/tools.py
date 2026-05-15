@@ -48,20 +48,50 @@ def list_regulations() -> str:
     if not PINECONE_API_KEY:
         return _list_regulations_local()
     try:
-        from sentinel.retrieval.regulations import retrieve_regulation_text
-        chunks = retrieve_regulation_text("list all regulations compliance requirements", top_k=50)
+        from sentinel.config import PINECONE_INDEX_NAME
+        from sentinel.retrieval.ingest import embed_texts
+        from pinecone import Pinecone
+
+        pc = Pinecone(api_key=PINECONE_API_KEY)
+        index = pc.Index(PINECONE_INDEX_NAME)
+
+        known_regs = [
+            "HIPAA", "SOC 2", "GDPR", "EU AI Act", "NIST AI RMF",
+            "SR 11-7", "California SB 53", "California SB 942", "California AB 853",
+        ]
+        query_text = "regulatory compliance requirements"
+        embedding = embed_texts([query_text])[0]
+
         regs: dict[str, set[str]] = {}
-        for chunk in chunks:
-            reg = chunk.get("regulation", "Unknown")
-            source = chunk.get("source", "")
-            regs.setdefault(reg, set()).add(source)
+        for reg_name in known_regs:
+            results = index.query(
+                vector=embedding,
+                top_k=5,
+                namespace="regulations",
+                include_metadata=True,
+                filter={"regulation": {"$eq": reg_name}},
+            )
+            for match in results.matches:
+                source = match.metadata.get("source", "")
+                edition = match.metadata.get("edition", "current")
+                regs.setdefault(reg_name, set()).add(f"{source} ({edition})")
+
+        # Also do an unfiltered query to catch anything not in known_regs
+        results = index.query(
+            vector=embedding, top_k=20, namespace="regulations", include_metadata=True,
+        )
+        for match in results.matches:
+            reg = match.metadata.get("regulation", "Unknown")
+            source = match.metadata.get("source", "")
+            edition = match.metadata.get("edition", "current")
+            regs.setdefault(reg, set()).add(f"{source} ({edition})")
 
         lines = []
         for reg in sorted(regs.keys()):
             sources = ", ".join(sorted(regs[reg]))
-            lines.append(f"- {reg} ({sources})")
+            lines.append(f"- {reg}: {sources}")
         return f"{len(regs)} regulations in knowledge base:\n" + "\n".join(lines)
-    except Exception:
+    except Exception as e:
         return _list_regulations_local()
 
 

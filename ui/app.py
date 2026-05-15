@@ -9,6 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_dotenv()  # also check cwd and parent dirs
 
 import streamlit as st
 from langgraph_sdk import get_sync_client
@@ -39,6 +40,12 @@ def _get_client():
     kwargs = {"url": url}
     if LANGSMITH_API_KEY and "localhost" not in url:
         kwargs["api_key"] = LANGSMITH_API_KEY
+    elif "localhost" not in url and not LANGSMITH_API_KEY:
+        st.error(
+            "LANGSMITH_API_KEY is required to connect to the cloud deployment. "
+            "Set it in your .env file or environment, or use `make ui-local` for local dev."
+        )
+        st.stop()
     return get_sync_client(**kwargs)
 
 
