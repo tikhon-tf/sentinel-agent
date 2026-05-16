@@ -381,9 +381,10 @@ def audit_single_sop(sop_id: str) -> str:
         for m in messages if getattr(m, "usage_metadata", None)
     )
 
-    lines = [f"{actual_id} ({title}): {len(findings)} findings — {compliant}C/{partial}P/{gap}G [tokens: {sub_in + sub_out:,}]"]
+    lines = [f"{actual_id} ({title}): {len(findings)} findings — {compliant}C/{partial}P/{gap}G"]
     for f in findings:
         lines.append(f"  {f.clause_id}: {f.compliance_level.value} ({f.severity.value}) — {f.gap_description or 'Compliant'}")
+    lines.append(f"Sub-agent tokens: {sub_in + sub_out:,} ({sub_in:,} in / {sub_out:,} out)")
     return "\n".join(lines)
 
 
