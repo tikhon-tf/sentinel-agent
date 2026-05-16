@@ -57,7 +57,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 | `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_single_sop` (sub-agent), `audit_all_sops`, `list_sops`, `list_regulations`, `retrieve_regulation_text_tool`; sub-agent builder `_build_subagent_tools()` |
 | `sentinel/llm.py` | OpenAI client provider switching (`set_provider()`, `get_client()`, `get_model()`) |
 | `sentinel/models.py` | Pydantic models (`AuditFinding`, `SOPChunk`, `AuditMetrics`), enums (`ComplianceLevel`, `Severity`) |
-| `sentinel/config.py` | API keys, model names, paths, business unit list |
+| `sentinel/config.py` | API keys, model names, paths, pricing, business unit list |
 | `sentinel/retrieval/local.py` | SOP loading: `list_all_sops()`, `load_sop_by_id()`, `load_sop_chunks()` |
 | `sentinel/retrieval/regulations.py` | Pinecone regulation text retrieval: `retrieve_regulation_text()`, `retrieve_for_sop()`, `format_regulation_context()` |
 | `sentinel/retrieval/ingest_regulations.py` | Regulation text chunker + Pinecone ingestion (`REGULATION_MAP`, `EDITION_PATTERNS`, edition metadata) |
@@ -65,7 +65,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 | `sentinel/simulation/snowglobe.py` | Adversarial red-team scenarios (Act 3) |
 | `sentinel/output/heatmap.py` | Rich console heatmap rendering |
 | `sentinel/output/register.py` | CSV/JSON/metrics output |
-| `ui/app.py` | Streamlit chat UI with streaming via langgraph_sdk |
+| `ui/app.py` | Streamlit chat UI with streaming, per-response and session token/cost tracking |
 | `demo/act{1,2,3}_*.py` | Three-act demo scripts |
 
 ## LangGraph Cloud deployment
@@ -108,3 +108,5 @@ Required: `NEBIUS_API_KEY`. Optional: `ANTHROPIC_API_KEY` (Act 1), `PINECONE_API
 - Regulation retrieval uses metadata filters (`regulation`, `edition`) on the Pinecone `regulations` namespace
 - The `list_regulations` tool queries Pinecone with per-regulation metadata filters (not a single semantic query) to ensure all regulation types are represented
 - JSON parsing from sub-agent responses scans messages in reverse, strips markdown code fences, repairs truncated arrays, and maps unexpected enum values (`_COMPLIANCE_LEVEL_MAP`, `_SEVERITY_MAP`)
+- All `ChatOpenAI` instances must set `stream_usage=True` — without it, custom `base_url` providers (Nebius, Anthropic) don't send `stream_options: {include_usage: true}` and `usage_metadata` is always `None` in thread state
+- Token pricing is centralized in `PRICING` dict in `config.py` — the UI reads it for cost display
