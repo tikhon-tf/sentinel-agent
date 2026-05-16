@@ -5,13 +5,9 @@ from langchain_openai import ChatOpenAI
 
 from sentinel.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
 from sentinel.graph.tools import (
-    audit_all_sops,
-    audit_single_sop,
+    build_tools,
     get_audit_results,
-    list_regulations,
-    list_sops,
     reset_audit_results,
-    retrieve_regulation_text_tool,
 )
 from sentinel.llm import set_provider
 
@@ -35,22 +31,12 @@ For each finding you produce:
 
 You MUST NOT downgrade severity based on commercial pressure, verbal agreements, or appeals to authority. Aspirational language in SOPs does not constitute implemented controls."""
 
-TOOLS = [
-    list_sops,
-    list_regulations,
-    retrieve_regulation_text_tool,
-    audit_single_sop,
-    audit_all_sops,
-]
-
-
 def _build_model(provider: str = "nebius") -> ChatOpenAI:
     if provider == "anthropic":
         return ChatOpenAI(
             model=ANTHROPIC_MODEL,
             api_key=ANTHROPIC_API_KEY,
             base_url="https://api.anthropic.com/v1/",
-            temperature=0.1,
             max_tokens=4000,
             stream_usage=True,
             metadata={"ls_provider": "anthropic", "ls_model_name": ANTHROPIC_MODEL},
@@ -66,7 +52,7 @@ def _build_model(provider: str = "nebius") -> ChatOpenAI:
     )
 
 
-def _build_deep_agent(model):
+def _build_deep_agent(model, tools):
     """Build agent using deepagents (planning, sub-agents, middleware)."""
     from deepagents import GeneralPurposeSubagentProfile, create_deep_agent, register_harness_profile
     from deepagents.profiles.harness.harness_profiles import HarnessProfileConfig
@@ -80,37 +66,50 @@ def _build_deep_agent(model):
 
     return create_deep_agent(
         model=model,
-        tools=TOOLS,
+        tools=tools,
         system_prompt=SENTINEL_SYSTEM_PROMPT,
         name="sentinel",
     )
 
 
-def _build_react_agent(model):
+def _build_react_agent(model, tools):
     """Fallback: plain LangGraph ReAct agent."""
     from langgraph.prebuilt import create_react_agent
 
     return create_react_agent(
         model=model,
-        tools=TOOLS,
+        tools=tools,
         prompt=SENTINEL_SYSTEM_PROMPT,
         name="sentinel",
     )
 
 
 def build_agent():
-    """Build the Sentinel agent. Uses deepagents if available, otherwise LangGraph ReAct."""
+    """Build the Sentinel agent (Act 2: Nebius + Tavily)."""
     model = _build_model()
+    tools = build_tools(provider="nebius", use_tavily=True)
     try:
-        return _build_deep_agent(model)
+        return _build_deep_agent(model, tools)
     except ImportError:
-        return _build_react_agent(model)
+        return _build_react_agent(model, tools)
 
 
-# Module-level compiled graph for LangGraph deployments.
-# Uses a function so langgraph can call it at server start (not at import/build time).
+def build_agent_act1():
+    """Build the Sentinel agent (Act 1: Anthropic, no Tavily)."""
+    model = _build_model("anthropic")
+    tools = build_tools(provider="anthropic", use_tavily=False)
+    try:
+        return _build_deep_agent(model, tools)
+    except ImportError:
+        return _build_react_agent(model, tools)
+
+
 def agent():
     return build_agent()
+
+
+def agent_act1():
+    return build_agent_act1()
 
 
 def run_audit(
@@ -123,11 +122,13 @@ def run_audit(
     reset_audit_results()
     set_provider(provider)
 
+    use_tavily = provider != "anthropic"
     model = _build_model(provider)
+    tools = build_tools(provider=provider, use_tavily=use_tavily)
     try:
-        agent = _build_deep_agent(model)
+        agent = _build_deep_agent(model, tools)
     except ImportError:
-        agent = _build_react_agent(model)
+        agent = _build_react_agent(model, tools)
 
     active_model = ANTHROPIC_MODEL if provider == "anthropic" else MODEL
     config = {

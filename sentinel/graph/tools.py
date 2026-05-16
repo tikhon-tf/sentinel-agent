@@ -119,12 +119,14 @@ def retrieve_regulation_text_tool(query: str, regulation: str = "") -> str:
         return f"Regulation retrieval failed: {e}"
 
 
-def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str):
+def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily: bool = True):
     """Build the tool set for the audit sub-agent."""
 
     @tool
-    def retrieve_regulation(query: str, regulation: str = "") -> str:
-        """Search the regulation knowledge base (Pinecone) for specific regulatory requirements. Use targeted queries like 'HIPAA access control requirements' or 'SOC 2 CC6 logical access'. Optionally filter by regulation name."""
+    def retrieve_regulation(query: str = "", regulation: str = "") -> str:
+        """Search the regulation knowledge base (Pinecone) for specific regulatory requirements. Use targeted queries like 'HIPAA access control requirements' or 'SOC 2 CC6 logical access'. Optionally filter by regulation name. The `query` argument is required and must be a non-empty search phrase."""
+        if not isinstance(query, str) or not query.strip():
+            return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
         if not PINECONE_API_KEY:
             return "Pinecone not configured."
         try:
@@ -139,8 +141,10 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str):
             return f"Retrieval failed: {e}"
 
     @tool
-    def search_web(query: str) -> str:
-        """Search the web via Tavily for latest regulatory guidance, enforcement actions, or interpretation. Use for questions the knowledge base can't answer — e.g. recent HHS enforcement, updated NIST guidance, or regulatory FAQs."""
+    def search_web(query: str = "") -> str:
+        """Search the web via Tavily for latest regulatory guidance, enforcement actions, or interpretation. Use for questions the knowledge base can't answer — e.g. recent HHS enforcement, updated NIST guidance, or regulatory FAQs. The `query` argument is required and must be a non-empty search phrase."""
+        if not isinstance(query, str) or not query.strip():
+            return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
         if not TAVILY_API_KEY:
             return "Tavily not configured — web search unavailable."
         try:
@@ -166,7 +170,10 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str):
         """Read the full SOP text being audited. Call this to review the SOP content before or during your assessment."""
         return f"SOP: {sop_id} — {sop_title}\n\n{sop_text}"
 
-    return [retrieve_regulation, search_web, read_sop]
+    tools = [retrieve_regulation, read_sop]
+    if use_tavily:
+        tools.insert(1, search_web)
+    return tools
 
 
 _AUDIT_SUBAGENT_PROMPT = """You are an expert regulatory compliance auditor assessing a single SOP for Meridian Health Technologies, an AI-powered healthcare fintech company.
@@ -183,6 +190,7 @@ Audit the SOP against ALL applicable regulations. You must determine which regul
 6. Output your complete findings as a JSON array in your FINAL message
 
 ## Rules
+- Every `retrieve_regulation` and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args — if you have nothing specific to search for, don't call the tool. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
 - Be thorough: check EVERY regulation that could apply
 - Be specific: cite exact regulatory sections
 - Do NOT downgrade severity for aspirational language
@@ -203,13 +211,35 @@ Your FINAL message MUST contain a JSON array (and nothing else) where each eleme
 Do NOT include any text before or after the JSON array in your final message. Just the raw JSON array."""
 
 
-@tool
-def audit_single_sop(sop_id: str) -> str:
-    """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base (Pinecone) and web search (Tavily). Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
+def _build_subagent_model(provider: str = "nebius"):
+    """Build the ChatOpenAI model for audit sub-agents."""
     from langchain_openai import ChatOpenAI
-    from langgraph.prebuilt import create_react_agent
-
+    from sentinel.config import MODEL_MAX_TOKENS
+    if provider == "anthropic":
+        from sentinel.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL
+        return ChatOpenAI(
+            model=ANTHROPIC_MODEL,
+            api_key=ANTHROPIC_API_KEY,
+            base_url="https://api.anthropic.com/v1/",
+            max_tokens=MODEL_MAX_TOKENS,
+            stream_usage=True,
+            metadata={"ls_provider": "anthropic", "ls_model_name": ANTHROPIC_MODEL},
+        )
     from sentinel.config import MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
+    return ChatOpenAI(
+        model=MODEL,
+        api_key=NEBIUS_API_KEY,
+        base_url=NEBIUS_BASE_URL,
+        temperature=0.1,
+        max_tokens=MODEL_MAX_TOKENS,
+        stream_usage=True,
+        metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
+    )
+
+
+def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True) -> str:
+    """Core implementation for auditing a single SOP."""
+    from langgraph.prebuilt import create_react_agent
     from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
 
     sop = load_sop_by_id(sop_id)
@@ -226,18 +256,8 @@ def audit_single_sop(sop_id: str) -> str:
     business_unit = fm.get("business_unit", "")
     sop_text = "\n\n---\n\n".join(f"[{c.section}]\n{c.chunk_text}" for c in chunks)
 
-    subagent_tools = _build_subagent_tools(sop_text, actual_id, title)
-
-    from sentinel.config import MODEL_MAX_TOKENS
-    model = ChatOpenAI(
-        model=MODEL,
-        api_key=NEBIUS_API_KEY,
-        base_url=NEBIUS_BASE_URL,
-        temperature=0.1,
-        max_tokens=MODEL_MAX_TOKENS,
-        stream_usage=True,
-        metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
-    )
+    subagent_tools = _build_subagent_tools(sop_text, actual_id, title, use_tavily=use_tavily)
+    model = _build_subagent_model(provider)
 
     subagent = create_react_agent(
         model=model,
@@ -269,7 +289,6 @@ def audit_single_sop(sop_id: str) -> str:
         if not isinstance(content, str) or "[" not in content:
             continue
 
-        # Strip markdown code fences
         if "```" in content:
             fence_start = content.find("```")
             lang_end = content.find("\n", fence_start)
@@ -293,7 +312,6 @@ def audit_single_sop(sop_id: str) -> str:
                 findings_json = candidate
                 break
         except json.JSONDecodeError:
-            # JSON may be truncated — try to repair by closing open objects/array
             repaired = candidate.rstrip().rstrip(",")
             if not repaired.endswith("}"):
                 last_brace = repaired.rfind("}")
@@ -389,8 +407,13 @@ def audit_single_sop(sop_id: str) -> str:
 
 
 @tool
-def audit_all_sops() -> str:
-    """Run the full audit across ALL SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base and web search. Fans out with 10-wide parallelism."""
+def audit_single_sop(sop_id: str) -> str:
+    """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base (Pinecone) and web search (Tavily). Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
+    return _audit_single_sop_impl(sop_id, provider="nebius", use_tavily=True)
+
+
+def _audit_all_sops_impl(single_sop_tool) -> str:
+    """Core implementation for auditing all SOPs."""
     import concurrent.futures
     from sentinel.retrieval.local import list_all_sops
 
@@ -399,8 +422,7 @@ def audit_all_sops() -> str:
     def _audit_one(sop_meta: dict) -> str:
         sid = sop_meta["sop_id"]
         try:
-            result = audit_single_sop.invoke(sid)
-            return result
+            return single_sop_tool.invoke(sid)
         except Exception as e:
             return f"{sid}: FAILED — {e}"
 
@@ -428,3 +450,28 @@ def audit_all_sops() -> str:
         "Per-SOP breakdown:\n" + "\n".join(sorted(results))
     )
     return summary
+
+
+@tool
+def audit_all_sops() -> str:
+    """Run the full audit across ALL SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base and web search. Fans out with 10-wide parallelism."""
+    return _audit_all_sops_impl(audit_single_sop)
+
+
+def build_tools(provider: str = "nebius", use_tavily: bool = True) -> list:
+    """Build the complete tool list for the agent, parameterized by provider and Tavily usage."""
+
+    @tool
+    def _audit_single_sop(sop_id: str) -> str:
+        """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base (Pinecone). Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
+        return _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily)
+
+    @tool
+    def _audit_all_sops() -> str:
+        """Run the full audit across ALL SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base. Fans out with 10-wide parallelism."""
+        return _audit_all_sops_impl(_audit_single_sop)
+
+    _audit_single_sop.name = "audit_single_sop"
+    _audit_all_sops.name = "audit_all_sops"
+
+    return [list_sops, list_regulations, retrieve_regulation_text_tool, _audit_single_sop, _audit_all_sops]

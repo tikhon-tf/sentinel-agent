@@ -13,14 +13,17 @@ load_dotenv()  # also check cwd and parent dirs
 
 import streamlit as st
 from langgraph_sdk import get_sync_client
-from sentinel.config import MODEL, PRICING
+from sentinel.config import ANTHROPIC_MODEL, MODEL, PRICING
 
 DEFAULT_URL = os.environ.get(
     "LANGGRAPH_URL",
     "https://sentinel-agent-c4dfa65772015432b388f980262380a8.us.langgraph.app",
 )
 LANGSMITH_API_KEY = os.environ.get("LANGSMITH_API_KEY", "")
-GRAPH_ID = "sentinel"
+AGENTS = {
+    "Nebius + Nexus + Tavily": {"graph_id": "sentinel", "model": MODEL},
+    "Agent + RAG": {"graph_id": "sentinel_act1", "model": ANTHROPIC_MODEL},
+}
 
 st.set_page_config(
     page_title="Sentinel Compliance Auditor",
@@ -59,7 +62,7 @@ def get_or_create_thread():
     return st.session_state.thread_id
 
 
-def stream_events(thread_id: str, message: str):
+def stream_events(thread_id: str, message: str, graph_id: str = "sentinel"):
     """Yield (event_type, data) tuples from a background thread.
 
     Uses both 'messages-tuple' (for streaming tokens) and 'values' (for
@@ -75,7 +78,7 @@ def stream_events(thread_id: str, message: str):
             client = _get_client()
             for event in client.runs.stream(
                 thread_id=thread_id,
-                assistant_id=GRAPH_ID,
+                assistant_id=graph_id,
                 input={"messages": [{"role": "user", "content": message}]},
                 stream_mode=["messages-tuple", "values"],
             ):
@@ -87,12 +90,12 @@ def stream_events(thread_id: str, message: str):
                     content = msg.get("content", "")
                     tool_calls = msg.get("tool_calls", [])
 
-                    if "AIMessage" in msg_type:
+                    if msg_type in ("AIMessageChunk", "AIMessage", "ai"):
                         if tool_calls and tool_calls[0].get("name"):
                             q.put(("tool_call", tool_calls[0]))
                         elif isinstance(content, str) and content:
                             q.put(("token", content))
-                    elif "ToolMessage" in msg_type and content:
+                    elif msg_type in ("tool", "ToolMessage", "ToolMessageChunk") and content:
                         q.put(("tool_result", content))
 
                 elif event.event == "values" and isinstance(event.data, dict):
@@ -126,9 +129,9 @@ def stream_events(thread_id: str, message: str):
 DEFAULT_PRICING = {"input": 1.75, "output": 3.50}
 
 
-def _format_usage(input_tokens: int, output_tokens: int) -> str:
+def _format_usage(input_tokens: int, output_tokens: int, model: str = MODEL) -> str:
     total = input_tokens + output_tokens
-    prices = PRICING.get(MODEL, DEFAULT_PRICING)
+    prices = PRICING.get(model, DEFAULT_PRICING)
     cost = (input_tokens * prices["input"] + output_tokens * prices["output"]) / 1_000_000
     return f"Tokens: {total:,} ({input_tokens:,} in / {output_tokens:,} out) · Cost: ${cost:.4f}"
 
@@ -211,12 +214,20 @@ def render_audit_results(tool_result: str):
             st.text(tool_result)
 
 
+def _active_agent() -> dict:
+    label = st.session_state.get("agent_select", list(AGENTS.keys())[0])
+    return AGENTS[label]
+
+
 def render_sidebar():
     with st.sidebar:
         st.markdown("## Sentinel")
         st.caption("Regulatory Compliance Auditor")
         st.divider()
 
+        st.radio("Agent", list(AGENTS.keys()), key="agent_select")
+
+        st.divider()
         st.markdown("### Quick Audits")
         if st.button("Full SOC 2 + HIPAA Audit", use_container_width=True):
             st.session_state.pending_message = (
@@ -227,6 +238,9 @@ def render_sidebar():
                 "(compliant, partial, or gap), the exact criterion or safeguard violated, a quoted "
                 "piece of evidence from the SOP, a recommended remediation, and a severity rating."
             )
+
+        if st.button("Audit 2 SOPs", use_container_width=True):
+            st.session_state.pending_message = "Audit SOP-AIML-004 and SOP-AIML-008"
 
         if st.button("List Regulations", use_container_width=True):
             st.session_state.pending_message = "List all regulations available in the knowledge base."
@@ -252,7 +266,8 @@ def render_sidebar():
         if session_in + session_out > 0:
             st.divider()
             st.markdown("### Session Usage")
-            prices = PRICING.get(MODEL, DEFAULT_PRICING)
+            active_model = _active_agent()["model"]
+            prices = PRICING.get(active_model, DEFAULT_PRICING)
             session_cost = (session_in * prices["input"] + session_out * prices["output"]) / 1_000_000
             st.metric("Total Tokens", f"{session_in + session_out:,}")
             st.caption(f"{session_in:,} in / {session_out:,} out · ${session_cost:.4f}")
@@ -266,7 +281,11 @@ def render_sidebar():
         )
 
         st.divider()
-        st.caption("Powered by DeepSeek-V4-Pro on Nebius")
+        active_model = _active_agent()["model"]
+        if active_model == ANTHROPIC_MODEL:
+            st.caption("Powered by Claude Opus 4.7 on Anthropic")
+        else:
+            st.caption("Powered by DeepSeek-V4-Pro on Nebius")
         st.caption("Orchestrated by deepagents + LangGraph")
 
 
@@ -301,6 +320,7 @@ def main():
 
         with st.chat_message("assistant"):
             thread_id = get_or_create_thread()
+            agent_cfg = _active_agent()
             text_placeholder = st.empty()
             status_placeholder = st.empty()
             results_container = st.container()
@@ -312,7 +332,7 @@ def main():
             subagent_in = 0
             subagent_out = 0
 
-            for event_type, data in stream_events(thread_id, prompt):
+            for event_type, data in stream_events(thread_id, prompt, agent_cfg["graph_id"]):
                 if event_type == "token":
                     collected_text.append(data)
                     text_placeholder.markdown("".join(collected_text))
@@ -345,7 +365,7 @@ def main():
             run_in = run_outer_in + subagent_in
             run_out = run_outer_out + subagent_out
             run_total = run_in + run_out
-            usage_info = _format_usage(run_in, run_out)
+            usage_info = _format_usage(run_in, run_out, agent_cfg["model"])
             if run_total > 0:
                 usage_placeholder.caption(usage_info)
                 st.session_state["_prev_outer_in"] = outer_in
