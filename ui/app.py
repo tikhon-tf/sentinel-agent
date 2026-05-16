@@ -108,17 +108,30 @@ def stream_events(thread_id: str, message: str):
 
 
 def get_run_usage(thread_id: str) -> tuple[int, int]:
-    """Get total token usage from the thread state after a run completes."""
+    """Get total token usage from the thread state after a run completes.
+
+    Checks two sources per AI message:
+    1. usage_metadata (populated when stream_usage=True on ChatOpenAI)
+    2. response_metadata.token_usage (fallback, populated on non-streamed invoke)
+    """
     try:
         client = _get_client()
         state = client.threads.get_state(thread_id)
         total_in = 0
         total_out = 0
         for msg in state.get("values", {}).get("messages", []):
+            # Primary: usage_metadata (set by langchain_openai with stream_usage=True)
             usage = msg.get("usage_metadata")
-            if usage:
+            if usage and (usage.get("input_tokens") or usage.get("output_tokens")):
                 total_in += usage.get("input_tokens", 0)
                 total_out += usage.get("output_tokens", 0)
+                continue
+            # Fallback: response_metadata.token_usage (set by non-streaming _generate)
+            resp_meta = msg.get("response_metadata", {})
+            token_usage = resp_meta.get("token_usage") if isinstance(resp_meta, dict) else None
+            if token_usage and isinstance(token_usage, dict):
+                total_in += token_usage.get("prompt_tokens", 0)
+                total_out += token_usage.get("completion_tokens", 0)
         return total_in, total_out
     except Exception:
         return 0, 0
