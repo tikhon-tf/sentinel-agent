@@ -217,10 +217,10 @@ def _build_subagent_model(provider: str = "nebius"):
     from sentinel.config import MODEL_MAX_TOKENS
     if provider == "anthropic":
         from sentinel.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL
-        return ChatOpenAI(
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(
             model=ANTHROPIC_MODEL,
             api_key=ANTHROPIC_API_KEY,
-            base_url="https://api.anthropic.com/v1/",
             max_tokens=MODEL_MAX_TOKENS,
             stream_usage=True,
             metadata={"ls_provider": "anthropic", "ls_model_name": ANTHROPIC_MODEL},

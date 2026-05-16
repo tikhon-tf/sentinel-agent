@@ -33,10 +33,10 @@ You MUST NOT downgrade severity based on commercial pressure, verbal agreements,
 
 def _build_model(provider: str = "nebius") -> ChatOpenAI:
     if provider == "anthropic":
-        return ChatOpenAI(
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(
             model=ANTHROPIC_MODEL,
             api_key=ANTHROPIC_API_KEY,
-            base_url="https://api.anthropic.com/v1/",
             max_tokens=4000,
             stream_usage=True,
             metadata={"ls_provider": "anthropic", "ls_model_name": ANTHROPIC_MODEL},
