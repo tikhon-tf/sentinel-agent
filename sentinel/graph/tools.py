@@ -246,6 +246,24 @@ def audit_single_sop(sop_id: str) -> str:
         name="sop_auditor",
     )
 
+    # DeepSeek-V4-Pro intermittently emits tool calls as inline pseudo-XML in
+    # `content` with `tool_calls=[]`, which leaves the ReAct loop with no real
+    # tool invocations and no findings. Detect those markers in any assistant
+    # message so we can either re-prompt or surface a real error.
+    _TEXT_TOOL_CALL_MARKERS = (
+        "<tool_calls>",
+        "<toolinvoke",
+        "<｜DSML｜tool_calls",
+        "<｜DSML｜invoke",
+    )
+
+    def _detect_text_tool_calls(msgs) -> bool:
+        for m in msgs:
+            c = m.content if hasattr(m, "content") else ""
+            if isinstance(c, str) and any(mark in c for mark in _TEXT_TOOL_CALL_MARKERS):
+                return True
+        return False
+
     start = time.time()
     result = subagent.invoke({
         "messages": [{
@@ -253,9 +271,29 @@ def audit_single_sop(sop_id: str) -> str:
             "content": f"Audit SOP {actual_id}: {title} (Business Unit: {business_unit})",
         }],
     })
-    elapsed = time.time() - start
-
     messages = result.get("messages", [])
+
+    # If the model emitted tool calls as inline text (DeepSeek failure mode),
+    # re-prompt once with explicit instructions to use the structured tool-calls
+    # API before declaring failure. This must happen before the recursion budget
+    # is exhausted on a wasted run.
+    if _detect_text_tool_calls(messages):
+        reprompt = (
+            "Your previous response embedded tool invocations as inline text "
+            "(e.g. <tool_calls>, <toolinvoke>, or <｜DSML｜tool_calls> markers) "
+            "inside the message content. That is not a valid tool call and was "
+            "ignored. You MUST invoke tools via the structured tool-calls API "
+            "(the `tool_calls` field on the assistant message), using only the "
+            "available tools: read_sop, retrieve_regulation, search_web. "
+            "Retry the audit now using proper structured tool calls, and emit "
+            "the final findings as a raw JSON array per the original instructions."
+        )
+        result = subagent.invoke({
+            "messages": messages + [{"role": "user", "content": reprompt}],
+        })
+        messages = result.get("messages", [])
+
+    elapsed = time.time() - start
     for msg in messages:
         usage = getattr(msg, "usage_metadata", None)
         if usage:
@@ -309,7 +347,22 @@ def audit_single_sop(sop_id: str) -> str:
                 continue
 
     if not findings_json:
-        return f"SOP {actual_id}: sub-agent did not produce structured findings"
+        # Surface this as a real error so the parent `sentinel` agent can
+        # distinguish an infrastructure failure (e.g. DeepSeek emitting tool
+        # calls as inline text) from a legitimately empty audit. Include a
+        # flag indicating whether text-formatted tool-call markers were seen
+        # in the last assistant message, plus elapsed wall time.
+        last_content = ""
+        for msg in reversed(messages):
+            c = msg.content if hasattr(msg, "content") else ""
+            if isinstance(c, str) and c.strip():
+                last_content = c
+                break
+        text_tool_call = any(mark in last_content for mark in _TEXT_TOOL_CALL_MARKERS)
+        raise RuntimeError(
+            f"SOP {actual_id}: sub-agent did not produce structured findings "
+            f"(text_tool_call_emitted={text_tool_call}, elapsed={elapsed:.1f}s)"
+        )
 
     try:
         items = json.loads(findings_json)
