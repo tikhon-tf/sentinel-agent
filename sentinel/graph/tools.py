@@ -9,7 +9,7 @@ from langchain_core.tools import tool
 from sentinel.config import PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
 
-_audit_results: dict = {"findings": [], "cell_metrics": []}
+_audit_results: dict = {"findings": [], "cell_metrics": [], "total_input_tokens": 0, "total_output_tokens": 0}
 
 
 def get_audit_results() -> dict:
@@ -19,6 +19,8 @@ def get_audit_results() -> dict:
 def reset_audit_results() -> None:
     _audit_results["findings"] = []
     _audit_results["cell_metrics"] = []
+    _audit_results["total_input_tokens"] = 0
+    _audit_results["total_output_tokens"] = 0
 
 
 @tool
@@ -253,8 +255,14 @@ def audit_single_sop(sop_id: str) -> str:
     })
     elapsed = time.time() - start
 
-    findings_json = ""
     messages = result.get("messages", [])
+    for msg in messages:
+        usage = getattr(msg, "usage_metadata", None)
+        if usage:
+            _audit_results["total_input_tokens"] += usage.get("input_tokens", 0)
+            _audit_results["total_output_tokens"] += usage.get("output_tokens", 0)
+
+    findings_json = ""
 
     for msg in reversed(messages):
         content = msg.content if hasattr(msg, "content") else str(msg)
@@ -364,7 +372,16 @@ def audit_single_sop(sop_id: str) -> str:
     partial = sum(1 for f in findings if f.compliance_level == ComplianceLevel.PARTIAL)
     gap = sum(1 for f in findings if f.compliance_level == ComplianceLevel.GAP)
 
-    lines = [f"{actual_id} ({title}): {len(findings)} findings — {compliant}C/{partial}P/{gap}G"]
+    sub_in = sum(
+        getattr(m, "usage_metadata", {}).get("input_tokens", 0)
+        for m in messages if getattr(m, "usage_metadata", None)
+    )
+    sub_out = sum(
+        getattr(m, "usage_metadata", {}).get("output_tokens", 0)
+        for m in messages if getattr(m, "usage_metadata", None)
+    )
+
+    lines = [f"{actual_id} ({title}): {len(findings)} findings — {compliant}C/{partial}P/{gap}G [tokens: {sub_in + sub_out:,}]"]
     for f in findings:
         lines.append(f"  {f.clause_id}: {f.compliance_level.value} ({f.severity.value}) — {f.gap_description or 'Compliant'}")
     return "\n".join(lines)
@@ -398,11 +415,15 @@ def audit_all_sops() -> str:
     partial = sum(1 for f in findings if f.compliance_level == ComplianceLevel.PARTIAL)
     gap = sum(1 for f in findings if f.compliance_level == ComplianceLevel.GAP)
 
+    tok_in = _audit_results["total_input_tokens"]
+    tok_out = _audit_results["total_output_tokens"]
+
     summary = (
         f"Audit complete: {total} findings across {len(all_sops)} SOPs\n"
         f"  Compliant: {compliant} ({100*compliant//max(total,1)}%)\n"
         f"  Partial:   {partial} ({100*partial//max(total,1)}%)\n"
-        f"  Gap:       {gap} ({100*gap//max(total,1)}%)\n\n"
+        f"  Gap:       {gap} ({100*gap//max(total,1)}%)\n"
+        f"  Sub-agent tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n\n"
         "Per-SOP breakdown:\n" + "\n".join(sorted(results))
     )
     return summary

@@ -133,6 +133,14 @@ def _format_usage(input_tokens: int, output_tokens: int) -> str:
     return f"Tokens: {total:,} ({input_tokens:,} in / {output_tokens:,} out) · Cost: ${cost:.4f}"
 
 
+def _parse_subagent_usage(tool_result: str) -> tuple[int, int]:
+    """Extract sub-agent token counts from tool result string."""
+    match = re.search(r"Sub-agent tokens:\s*([\d,]+)\s*\(([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)", tool_result)
+    if match:
+        return int(match.group(2).replace(",", "")), int(match.group(3).replace(",", ""))
+    return 0, 0
+
+
 def _format_tool_status(tool_call: dict) -> str:
     name = tool_call.get("name", "")
     args = tool_call.get("args", {})
@@ -235,7 +243,7 @@ def render_sidebar():
         st.divider()
 
         if st.button("New Conversation", use_container_width=True):
-            for key in ["thread_id", "messages", "total_input_tokens", "total_output_tokens"]:
+            for key in ["thread_id", "messages", "total_input_tokens", "total_output_tokens", "_prev_outer_in", "_prev_outer_out"]:
                 st.session_state.pop(key, None)
             st.rerun()
 
@@ -301,6 +309,8 @@ def main():
             collected_text = []
             last_tool_result = ""
             last_usage_snapshot = []
+            subagent_in = 0
+            subagent_out = 0
 
             for event_type, data in stream_events(thread_id, prompt):
                 if event_type == "token":
@@ -312,6 +322,9 @@ def main():
                 elif event_type == "tool_result":
                     last_tool_result = data
                     status_placeholder.empty()
+                    sa_in, sa_out = _parse_subagent_usage(data)
+                    subagent_in += sa_in
+                    subagent_out += sa_out
                     with results_container:
                         render_audit_results(data)
                 elif event_type == "usage_snapshot":
@@ -323,18 +336,22 @@ def main():
                 full_response = "Audit complete. See results above."
                 text_placeholder.markdown(full_response)
 
-            cumulative_in = sum(u.get("input_tokens", 0) for u in last_usage_snapshot)
-            cumulative_out = sum(u.get("output_tokens", 0) for u in last_usage_snapshot)
-            prev_in = st.session_state.get("total_input_tokens", 0)
-            prev_out = st.session_state.get("total_output_tokens", 0)
-            run_in = max(cumulative_in - prev_in, 0)
-            run_out = max(cumulative_out - prev_out, 0)
+            outer_in = sum(u.get("input_tokens", 0) for u in last_usage_snapshot)
+            outer_out = sum(u.get("output_tokens", 0) for u in last_usage_snapshot)
+            prev_in = st.session_state.get("_prev_outer_in", 0)
+            prev_out = st.session_state.get("_prev_outer_out", 0)
+            run_outer_in = max(outer_in - prev_in, 0)
+            run_outer_out = max(outer_out - prev_out, 0)
+            run_in = run_outer_in + subagent_in
+            run_out = run_outer_out + subagent_out
             run_total = run_in + run_out
             usage_info = _format_usage(run_in, run_out)
             if run_total > 0:
                 usage_placeholder.caption(usage_info)
-                st.session_state["total_input_tokens"] = cumulative_in
-                st.session_state["total_output_tokens"] = cumulative_out
+                st.session_state["_prev_outer_in"] = outer_in
+                st.session_state["_prev_outer_out"] = outer_out
+                st.session_state["total_input_tokens"] = st.session_state.get("total_input_tokens", 0) + run_in
+                st.session_state["total_output_tokens"] = st.session_state.get("total_output_tokens", 0) + run_out
 
             st.session_state.messages[-1] = {
                 "role": "assistant",
