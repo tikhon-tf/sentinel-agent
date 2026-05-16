@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Act 1 — Claude Sonnet sub-agent audit.
+Act 1 — Claude Opus sub-agent audit.
 
-Same sub-agent architecture as Act 2, but uses Claude Sonnet 4.6 (Anthropic)
+Same sub-agent architecture as Act 2, but uses Claude Opus 4.7 (Anthropic)
 instead of DeepSeek-V4-Pro (Nebius). No Tavily web search.
 
 Usage:
@@ -42,7 +42,7 @@ def main():
 
     console = Console()
 
-    model_label = "Claude Sonnet 4.6 (Anthropic)" if args.provider == "anthropic" else "DeepSeek-V4-Pro (Nebius)"
+    model_label = "Claude Opus 4.7 (Anthropic)" if args.provider == "anthropic" else "DeepSeek-V4-Pro (Nebius)"
 
     console.print()
     console.rule("[bold red]Act 1 — Agentic RAG Prototype[/bold red]")

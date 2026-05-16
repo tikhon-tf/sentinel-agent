@@ -10,7 +10,7 @@ Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs
 make install              # Install into .venv (includes dev, deep, demo, rag, ui extras)
 make ingest               # Ingest SOPs into Pinecone
 make ingest-regulations   # Ingest regulation texts into Pinecone (namespace: regulations)
-make act1                 # Act 1: Claude Sonnet 4.6 + Pinecone agentic RAG
+make act1                 # Act 1: Claude Opus 4.7 + Pinecone agentic RAG
 make act2                 # Act 2: DeepSeek-V4-Pro + Pinecone Nexus one-shot
 make act3                 # Act 3: Snowglobe adversarial simulation
 make demo                 # All three acts sequentially
@@ -38,7 +38,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 - `read_sop` — returns the full SOP text (closure over the loaded content)
 
 ### Dual-model support
-- **Act 1**: Claude Sonnet 4.6 via Anthropic's OpenAI-compatible endpoint (`https://api.anthropic.com/v1/`)
+- **Act 1**: Claude Opus 4.7 via Anthropic's OpenAI-compatible endpoint (`https://api.anthropic.com/v1/`)
 - **Act 2 + deployment default**: DeepSeek-V4-Pro on Nebius AI Studio (`https://api.studio.nebius.com/v1/`)
 - Provider switching is handled by `set_provider()` in `llm.py` and `_build_model()` in `agent.py`
 - The agent graph (`sentinel/graph/agent.py:agent`) always uses Nebius (DeepSeek) — that's the deployed default

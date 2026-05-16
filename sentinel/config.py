@@ -16,7 +16,7 @@ MODEL = "deepseek-ai/DeepSeek-V4-Pro"
 MODEL_MAX_TOKENS = 16_000
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-ANTHROPIC_MODEL = "claude-sonnet-4-6"
+ANTHROPIC_MODEL = "claude-opus-4-7"
 
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", "")
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "sentinel-sops")
@@ -33,6 +33,11 @@ if LANGSMITH_API_KEY:
 
 EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-8B"
 EMBEDDING_DIMENSION = 4096
+
+PRICING = {
+    "deepseek-ai/DeepSeek-V4-Pro": {"input": 1.75, "output": 3.50},
+    "claude-opus-4-7": {"input": 5.00, "output": 25.00},
+}
 
 SOP_BUSINESS_UNITS = [
     "01_ai_ml_engineering",

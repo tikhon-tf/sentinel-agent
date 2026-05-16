@@ -13,6 +13,7 @@ load_dotenv()  # also check cwd and parent dirs
 
 import streamlit as st
 from langgraph_sdk import get_sync_client
+from sentinel.config import MODEL, PRICING
 
 DEFAULT_URL = os.environ.get(
     "LANGGRAPH_URL",
@@ -104,6 +105,33 @@ def stream_events(thread_id: str, message: str):
         if item is None:
             break
         yield item
+
+
+def get_run_usage(thread_id: str) -> tuple[int, int]:
+    """Get total token usage from the thread state after a run completes."""
+    try:
+        client = _get_client()
+        state = client.threads.get_state(thread_id)
+        total_in = 0
+        total_out = 0
+        for msg in state.get("values", {}).get("messages", []):
+            usage = msg.get("usage_metadata")
+            if usage:
+                total_in += usage.get("input_tokens", 0)
+                total_out += usage.get("output_tokens", 0)
+        return total_in, total_out
+    except Exception:
+        return 0, 0
+
+
+DEFAULT_PRICING = {"input": 1.75, "output": 3.50}
+
+
+def _format_usage(input_tokens: int, output_tokens: int) -> str:
+    total = input_tokens + output_tokens
+    prices = PRICING.get(MODEL, DEFAULT_PRICING)
+    cost = (input_tokens * prices["input"] + output_tokens * prices["output"]) / 1_000_000
+    return f"Tokens: {total:,} ({input_tokens:,} in / {output_tokens:,} out) · Cost: ${cost:.4f}"
 
 
 def _format_tool_status(tool_call: dict) -> str:
@@ -208,9 +236,19 @@ def render_sidebar():
         st.divider()
 
         if st.button("New Conversation", use_container_width=True):
-            for key in ["thread_id", "messages"]:
+            for key in ["thread_id", "messages", "total_input_tokens", "total_output_tokens"]:
                 st.session_state.pop(key, None)
             st.rerun()
+
+        session_in = st.session_state.get("total_input_tokens", 0)
+        session_out = st.session_state.get("total_output_tokens", 0)
+        if session_in + session_out > 0:
+            st.divider()
+            st.markdown("### Session Usage")
+            prices = PRICING.get(MODEL, DEFAULT_PRICING)
+            session_cost = (session_in * prices["input"] + session_out * prices["output"]) / 1_000_000
+            st.metric("Total Tokens", f"{session_in + session_out:,}")
+            st.caption(f"{session_in:,} in / {session_out:,} out · ${session_cost:.4f}")
 
         st.divider()
         st.text_input(
@@ -241,6 +279,8 @@ def main():
             st.markdown(msg["content"])
             if msg.get("audit_result"):
                 render_audit_results(msg["audit_result"])
+            if msg.get("usage"):
+                st.caption(msg["usage"])
 
     pending = st.session_state.pop("pending_message", None)
     user_input = st.chat_input("Ask Sentinel to audit a regulation clause, review an SOP, or run a full audit...")
@@ -257,6 +297,7 @@ def main():
             text_placeholder = st.empty()
             status_placeholder = st.empty()
             results_container = st.container()
+            usage_placeholder = st.empty()
 
             collected_text = []
             last_tool_result = ""
@@ -280,10 +321,23 @@ def main():
                 full_response = "Audit complete. See results above."
                 text_placeholder.markdown(full_response)
 
+            cumulative_in, cumulative_out = get_run_usage(thread_id)
+            prev_in = st.session_state.get("total_input_tokens", 0)
+            prev_out = st.session_state.get("total_output_tokens", 0)
+            run_in = max(cumulative_in - prev_in, 0)
+            run_out = max(cumulative_out - prev_out, 0)
+            run_total = run_in + run_out
+            usage_info = _format_usage(run_in, run_out)
+            if run_total > 0:
+                usage_placeholder.caption(usage_info)
+                st.session_state["total_input_tokens"] = cumulative_in
+                st.session_state["total_output_tokens"] = cumulative_out
+
             st.session_state.messages[-1] = {
                 "role": "assistant",
                 "content": full_response,
                 "audit_result": last_tool_result,
+                "usage": usage_info if run_total > 0 else "",
             }
 
 
