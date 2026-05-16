@@ -123,8 +123,10 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str):
     """Build the tool set for the audit sub-agent."""
 
     @tool
-    def retrieve_regulation(query: str, regulation: str = "") -> str:
-        """Search the regulation knowledge base (Pinecone) for specific regulatory requirements. Use targeted queries like 'HIPAA access control requirements' or 'SOC 2 CC6 logical access'. Optionally filter by regulation name."""
+    def retrieve_regulation(query: str = "", regulation: str = "") -> str:
+        """Search the regulation knowledge base (Pinecone) for specific regulatory requirements. Use targeted queries like 'HIPAA access control requirements' or 'SOC 2 CC6 logical access'. Optionally filter by regulation name. The `query` argument is required and must be a non-empty search phrase."""
+        if not isinstance(query, str) or not query.strip():
+            return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
         if not PINECONE_API_KEY:
             return "Pinecone not configured."
         try:
@@ -139,8 +141,10 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str):
             return f"Retrieval failed: {e}"
 
     @tool
-    def search_web(query: str) -> str:
-        """Search the web via Tavily for latest regulatory guidance, enforcement actions, or interpretation. Use for questions the knowledge base can't answer — e.g. recent HHS enforcement, updated NIST guidance, or regulatory FAQs."""
+    def search_web(query: str = "") -> str:
+        """Search the web via Tavily for latest regulatory guidance, enforcement actions, or interpretation. Use for questions the knowledge base can't answer — e.g. recent HHS enforcement, updated NIST guidance, or regulatory FAQs. The `query` argument is required and must be a non-empty search phrase."""
+        if not isinstance(query, str) or not query.strip():
+            return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
         if not TAVILY_API_KEY:
             return "Tavily not configured — web search unavailable."
         try:
@@ -187,6 +191,7 @@ Audit the SOP against ALL applicable regulations. You must determine which regul
 - Be specific: cite exact regulatory sections
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
+- Every `retrieve_regulation` and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args — if you have nothing specific to search for, don't call the tool. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
 
 ## CRITICAL: Output Format
 Your FINAL message MUST contain a JSON array (and nothing else) where each element has these exact fields:
