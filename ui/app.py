@@ -60,7 +60,12 @@ def get_or_create_thread():
 
 
 def stream_events(thread_id: str, message: str):
-    """Yield (event_type, data) tuples from a background thread."""
+    """Yield (event_type, data) tuples from a background thread.
+
+    Uses both 'messages-tuple' (for streaming tokens) and 'values' (for
+    usage_metadata, which is only available in values snapshots — LangGraph
+    checkpoints do not preserve it in thread state).
+    """
     import queue
 
     q: queue.Queue[tuple | None] = queue.Queue()
@@ -72,7 +77,7 @@ def stream_events(thread_id: str, message: str):
                 thread_id=thread_id,
                 assistant_id=GRAPH_ID,
                 input={"messages": [{"role": "user", "content": message}]},
-                stream_mode="messages-tuple",
+                stream_mode=["messages-tuple", "values"],
             ):
                 if event.event == "messages" and event.data:
                     msg = event.data[0] if isinstance(event.data, list) else event.data
@@ -89,6 +94,17 @@ def stream_events(thread_id: str, message: str):
                             q.put(("token", content))
                     elif "ToolMessage" in msg_type and content:
                         q.put(("tool_result", content))
+
+                elif event.event == "values" and isinstance(event.data, dict):
+                    usage_snapshot = []
+                    for msg in event.data.get("messages", []):
+                        if not isinstance(msg, dict):
+                            continue
+                        usage = msg.get("usage_metadata")
+                        if usage and (usage.get("input_tokens") or usage.get("output_tokens")):
+                            usage_snapshot.append(usage)
+                    if usage_snapshot:
+                        q.put(("usage_snapshot", usage_snapshot))
         except Exception:
             pass
         finally:
@@ -105,36 +121,6 @@ def stream_events(thread_id: str, message: str):
         if item is None:
             break
         yield item
-
-
-def get_run_usage(thread_id: str) -> tuple[int, int]:
-    """Get total token usage from the thread state after a run completes.
-
-    Checks two sources per AI message:
-    1. usage_metadata (populated when stream_usage=True on ChatOpenAI)
-    2. response_metadata.token_usage (fallback, populated on non-streamed invoke)
-    """
-    try:
-        client = _get_client()
-        state = client.threads.get_state(thread_id)
-        total_in = 0
-        total_out = 0
-        for msg in state.get("values", {}).get("messages", []):
-            # Primary: usage_metadata (set by langchain_openai with stream_usage=True)
-            usage = msg.get("usage_metadata")
-            if usage and (usage.get("input_tokens") or usage.get("output_tokens")):
-                total_in += usage.get("input_tokens", 0)
-                total_out += usage.get("output_tokens", 0)
-                continue
-            # Fallback: response_metadata.token_usage (set by non-streaming _generate)
-            resp_meta = msg.get("response_metadata", {})
-            token_usage = resp_meta.get("token_usage") if isinstance(resp_meta, dict) else None
-            if token_usage and isinstance(token_usage, dict):
-                total_in += token_usage.get("prompt_tokens", 0)
-                total_out += token_usage.get("completion_tokens", 0)
-        return total_in, total_out
-    except Exception:
-        return 0, 0
 
 
 DEFAULT_PRICING = {"input": 1.75, "output": 3.50}
@@ -314,6 +300,7 @@ def main():
 
             collected_text = []
             last_tool_result = ""
+            last_usage_snapshot = []
 
             for event_type, data in stream_events(thread_id, prompt):
                 if event_type == "token":
@@ -327,6 +314,8 @@ def main():
                     status_placeholder.empty()
                     with results_container:
                         render_audit_results(data)
+                elif event_type == "usage_snapshot":
+                    last_usage_snapshot = data
 
             status_placeholder.empty()
             full_response = "".join(collected_text)
@@ -334,7 +323,8 @@ def main():
                 full_response = "Audit complete. See results above."
                 text_placeholder.markdown(full_response)
 
-            cumulative_in, cumulative_out = get_run_usage(thread_id)
+            cumulative_in = sum(u.get("input_tokens", 0) for u in last_usage_snapshot)
+            cumulative_out = sum(u.get("output_tokens", 0) for u in last_usage_snapshot)
             prev_in = st.session_state.get("total_input_tokens", 0)
             prev_out = st.session_state.get("total_output_tokens", 0)
             run_in = max(cumulative_in - prev_in, 0)
