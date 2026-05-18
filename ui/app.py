@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import re
 import threading
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -129,11 +130,14 @@ def stream_events(thread_id: str, message: str, graph_id: str = "sentinel"):
 DEFAULT_PRICING = {"input": 1.75, "output": 3.50}
 
 
-def _format_usage(input_tokens: int, output_tokens: int, model: str = MODEL) -> str:
+def _format_usage(input_tokens: int, output_tokens: int, model: str = MODEL, latency: float = 0.0) -> str:
     total = input_tokens + output_tokens
     prices = PRICING.get(model, DEFAULT_PRICING)
     cost = (input_tokens * prices["input"] + output_tokens * prices["output"]) / 1_000_000
-    return f"Tokens: {total:,} ({input_tokens:,} in / {output_tokens:,} out) · Cost: ${cost:.4f}"
+    parts = [f"Tokens: {total:,} ({input_tokens:,} in / {output_tokens:,} out)", f"Cost: ${cost:.4f}"]
+    if latency > 0:
+        parts.append(f"Latency: {latency:.1f}s")
+    return " · ".join(parts)
 
 
 def _parse_subagent_usage(tool_result: str) -> tuple[int, int]:
@@ -331,6 +335,7 @@ def main():
             last_usage_snapshot = []
             subagent_in = 0
             subagent_out = 0
+            t_start = time.time()
 
             for event_type, data in stream_events(thread_id, prompt, agent_cfg["graph_id"]):
                 if event_type == "token":
@@ -365,7 +370,8 @@ def main():
             run_in = run_outer_in + subagent_in
             run_out = run_outer_out + subagent_out
             run_total = run_in + run_out
-            usage_info = _format_usage(run_in, run_out, agent_cfg["model"])
+            elapsed = time.time() - t_start
+            usage_info = _format_usage(run_in, run_out, agent_cfg["model"], latency=elapsed)
             if run_total > 0:
                 usage_placeholder.caption(usage_info)
                 st.session_state["_prev_outer_in"] = outer_in
