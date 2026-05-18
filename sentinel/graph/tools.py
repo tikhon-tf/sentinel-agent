@@ -215,15 +215,15 @@ def _build_subagent_model(provider: str = "nebius"):
     """Build the ChatOpenAI model for audit sub-agents."""
     from langchain_openai import ChatOpenAI
     from sentinel.config import MODEL_MAX_TOKENS
-    if provider == "anthropic":
-        from sentinel.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL
+    if provider == "openai":
+        from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL
         return ChatOpenAI(
-            model=ANTHROPIC_MODEL,
-            api_key=ANTHROPIC_API_KEY,
-            base_url="https://api.anthropic.com/v1/",
+            model=OPENAI_MODEL,
+            api_key=OPENAI_API_KEY,
+            temperature=0.1,
             max_tokens=MODEL_MAX_TOKENS,
             stream_usage=True,
-            metadata={"ls_provider": "anthropic", "ls_model_name": ANTHROPIC_MODEL},
+            metadata={"ls_provider": "openai", "ls_model_name": OPENAI_MODEL},
         )
     from sentinel.config import MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
     return ChatOpenAI(

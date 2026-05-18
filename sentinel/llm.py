@@ -3,8 +3,8 @@ from __future__ import annotations
 from openai import OpenAI
 
 from sentinel.config import (
-    ANTHROPIC_API_KEY,
-    ANTHROPIC_MODEL,
+    OPENAI_API_KEY,
+    OPENAI_MODEL,
     MODEL,
     NEBIUS_API_KEY,
     NEBIUS_BASE_URL,
@@ -22,10 +22,9 @@ def set_provider(provider: str) -> None:
 
 def get_client() -> OpenAI:
     if _provider not in _clients:
-        if _provider == "anthropic":
+        if _provider == "openai":
             _clients[_provider] = OpenAI(
-                base_url="https://api.anthropic.com/v1/",
-                api_key=ANTHROPIC_API_KEY,
+                api_key=OPENAI_API_KEY,
             )
         else:
             _clients[_provider] = OpenAI(
@@ -36,4 +35,4 @@ def get_client() -> OpenAI:
 
 
 def get_model() -> str:
-    return ANTHROPIC_MODEL if _provider == "anthropic" else MODEL
+    return OPENAI_MODEL if _provider == "openai" else MODEL

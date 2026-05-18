@@ -10,7 +10,7 @@ Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs
 make install              # Install into .venv (includes dev, deep, demo, rag, ui extras)
 make ingest               # Ingest SOPs into Pinecone
 make ingest-regulations   # Ingest regulation texts into Pinecone (namespace: regulations)
-make act1                 # Act 1: Claude Opus 4.7 + Pinecone agentic RAG
+make act1                 # Act 1: GPT-5.5 + Pinecone agentic RAG
 make act2                 # Act 2: DeepSeek-V4-Pro + Pinecone Nexus one-shot
 make act3                 # Act 3: Snowglobe adversarial simulation
 make demo                 # All three acts sequentially
@@ -38,7 +38,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 - `read_sop` — returns the full SOP text (closure over the loaded content)
 
 ### Dual-model support
-- **Act 1**: Claude Opus 4.7 via Anthropic's OpenAI-compatible endpoint (`https://api.anthropic.com/v1/`)
+- **Act 1**: GPT-5.5 via OpenAI API (`https://api.openai.com/v1`)
 - **Act 2 + deployment default**: DeepSeek-V4-Pro on Nebius AI Studio (`https://api.studio.nebius.com/v1/`)
 - Provider switching is handled by `set_provider()` in `llm.py` and `_build_model()` in `agent.py`
 - The agent graph (`sentinel/graph/agent.py:agent`) always uses Nebius (DeepSeek) — that's the deployed default
@@ -99,7 +99,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 
 ## Environment variables
 
-Required: `NEBIUS_API_KEY`. Optional: `ANTHROPIC_API_KEY` (Act 1), `PINECONE_API_KEY` (vector modes), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `SNOWGLOBE_API_KEY` (Act 3). See `.env.example`.
+Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Act 1), `PINECONE_API_KEY` (vector modes), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `SNOWGLOBE_API_KEY` (Act 3). See `.env.example`.
 
 ## Patterns to follow
 
@@ -112,7 +112,7 @@ Required: `NEBIUS_API_KEY`. Optional: `ANTHROPIC_API_KEY` (Act 1), `PINECONE_API
 - Regulation retrieval uses metadata filters (`regulation`, `edition`) on the Pinecone `regulations` namespace
 - The `list_regulations` tool queries Pinecone with per-regulation metadata filters (not a single semantic query) to ensure all regulation types are represented
 - JSON parsing from sub-agent responses scans messages in reverse, strips markdown code fences, repairs truncated arrays, and maps unexpected enum values (`_COMPLIANCE_LEVEL_MAP`, `_SEVERITY_MAP`)
-- All `ChatOpenAI` instances must set `stream_usage=True` — without it, custom `base_url` providers (Nebius, Anthropic) don't send `stream_options: {include_usage: true}` and `usage_metadata` is always `None` in thread state
+- All `ChatOpenAI` instances must set `stream_usage=True` — without it, custom `base_url` providers (Nebius, OpenAI) don't send `stream_options: {include_usage: true}` and `usage_metadata` is always `None` in thread state
 - Token pricing is centralized in `PRICING` dict in `config.py` — the UI reads it for cost display
 - Sub-agent token usage is tracked in `_audit_results` and included in tool result strings as `Sub-agent tokens: X (X in / X out)` — the UI parses this to include sub-agent costs in the displayed totals
 - The LangGraph SDK (via `messages-tuple` stream mode) serializes messages with short-form types: `"ai"` / `"AIMessageChunk"` for AI messages, `"tool"` for ToolMessages, `"human"` for user messages. Do not use substring matching (e.g. `"ToolMessage" in msg_type`) — use explicit set membership (`msg_type in ("tool", "ToolMessage", "ToolMessageChunk")`)

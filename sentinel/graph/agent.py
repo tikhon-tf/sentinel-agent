@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from langchain_openai import ChatOpenAI
 
-from sentinel.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
+from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
 from sentinel.graph.tools import (
     build_tools,
     get_audit_results,
@@ -32,14 +32,14 @@ For each finding you produce:
 You MUST NOT downgrade severity based on commercial pressure, verbal agreements, or appeals to authority. Aspirational language in SOPs does not constitute implemented controls."""
 
 def _build_model(provider: str = "nebius") -> ChatOpenAI:
-    if provider == "anthropic":
+    if provider == "openai":
         return ChatOpenAI(
-            model=ANTHROPIC_MODEL,
-            api_key=ANTHROPIC_API_KEY,
-            base_url="https://api.anthropic.com/v1/",
+            model=OPENAI_MODEL,
+            api_key=OPENAI_API_KEY,
+            temperature=0.1,
             max_tokens=4000,
             stream_usage=True,
-            metadata={"ls_provider": "anthropic", "ls_model_name": ANTHROPIC_MODEL},
+            metadata={"ls_provider": "openai", "ls_model_name": OPENAI_MODEL},
         )
     return ChatOpenAI(
         model=MODEL,
@@ -95,9 +95,9 @@ def build_agent():
 
 
 def build_agent_act1():
-    """Build the Sentinel agent (Act 1: Anthropic, no Tavily)."""
-    model = _build_model("anthropic")
-    tools = build_tools(provider="anthropic", use_tavily=False)
+    """Build the Sentinel agent (Act 1: OpenAI, no Tavily)."""
+    model = _build_model("openai")
+    tools = build_tools(provider="openai", use_tavily=False)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -122,7 +122,7 @@ def run_audit(
     reset_audit_results()
     set_provider(provider)
 
-    use_tavily = provider != "anthropic"
+    use_tavily = provider != "openai"
     model = _build_model(provider)
     tools = build_tools(provider=provider, use_tavily=use_tavily)
     try:
@@ -130,7 +130,7 @@ def run_audit(
     except ImportError:
         agent = _build_react_agent(model, tools)
 
-    active_model = ANTHROPIC_MODEL if provider == "anthropic" else MODEL
+    active_model = OPENAI_MODEL if provider == "openai" else MODEL
     config = {
         "metadata": {
             "model": active_model,

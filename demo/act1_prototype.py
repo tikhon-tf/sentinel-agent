@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Act 1 — Claude Opus sub-agent audit.
+Act 1 — ChatGPT sub-agent audit.
 
-Same sub-agent architecture as Act 2, but uses Claude Opus 4.7 (Anthropic)
+Same sub-agent architecture as Act 2, but uses GPT-5.5 (OpenAI)
 instead of DeepSeek-V4-Pro (Nebius). No Tavily web search.
 
 Usage:
@@ -37,12 +37,12 @@ AUDIT_QUERY = (
 
 def main():
     parser = argparse.ArgumentParser(description="Act 1: Agentic RAG Prototype")
-    parser.add_argument("--provider", choices=["nebius", "anthropic"], default="anthropic")
+    parser.add_argument("--provider", choices=["nebius", "openai"], default="openai")
     args = parser.parse_args()
 
     console = Console()
 
-    model_label = "Claude Opus 4.7 (Anthropic)" if args.provider == "anthropic" else "DeepSeek-V4-Pro (Nebius)"
+    model_label = "GPT-5.5 (OpenAI)" if args.provider == "openai" else "DeepSeek-V4-Pro (Nebius)"
 
     console.print()
     console.rule("[bold red]Act 1 — Agentic RAG Prototype[/bold red]")

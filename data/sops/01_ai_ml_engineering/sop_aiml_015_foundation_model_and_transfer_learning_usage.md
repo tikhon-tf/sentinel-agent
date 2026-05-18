@@ -31,7 +31,7 @@ This SOP applies to:
 
 - **All business units** within Meridian Health Technologies, including Clinical AI Platform, HealthPay Financial Services, MedInsight Analytics, and the Meridian SaaS Platform.
 - **All personnel** involved in the lifecycle of AI/ML models, including AI/ML Engineers, Data Scientists, MLOps Engineers, Product Managers, Clinical Domain Experts, Compliance Officers, Legal Counsel, and Procurement Specialists.
-- **All foundation model types**, including but not limited to: text-based LLMs (e.g., GPT, Claude, Llama families), vision transformers (ViT), diffusion models, multi-modal encoder-decoders, embedding models, and any model with parameter counts exceeding 100 million that is pre-trained on broad, uncurated datasets and intended for adaptation via transfer learning.
+- **All foundation model types**, including but not limited to: text-based LLMs (e.g., GPT, ChatGPT, Llama families), vision transformers (ViT), diffusion models, multi-modal encoder-decoders, embedding models, and any model with parameter counts exceeding 100 million that is pre-trained on broad, uncurated datasets and intended for adaptation via transfer learning.
 - **All adaptation methodologies**: full fine-tuning, parameter-efficient fine-tuning (PEFT) including LoRA, QLoRA, and adapter layers, prompt engineering, retrieval-augmented generation (RAG), reinforcement learning from human feedback (RLHF), and distillation.
 - **All deployment contexts**: development, staging, production, and production-shadow environments.
 - **All geographic regions** where Meridian operates, with specific attention to products deployed in the European Union and subject to the EU AI Act.

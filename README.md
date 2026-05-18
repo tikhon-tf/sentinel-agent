@@ -30,7 +30,7 @@ User Query
          Structured JSON Findings
 ```
 
-**Model:** DeepSeek-V4-Pro on Nebius AI Studio (Act 2 + deployment), Claude Opus 4.7 on Anthropic (Act 1)
+**Model:** DeepSeek-V4-Pro on Nebius AI Studio (Act 2 + deployment), GPT-5.5 on OpenAI (Act 1)
 **Orchestration:** LangGraph ReAct agent with per-SOP sub-agents, optional deepagents upgrade
 **Retrieval:** Pinecone vector search (Qwen3-Embedding-8B embeddings, 4096 dimensions)
 **Grounding:** Tavily live regulation search
@@ -41,7 +41,7 @@ User Query
 
 | Act | Description | Model | Command |
 |-----|-------------|-------|---------|
-| **Act 1** | Agentic RAG prototype — same sub-agent architecture, shows baseline | Claude Opus 4.7 | `make act1` |
+| **Act 1** | Agentic RAG prototype — same sub-agent architecture, shows baseline | GPT-5.5 | `make act1` |
 | **Act 2** | Production stack — DeepSeek on Nebius with full retrieval | DeepSeek-V4-Pro | `make act2` |
 | **Act 3** | Snowglobe adversarial simulation — red-teams the auditor | DeepSeek-V4-Pro | `make act3` |
 
@@ -50,7 +50,7 @@ User Query
 ### Prerequisites
 
 - Python 3.11+
-- API keys: Nebius, Anthropic (Act 1), Pinecone, Tavily (optional), LangSmith (optional)
+- API keys: Nebius, OpenAI (Act 1), Pinecone, Tavily (optional), LangSmith (optional)
 
 ### Setup
 
@@ -76,7 +76,7 @@ make ingest-regulations   # Regulation texts into Pinecone (namespace: regulatio
 ### Run the demo
 
 ```bash
-make act1    # Claude Opus 4.7 + Pinecone RAG
+make act1    # GPT-5.5 + Pinecone RAG
 make act2    # DeepSeek-V4-Pro + Pinecone
 make act3    # Adversarial simulation
 make demo    # All three acts sequentially
@@ -140,7 +140,7 @@ sentinel_agent/
 │       ├── heatmap.py         # Rich console heatmap + summary
 │       └── register.py        # CSV/JSON/metrics output
 ├── demo/
-│   ├── act1_prototype.py      # Act 1: Claude Opus 4.7 + RAG
+│   ├── act1_prototype.py      # Act 1: GPT-5.5 + RAG
 │   ├── act2_production.py     # Act 2: DeepSeek-V4-Pro
 │   └── act3_simulation.py     # Act 3: Adversarial
 ├── ui/
@@ -195,7 +195,7 @@ Historical editions are included for temporal analysis (e.g., HIPAA 2017/2020/20
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `NEBIUS_API_KEY` | Yes | Nebius AI Studio API key |
-| `ANTHROPIC_API_KEY` | For Act 1 | Anthropic API key (Claude Opus 4.7) |
+| `OPENAI_API_KEY` | For Act 1 | OpenAI API key (GPT-5.5) |
 | `PINECONE_API_KEY` | Yes | Pinecone vector DB key |
 | `TAVILY_API_KEY` | Optional | Live regulation grounding |
 | `LANGSMITH_API_KEY` | Optional | LangSmith tracing + cloud auth |
@@ -207,7 +207,7 @@ Historical editions are included for temporal analysis (e.g., HIPAA 2017/2020/20
 | Operation | Model | Estimated Cost |
 |-----------|-------|---------------|
 | Full audit (Act 2) | DeepSeek-V4-Pro ($1.75/$3.50 per M tokens) | ~$0.30 |
-| Full audit (Act 1) | Claude Opus 4.7 ($5/$25 per M tokens) | ~$8.00 |
+| Full audit (Act 1) | GPT-5.5 ($5/$30 per M tokens) | ~$10.00 |
 | Act 3 simulation | DeepSeek-V4-Pro | ~$0.01 |
 | SOP ingestion | Qwen3-Embedding-8B | ~$0.02 |
 

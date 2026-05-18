@@ -15,8 +15,8 @@ NEBIUS_BASE_URL = "https://api.studio.nebius.com/v1/"
 MODEL = "deepseek-ai/DeepSeek-V4-Pro"
 MODEL_MAX_TOKENS = 16_000
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-ANTHROPIC_MODEL = "claude-opus-4-7"
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_MODEL = "gpt-5.5"
 
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", "")
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "sentinel-sops")
@@ -36,7 +36,7 @@ EMBEDDING_DIMENSION = 4096
 
 PRICING = {
     "deepseek-ai/DeepSeek-V4-Pro": {"input": 1.75, "output": 3.50},
-    "claude-opus-4-7": {"input": 5.00, "output": 25.00},
+    "gpt-5.5": {"input": 5.00, "output": 30.00},
 }
 
 SOP_BUSINESS_UNITS = [

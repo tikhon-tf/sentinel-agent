@@ -13,7 +13,7 @@ load_dotenv()  # also check cwd and parent dirs
 
 import streamlit as st
 from langgraph_sdk import get_sync_client
-from sentinel.config import ANTHROPIC_MODEL, MODEL, PRICING
+from sentinel.config import OPENAI_MODEL, MODEL, PRICING
 
 DEFAULT_URL = os.environ.get(
     "LANGGRAPH_URL",
@@ -22,7 +22,7 @@ DEFAULT_URL = os.environ.get(
 LANGSMITH_API_KEY = os.environ.get("LANGSMITH_API_KEY", "")
 AGENTS = {
     "Nebius + Nexus + Tavily": {"graph_id": "sentinel", "model": MODEL},
-    "Agent + RAG": {"graph_id": "sentinel_act1", "model": ANTHROPIC_MODEL},
+    "Agent + RAG": {"graph_id": "sentinel_act1", "model": OPENAI_MODEL},
 }
 
 st.set_page_config(
@@ -282,8 +282,8 @@ def render_sidebar():
 
         st.divider()
         active_model = _active_agent()["model"]
-        if active_model == ANTHROPIC_MODEL:
-            st.caption("Powered by Claude Opus 4.7 on Anthropic")
+        if active_model == OPENAI_MODEL:
+            st.caption("Powered by GPT-5.5 on OpenAI")
         else:
             st.caption("Powered by DeepSeek-V4-Pro on Nebius")
         st.caption("Orchestrated by deepagents + LangGraph")
