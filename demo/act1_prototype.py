@@ -38,7 +38,12 @@ AUDIT_QUERY = (
 def main():
     parser = argparse.ArgumentParser(description="Act 1: Agentic RAG Prototype")
     parser.add_argument("--provider", choices=["nebius", "openai"], default="openai")
+    parser.add_argument("--concurrency", type=int, default=None, help="Max concurrent SOP audits (default: MAX_AUDIT_WORKERS env or 10)")
     args = parser.parse_args()
+
+    if args.concurrency:
+        import os
+        os.environ["MAX_AUDIT_WORKERS"] = str(args.concurrency)
 
     console = Console()
 

@@ -412,11 +412,13 @@ def audit_single_sop(sop_id: str) -> str:
     return _audit_single_sop_impl(sop_id, provider="nebius", use_tavily=True)
 
 
-def _audit_all_sops_impl(single_sop_tool) -> str:
+def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str:
     """Core implementation for auditing all SOPs."""
     import concurrent.futures
+    from sentinel.config import MAX_AUDIT_WORKERS
     from sentinel.retrieval.local import list_all_sops
 
+    workers = max_workers or MAX_AUDIT_WORKERS
     all_sops = list_all_sops()
 
     def _audit_one(sop_meta: dict) -> str:
@@ -426,7 +428,7 @@ def _audit_all_sops_impl(single_sop_tool) -> str:
         except Exception as e:
             return f"{sid}: FAILED — {e}"
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {executor.submit(_audit_one, s): s for s in all_sops}
         results = []
         for future in concurrent.futures.as_completed(futures):
@@ -454,7 +456,7 @@ def _audit_all_sops_impl(single_sop_tool) -> str:
 
 @tool
 def audit_all_sops() -> str:
-    """Run the full audit across ALL SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base and web search. Fans out with 10-wide parallelism."""
+    """Run the full audit across ALL SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base and web search. Fans out with configurable parallelism (MAX_AUDIT_WORKERS)."""
     return _audit_all_sops_impl(audit_single_sop)
 
 
@@ -468,7 +470,7 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True) -> list:
 
     @tool
     def _audit_all_sops() -> str:
-        """Run the full audit across ALL SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base. Fans out with 10-wide parallelism."""
+        """Run the full audit across ALL SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base. Fans out with configurable parallelism (MAX_AUDIT_WORKERS)."""
         return _audit_all_sops_impl(_audit_single_sop)
 
     _audit_single_sop.name = "audit_single_sop"

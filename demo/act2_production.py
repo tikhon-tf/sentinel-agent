@@ -33,6 +33,15 @@ AUDIT_QUERY = (
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Act 2: Production Stack")
+    parser.add_argument("--concurrency", type=int, default=None, help="Max concurrent SOP audits (default: MAX_AUDIT_WORKERS env or 10)")
+    args = parser.parse_args()
+
+    if args.concurrency:
+        import os
+        os.environ["MAX_AUDIT_WORKERS"] = str(args.concurrency)
+
     console = Console()
 
     console.print()

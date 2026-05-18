@@ -14,6 +14,7 @@ NEBIUS_API_KEY = os.environ.get("NEBIUS_API_KEY", "")
 NEBIUS_BASE_URL = "https://api.studio.nebius.com/v1/"
 MODEL = "deepseek-ai/DeepSeek-V4-Pro"
 MODEL_MAX_TOKENS = 16_000
+MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "10"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = "gpt-5.5"
