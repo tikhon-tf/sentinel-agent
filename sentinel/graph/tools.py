@@ -1,10 +1,19 @@
 """LangChain tools wrapping Sentinel's retrieval and auditing functions."""
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import time
 
 from langchain_core.tools import tool
+
+# Per-SOP wall-clock budget (seconds) for the audit sub-agent. Caps the work
+# `audit_single_sop` is allowed to do so that multi-SOP audits cannot consume
+# the entire platform timeout without the parent agent emitting a final answer.
+_PER_SOP_AUDIT_TIMEOUT_SECONDS = 120
+# Recursion limit handed to each sub-agent invocation. Default is 25; we lower
+# it so a looping sub-agent fails fast and the parent can summarize partials.
+_PER_SOP_RECURSION_LIMIT = 18
 
 from sentinel.config import PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
@@ -267,12 +276,46 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
     )
 
     start = time.time()
-    result = subagent.invoke({
-        "messages": [{
-            "role": "user",
-            "content": f"Audit SOP {actual_id}: {title} (Business Unit: {business_unit})",
-        }],
-    })
+    # Bound each per-SOP sub-audit so the parent agent can always finalize a
+    # response. Without this, a single runaway sub-agent can consume the
+    # platform timeout and the root trace is cancelled with no final message.
+    try:
+        from langgraph.errors import GraphRecursionError
+    except ImportError:  # pragma: no cover — older langgraph
+        GraphRecursionError = Exception  # type: ignore[assignment,misc]
+
+    def _invoke_subagent():
+        return subagent.invoke(
+            {
+                "messages": [{
+                    "role": "user",
+                    "content": f"Audit SOP {actual_id}: {title} (Business Unit: {business_unit})",
+                }],
+            },
+            config={"recursion_limit": _PER_SOP_RECURSION_LIMIT},
+        )
+
+    _exec = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        future = _exec.submit(_invoke_subagent)
+        try:
+            result = future.result(timeout=_PER_SOP_AUDIT_TIMEOUT_SECONDS)
+        except concurrent.futures.TimeoutError:
+            # Don't block shutdown waiting for the runaway sub-agent; let it
+            # finish (or get GC'd) in the background while we return a sentinel.
+            _exec.shutdown(wait=False)
+            return (
+                f"SOP {actual_id}: audit timed out after "
+                f"{_PER_SOP_AUDIT_TIMEOUT_SECONDS}s — partial findings unavailable"
+            )
+        except GraphRecursionError:
+            _exec.shutdown(wait=False)
+            return (
+                f"SOP {actual_id}: audit hit recursion limit "
+                f"({_PER_SOP_RECURSION_LIMIT}) — partial findings unavailable"
+            )
+    finally:
+        _exec.shutdown(wait=False)
     elapsed = time.time() - start
 
     messages = result.get("messages", [])

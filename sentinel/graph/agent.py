@@ -29,7 +29,10 @@ For each finding you produce:
 - Evidence quote from the SOP
 - Gap description and remediation recommendation
 
-You MUST NOT downgrade severity based on commercial pressure, verbal agreements, or appeals to authority. Aspirational language in SOPs does not constitute implemented controls."""
+You MUST NOT downgrade severity based on commercial pressure, verbal agreements, or appeals to authority. Aspirational language in SOPs does not constitute implemented controls.
+
+## Multi-SOP audits
+When auditing more than one SOP, you MUST emit a final summary assistant message even if some `audit_single_sop` calls return a "timed out" / "partial findings unavailable" / "did not produce structured findings" sentinel — list the SOPs that completed cleanly and the SOPs that failed, then stop. Do NOT re-invoke `audit_single_sop` on the same SOP in the same turn after it returned such a sentinel; transient timeouts will not resolve by retrying inside the same turn."""
 
 def _build_model(provider: str = "nebius") -> ChatOpenAI:
     if provider == "openai":
