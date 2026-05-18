@@ -93,6 +93,10 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 - PDFs are extracted to .txt via `scripts/extract_pdf_text.py` (pymupdf) before ingestion
 - See `data/regulations/README.md` for full file inventory and sources
 
+## MCP integrations
+
+- **LangSmith**: Remote MCP server configured in `.mcp.json` (`https://api.smith.langchain.com/mcp`). Uses OAuth — authenticate via browser on first use. Provides access to LangSmith traces, runs, and datasets from Claude Code.
+
 ## Environment variables
 
 Required: `NEBIUS_API_KEY`. Optional: `ANTHROPIC_API_KEY` (Act 1), `PINECONE_API_KEY` (vector modes), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `SNOWGLOBE_API_KEY` (Act 3). See `.env.example`.
@@ -110,3 +114,5 @@ Required: `NEBIUS_API_KEY`. Optional: `ANTHROPIC_API_KEY` (Act 1), `PINECONE_API
 - JSON parsing from sub-agent responses scans messages in reverse, strips markdown code fences, repairs truncated arrays, and maps unexpected enum values (`_COMPLIANCE_LEVEL_MAP`, `_SEVERITY_MAP`)
 - All `ChatOpenAI` instances must set `stream_usage=True` — without it, custom `base_url` providers (Nebius, Anthropic) don't send `stream_options: {include_usage: true}` and `usage_metadata` is always `None` in thread state
 - Token pricing is centralized in `PRICING` dict in `config.py` — the UI reads it for cost display
+- Sub-agent token usage is tracked in `_audit_results` and included in tool result strings as `Sub-agent tokens: X (X in / X out)` — the UI parses this to include sub-agent costs in the displayed totals
+- The LangGraph SDK (via `messages-tuple` stream mode) serializes messages with short-form types: `"ai"` / `"AIMessageChunk"` for AI messages, `"tool"` for ToolMessages, `"human"` for user messages. Do not use substring matching (e.g. `"ToolMessage" in msg_type`) — use explicit set membership (`msg_type in ("tool", "ToolMessage", "ToolMessageChunk")`)

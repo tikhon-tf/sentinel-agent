@@ -34,7 +34,7 @@ User Query
 **Orchestration:** LangGraph ReAct agent with per-SOP sub-agents, optional deepagents upgrade
 **Retrieval:** Pinecone vector search (Qwen3-Embedding-8B embeddings, 4096 dimensions)
 **Grounding:** Tavily live regulation search
-**Observability:** LangSmith tracing with cost tracking
+**Observability:** LangSmith tracing with cost tracking + [LangSmith MCP](https://docs.langchain.com/langsmith/langsmith-remote-mcp) integration
 **Deployment:** LangGraph Cloud + Streamlit UI
 
 ## Three-Act Demo
@@ -154,6 +154,7 @@ sentinel_agent/
 │   ├── regulations/           # 9 regulation frameworks (txt, md, pdf, xml)
 │   ├── company_profile.md     # Meridian Health Technologies background
 │   └── compliance_matrix.json # Ground truth
+├── .mcp.json                  # MCP server config (LangSmith)
 ├── langgraph.json             # LangGraph deployment config
 ├── pyproject.toml             # Dependencies
 ├── Makefile                   # Build/run targets
@@ -210,4 +211,8 @@ Historical editions are included for temporal analysis (e.g., HIPAA 2017/2020/20
 | Act 3 simulation | DeepSeek-V4-Pro | ~$0.01 |
 | SOP ingestion | Qwen3-Embedding-8B | ~$0.02 |
 
-Token usage and cost are displayed per-response and per-session in the Streamlit UI.
+Token usage and cost (including sub-agent usage) are displayed per-response and per-session in the Streamlit UI.
+
+## MCP Integrations
+
+A [LangSmith remote MCP server](https://docs.langchain.com/langsmith/langsmith-remote-mcp) is configured in `.mcp.json` for accessing LangSmith traces, runs, and datasets from Claude Code. Uses OAuth authentication — a browser login flow runs on first use.
