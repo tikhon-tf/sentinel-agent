@@ -14,6 +14,7 @@ make act1                 # Act 1: GPT-5.5 + Pinecone agentic RAG
 make act2                 # Act 2: DeepSeek-V4-Pro + Pinecone Nexus one-shot
 make act3                 # Act 3: Snowglobe adversarial simulation
 make demo                 # All three acts sequentially
+make test                 # Run regression tests (111 tests, no API keys needed)
 make dev                  # LangGraph dev server on port 2024
 make ui                   # Streamlit UI on port 8501
 make deploy               # Deploy to LangGraph Cloud (remote Docker build)

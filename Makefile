@@ -1,6 +1,6 @@
 PYTHON = .venv/bin/python
 
-.PHONY: install ingest act1 act2 act3 demo all dev up build deploy ui
+.PHONY: install ingest act1 act2 act3 demo all dev up build deploy ui test
 
 install:
 	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag,ui]"
@@ -44,3 +44,6 @@ ui:
 
 ui-local:
 	LANGGRAPH_URL=http://localhost:2024 $(PYTHON) -m streamlit run ui/app.py --server.port 8501
+
+test:
+	$(PYTHON) -m pytest tests/ -v

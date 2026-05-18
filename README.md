@@ -82,6 +82,14 @@ make act3    # Adversarial simulation
 make demo    # All three acts sequentially
 ```
 
+### Test
+
+```bash
+make test    # Run all 111 regression tests
+```
+
+Tests cover models, adversarial detection, JSON parsing/repair, SOP loading, metrics, UI helpers, provider switching, and config validation. No API keys or external services required.
+
 ### Deploy
 
 ```bash
