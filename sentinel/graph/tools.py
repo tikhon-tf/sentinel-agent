@@ -93,7 +93,12 @@ def _list_regulations_local() -> str:
 
 @tool
 def list_sops(query: str = "") -> str:
-    """List all available SOPs. Optionally filter by a search query (matches against title, SOP ID, or business unit)."""
+    """List all available SOPs.
+
+    The optional `query` argument is a **literal lowercase substring filter** — it is NOT semantic search. A SOP is kept only when `query.lower()` appears verbatim inside the SOP title, SOP ID, or business unit. Paraphrases, synonyms, and natural-language descriptions will not match.
+
+    Recommended discovery pattern: call `list_sops()` with no query to list all SOPs, then pick the one you want by reading the titles. Only pass a `query` when you already know a literal token that appears in the title/SOP ID/business unit (e.g. `"ISEC"`, `"incident"`, `"Clinical"`).
+    """
     from sentinel.retrieval.local import list_all_sops
 
     all_sops = list_all_sops()
@@ -102,7 +107,12 @@ def list_sops(query: str = "") -> str:
         all_sops = [s for s in all_sops if q in s["title"].lower() or q in s["sop_id"].lower() or q in s.get("business_unit", "").lower()]
 
     if not all_sops:
-        return f"No SOPs found matching '{query}'"
+        return (
+            f"No SOPs contain the literal substring '{query}' in their title, SOP ID, or business unit. "
+            f"This tool is a literal substring filter, not semantic search — paraphrases and natural-language "
+            f"descriptions will not match. Call list_sops() with no query to list all SOPs and pick by title, "
+            f"or retry with a shorter literal token (e.g. a single word that likely appears verbatim in the title)."
+        )
 
     lines = [f"- {s['sop_id']}: {s['title']} ({s.get('business_unit', '')})" for s in all_sops]
     return f"{len(all_sops)} SOPs:\n" + "\n".join(lines)
