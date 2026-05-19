@@ -255,8 +255,8 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 
 | Operation | Model                                             | Tokens | Cost | Latency |
 |-----------|---------------------------------------------------|--------|------|---------|
-| Full audit (Act 2) | Nebius DeepSeek-V4-Pro ($1.75/$3.50 per M tokens) | ~46M | ~$85 | ~30m    |
-| Full audit (Act 1) | GPT-5.5 ($5/$30 per M tokens)                     | ~23M | ~$168 | ~30m    |
+| Full audit (Act 2) | Nebius DeepSeek-V4-Pro ($1.75/$3.50 per M tokens) | ~47M | ~$85 | ~4h     |
+| Full audit (Act 1) | GPT-5.5 ($5/$30 per M tokens)                     | ~25M | ~$182 | ~28m    |
 | Act 3 simulation | DeepSeek-V4-Pro                                   | <1M | ~$0.01 | <1m     |
 | SOP ingestion | Qwen3-Embedding-8B                                | ~2M | ~$0.02 | ~5m     |
 

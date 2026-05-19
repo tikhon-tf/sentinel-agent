@@ -244,7 +244,7 @@ def render_sidebar():
             )
 
         if st.button("Audit 2 SOPs", use_container_width=True):
-            st.session_state.pending_message = "Audit SOP-AIML-004 and SOP-AIML-008"
+            st.session_state.pending_message = "Full audit SOP-AIML-004 and SOP-DGP-004"
 
         if st.button("List Regulations", use_container_width=True):
             st.session_state.pending_message = "List all regulations available in the knowledge base."
@@ -333,6 +333,7 @@ def main():
             collected_text = []
             last_tool_result = ""
             last_usage_snapshot = []
+            last_tool_call_name = ""
             subagent_in = 0
             subagent_out = 0
             t_start = time.time()
@@ -344,12 +345,19 @@ def main():
                     status_placeholder.empty()
                 elif event_type == "tool_call":
                     status_placeholder.info(_format_tool_status(data))
+                    last_tool_call_name = data.get("name", "")
                 elif event_type == "tool_result":
                     last_tool_result = data
                     status_placeholder.empty()
-                    sa_in, sa_out = _parse_subagent_usage(data)
-                    subagent_in += sa_in
-                    subagent_out += sa_out
+                    if last_tool_call_name in ("audit_all_sops", "audit_single_sop"):
+                        sa_in, sa_out = _parse_subagent_usage(data)
+                        if last_tool_call_name == "audit_all_sops":
+                            subagent_in = sa_in
+                            subagent_out = sa_out
+                        else:
+                            subagent_in += sa_in
+                            subagent_out += sa_out
+                    last_tool_call_name = ""
                     with results_container:
                         render_audit_results(data)
                 elif event_type == "usage_snapshot":

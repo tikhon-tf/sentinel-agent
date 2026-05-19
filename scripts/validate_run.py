@@ -71,17 +71,23 @@ def fetch_run_data(run_id: str) -> dict:
     meta = root.extra.get("metadata", {}) if root.extra else {}
     request_id = meta.get("langgraph_request_id", run_id[:8])
 
-    # Get model name from first LLM child run
+    # Get model name and total token usage from all LLM runs in the trace
     model = None
+    trace_input_tokens = 0
+    trace_output_tokens = 0
+    print(f"  Fetching LLM runs for token totals...")
     llm_runs = list(client.list_runs(
         project_name="sentinel-agent",
         trace_id=run_id,
         run_type="llm",
-        limit=1,
     ))
+    for r in llm_runs:
+        trace_input_tokens += r.prompt_tokens or 0
+        trace_output_tokens += r.completion_tokens or 0
     if llm_runs:
         llm_meta = llm_runs[0].extra.get("metadata", {}) if llm_runs[0].extra else {}
         model = llm_meta.get("ls_model_name")
+    print(f"  Found {len(llm_runs)} LLM runs, {trace_input_tokens + trace_output_tokens:,} total tokens")
 
     # Determine label
     model_short = (model or "unknown").split("/")[-1]
@@ -149,20 +155,36 @@ def fetch_run_data(run_id: str) -> dict:
         "prompt_tokens": root.prompt_tokens or 0,
         "completion_tokens": root.completion_tokens or 0,
         "total_cost": root.total_cost,
+        "trace_input_tokens": trace_input_tokens,
+        "trace_output_tokens": trace_output_tokens,
     }
 
 
 def parse_run_stats(content: str, run_data: dict) -> dict:
-    """Extract token counts from audit output and compute cost/latency from run metadata."""
+    """Compute cost from outer agent trace tokens + sub-agent tokens from audit output.
+
+    The LangSmith trace only captures the outer Sentinel agent's LLM calls
+    (sub-agents run in ThreadPoolExecutor and don't propagate trace context).
+    Sub-agent tokens are parsed from the "Sub-agent tokens:" line in the audit output.
+    Total cost = outer agent + sub-agent, both at the same model pricing.
+    """
+    # Outer agent tokens from LangSmith trace LLM runs
+    outer_in = run_data.get("trace_input_tokens", 0)
+    outer_out = run_data.get("trace_output_tokens", 0)
+
+    # Sub-agent tokens from audit output text
+    sub_in = sub_out = 0
     match = re.search(
         r"Sub-agent tokens:\s*([\d,]+)\s*\(([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)",
         content,
     )
-    total_tokens = input_tokens = output_tokens = 0
     if match:
-        total_tokens = int(match.group(1).replace(",", ""))
-        input_tokens = int(match.group(2).replace(",", ""))
-        output_tokens = int(match.group(3).replace(",", ""))
+        sub_in = int(match.group(2).replace(",", ""))
+        sub_out = int(match.group(3).replace(",", ""))
+
+    input_tokens = outer_in + sub_in
+    output_tokens = outer_out + sub_out
+    total_tokens = input_tokens + output_tokens
 
     model = run_data.get("model", "")
     prices = PRICING.get(model, {"input": 0, "output": 0})
@@ -182,6 +204,8 @@ def parse_run_stats(content: str, run_data: dict) -> dict:
         "latency": latency,
         "model": model or "unknown",
         "langsmith_cost": run_data.get("total_cost"),
+        "outer_tokens": outer_in + outer_out,
+        "sub_tokens": sub_in + sub_out,
     }
 
 
@@ -332,6 +356,10 @@ def print_stats(stats):
     """Print run stats block."""
     print(f"  Model:   {stats['model']}")
     print(f"  Tokens:  {stats['total_tokens']:,} ({stats['input_tokens']:,} in / {stats['output_tokens']:,} out)")
+    outer = stats.get('outer_tokens', 0)
+    sub = stats.get('sub_tokens', 0)
+    if outer and sub:
+        print(f"          (outer agent: {outer:,} + sub-agents: {sub:,})")
     print(f"  Cost:    ${stats['cost']:.2f}")
     if stats['latency']:
         print(f"  Latency: {stats['latency']:.0f}s ({stats['latency']/60:.1f}m)")
