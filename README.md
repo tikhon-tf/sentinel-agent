@@ -208,7 +208,7 @@ The script fetches run data from LangSmith (model, timing, tokens, cost, audit c
 
 ## Regulation Coverage
 
-9 regulation frameworks with full text in the Pinecone knowledge base:
+9 core regulation frameworks with full text in the Pinecone knowledge base:
 
 - **HIPAA Security Rule** — Administrative (164.308), Physical (164.310), Technical (164.312) safeguards
 - **SOC 2 Trust Services Criteria** — CC1 through CC9
@@ -220,12 +220,24 @@ The script fetches run data from LangSmith (model, timing, tokens, cost, audit c
 
 Historical editions are included for temporal analysis (e.g., HIPAA 2017/2020/2024, EU AI Act proposal vs. final).
 
+27 additional external standards referenced by SOPs are also available in `data/regulations/`: 11 NIST special publications (SP 800-53, 800-88, 800-61, CSF 2.0, 800-63B, 800-207, 800-34, 1270, Privacy Framework, 800-161, 800-218), 5 FDA/eCFR titles (21 CFR Parts 820, 11, 807 + AI/ML SaMD + CDS guidance), 5 EU directives (MDR, SCCs, ePrivacy, AMLD4, Funds Transfer), 2 OWASP guides (Top 10, API Security), and 4 financial laws (BSA, ECOA/Reg B, FCRA, PCI DSS). See `data/regulations/README.md` for full inventory.
+
 ## SOP Dataset
 
-200 SOPs across 10 business units with deliberately varied compliance levels:
-- ~40% Compliant (thorough, specific, cites regulation articles)
-- ~35% Partial (vague language, incomplete controls)
-- ~25% Gap (missing key requirements, weak controls)
+200 SOPs across 10 business units (AI/ML Engineering, Clinical AI Products, Customer Operations, Data Governance & Privacy, Financial Services, Human Resources, IT Operations, Information Security, Legal & Compliance, Product & Engineering), 20 SOPs each.
+
+420 ground-truth (SOP, regulation) pairs in `data/compliance_matrix_revised.json` across 6 regulations:
+
+| Regulation | SOPs | Description |
+|------------|------|-------------|
+| SOC 2 | 121 | Trust Services Criteria CC1–CC9 |
+| HIPAA | 94 | Security Rule administrative, physical, technical safeguards |
+| GDPR | 76 | Data protection and privacy |
+| EU AI Act | 63 | High-risk AI system requirements |
+| NIST AI RMF | 37 | AI risk management framework |
+| SR 11-7 | 29 | Model risk management |
+
+Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (21%). SOPs are deliberately varied — compliant SOPs cite regulation articles and have specific controls, partial SOPs use vague language, gap SOPs are missing key requirements.
 
 ## Environment Variables
 
@@ -241,14 +253,14 @@ Historical editions are included for temporal analysis (e.g., HIPAA 2017/2020/20
 
 ## Cost
 
-| Operation | Model | Estimated Cost |
-|-----------|-------|---------------|
-| Full audit (Act 2) | DeepSeek-V4-Pro ($1.75/$3.50 per M tokens) | ~$0.30 |
-| Full audit (Act 1) | GPT-5.5 ($5/$30 per M tokens) | ~$10.00 |
-| Act 3 simulation | DeepSeek-V4-Pro | ~$0.01 |
-| SOP ingestion | Qwen3-Embedding-8B | ~$0.02 |
+| Operation | Model                                             | Tokens | Cost | Latency |
+|-----------|---------------------------------------------------|--------|------|---------|
+| Full audit (Act 2) | Nebius DeepSeek-V4-Pro ($1.75/$3.50 per M tokens) | ~46M | ~$85 | ~30m    |
+| Full audit (Act 1) | GPT-5.5 ($5/$30 per M tokens)                     | ~23M | ~$168 | ~30m    |
+| Act 3 simulation | DeepSeek-V4-Pro                                   | <1M | ~$0.01 | <1m     |
+| SOP ingestion | Qwen3-Embedding-8B                                | ~2M | ~$0.02 | ~5m     |
 
-Token usage and cost (including sub-agent usage) are displayed per-response and per-session in the Streamlit UI.
+Each SOP audit fans out a dedicated sub-agent with multiple tool calls (regulation retrieval, web search), so token counts are dominated by sub-agent usage across 200 SOPs. Token usage and cost are displayed per-response and per-session in the Streamlit UI. Use `scripts/validate_run.py` to get exact cost/token/latency breakdowns for any LangSmith run.
 
 ## MCP Integrations
 

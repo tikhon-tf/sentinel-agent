@@ -2,7 +2,7 @@
 
 Reference texts for Sentinel's target regulations. Used for grounding the compliance auditor's assessments. Text files (`.txt` and `.md`) are ingested into Pinecone namespace `regulations` via `make ingest-regulations`. PDFs are extracted to `.txt` first via `scripts/extract_pdf_text.py`.
 
-**Knowledge base**: 2,386 chunks across 22 source documents covering 9 regulation frameworks.
+**Knowledge base**: 2,386 chunks across 22 source documents covering 9 regulation frameworks (core set). An additional 27 external standards referenced by SOPs are available for ingestion.
 
 ## SOC 2
 
@@ -91,6 +91,58 @@ SR 11-7 was rescinded April 2026 and replaced by interagency guidance (OCC 2026-
 | `california_ab853_ai_transparency_amendments.txt` | AB 853: AI Transparency Act Amendments (signed Sep 16, 2025) — 10 chunks | CA leginfo |
 
 SB 1047 was vetoed Sep 2024. SB 53 is its successor — lighter-touch transparency for frontier AI developers (>10^26 FLOPS, >$500M revenue).
+
+## NIST Special Publications
+
+| File | Description | Source |
+|------|-------------|--------|
+| `nist_sp_800_53_rev5.pdf` / `.txt` | SP 800-53 Rev 5: Security and Privacy Controls (492 pages) | NIST |
+| `nist_sp_800_88_rev1.pdf` / `.txt` | SP 800-88 Rev 1: Media Sanitization Guidelines (65 pages) | NIST |
+| `nist_sp_800_61_rev2.pdf` / `.txt` | SP 800-61 Rev 2: Computer Security Incident Handling (80 pages) | NIST |
+| `nist_csf_2_0.pdf` / `.txt` | Cybersecurity Framework 2.0 (32 pages) | NIST |
+| `nist_sp_800_63b.pdf` / `.txt` | SP 800-63B: Digital Identity — Authentication (80 pages) | NIST |
+| `nist_sp_800_207.pdf` / `.txt` | SP 800-207: Zero Trust Architecture (59 pages) | NIST |
+| `nist_sp_800_34_rev1.pdf` / `.txt` | SP 800-34 Rev 1: Contingency Planning (149 pages) | NIST |
+| `nist_sp_1270.pdf` / `.txt` | SP 1270: Towards a Standard for Identifying and Managing Bias in AI (86 pages) | NIST |
+| `nist_privacy_framework_1_0.pdf` / `.txt` | Privacy Framework v1.0 (43 pages) | NIST |
+| `nist_sp_800_161_rev1.pdf` / `.txt` | SP 800-161 Rev 1: Cybersecurity Supply Chain Risk Management (327 pages) | NIST |
+| `nist_sp_800_218.pdf` / `.txt` | SP 800-218: Secure Software Development Framework (SSDF) (36 pages) | NIST |
+
+## FDA / 21 CFR
+
+| File | Description | Source |
+|------|-------------|--------|
+| `fda_21cfr_part820_qsr.xml` / `.txt` | 21 CFR Part 820: Quality System Regulation | eCFR API |
+| `fda_21cfr_part11_electronic_records.xml` / `.txt` | 21 CFR Part 11: Electronic Records / Signatures | eCFR API |
+| `fda_21cfr_part807_premarket.xml` / `.txt` | 21 CFR Part 807: Premarket Notification (510k) | eCFR API |
+| `fda_ai_ml_samd_framework.pdf` / `.txt` | FDA AI/ML-Based SaMD Action Plan (8 pages) | FDA |
+| `fda_clinical_decision_support_guidance.pdf` / `.txt` | Clinical Decision Support Software Guidance (27 pages) | FDA |
+
+## EU Directives & Regulations (Non-Core)
+
+| File | Description | Source |
+|------|-------------|--------|
+| `eu_mdr_regulation_2017_745.pdf` / `.txt` | Regulation (EU) 2017/745: Medical Device Regulation (175 pages) | EUR-Lex |
+| `eu_standard_contractual_clauses_2021_914.pdf` / `.txt` | Commission Decision (EU) 2021/914: Standard Contractual Clauses (31 pages) | EUR-Lex |
+| `eu_eprivacy_directive_2002_58.pdf` / `.txt` | Directive 2002/58/EC: ePrivacy Directive (11 pages) | EUR-Lex |
+| `eu_amld4_directive_2015_849.pdf` / `.txt` | Directive (EU) 2015/849: 4th Anti-Money Laundering Directive (45 pages) | EUR-Lex |
+| `eu_funds_transfer_regulation_2015_847.pdf` / `.txt` | Regulation (EU) 2015/847: Funds Transfer Regulation (18 pages) | EUR-Lex |
+
+## OWASP
+
+| File | Description | Source |
+|------|-------------|--------|
+| `owasp_top_10_2021.md` | OWASP Top 10 2021 — Web Application Security Risks | OWASP GitHub |
+| `owasp_api_security_top_10_2023.md` | OWASP API Security Top 10 2023 | OWASP GitHub |
+
+## Financial Laws
+
+| File | Description | Source |
+|------|-------------|--------|
+| `bsa_31cfr_chapter_x.xml` / `.txt` | Bank Secrecy Act: 31 CFR Chapter X (FinCEN rules, AML, CTR, SAR) | eCFR API |
+| `ecoa_regulation_b_12cfr1002.xml` / `.txt` | Equal Credit Opportunity Act: Regulation B (12 CFR 1002) | eCFR API |
+| `fcra_fair_credit_reporting_act.pdf` / `.txt` | Fair Credit Reporting Act (15 USC Chapter 41 Subchapter III, 67 pages) | GovInfo/GPO |
+| `pci_dss_quick_guide.pdf` / `.txt` | PCI DSS Quick Reference Guide v3.2.1 | PCI SSC |
 
 ## Utilities
 
