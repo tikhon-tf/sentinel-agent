@@ -67,6 +67,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 | `sentinel/output/heatmap.py` | Rich console heatmap rendering |
 | `sentinel/output/register.py` | CSV/JSON/metrics output |
 | `ui/app.py` | Streamlit chat UI with streaming, per-response and session token/cost tracking |
+| `scripts/validate_run.py` | Audit quality evaluation: compares LangSmith run output against compliance matrix |
 | `demo/act{1,2,3}_*.py` | Three-act demo scripts |
 
 ## LangGraph Cloud deployment
@@ -78,6 +79,15 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 - `setuptools` is configured with `include = ["sentinel*"]` in `pyproject.toml` to avoid packaging `demo/` and `scripts/` as top-level packages
 
 ## Data
+
+### Quality evaluation
+- `scripts/validate_run.py` fetches audit run data from LangSmith and compares against the compliance matrix
+- Takes LangSmith run IDs as arguments — fetches run metadata (model, timing, tokens, cost) and audit content automatically
+- Parses the `audit_all_sops` text output, classifies findings by regulation (criterion prefix matching), aggregates to worst compliance level per (SOP, regulation) pair
+- Metrics: matched %, false positive % (too strict), false negative % (too lenient), failed % (missing), per-class F1, macro F1, per-regulation accuracy, directional bias, tokens, cost, latency
+- Usage: `python3 scripts/validate_run.py <run_id>` (single run), `python3 scripts/validate_run.py <run_id1> <run_id2>` (side-by-side comparison), `--original` flag for original matrix
+- Content extraction: tries `audit_all_sops` tool run output first, then root run outputs, then Prompt chain runs (for pending runs with null outputs)
+- `data/compliance_matrix_revised.json` is a corrected copy with 16 SOC 2 level changes (15 gap→partial, 1 partial→compliant) based on manual SOP-vs-regulation review
 
 ### SOPs
 - 200 SOPs across 10 business units in `data/sops/` (markdown with YAML frontmatter)

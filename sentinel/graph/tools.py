@@ -2,9 +2,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 
 from langchain_core.tools import tool
+
+logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 2
+RETRY_BACKOFF = 5
 
 from sentinel.config import PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
@@ -409,7 +415,23 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
 @tool
 def audit_single_sop(sop_id: str) -> str:
     """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base (Pinecone) and web search (Tavily). Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
-    return _audit_single_sop_impl(sop_id, provider="nebius", use_tavily=True)
+    result = _audit_single_sop_impl(sop_id, provider="nebius", use_tavily=True)
+    for attempt in range(1, MAX_RETRIES + 1):
+        if not _is_retryable(result):
+            break
+        logger.info("Retry attempt %d/%d for %s", attempt, MAX_RETRIES, sop_id)
+        time.sleep(RETRY_BACKOFF * attempt)
+        result = _audit_single_sop_impl(sop_id, provider="nebius", use_tavily=True)
+    return result
+
+
+def _is_retryable(result: str) -> bool:
+    """Check if a single-SOP audit result indicates a retryable failure."""
+    return (
+        "FAILED" in result
+        or "sub-agent did not produce structured findings" in result
+        or "failed to parse sub-agent findings" in result
+    )
 
 
 def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str:
@@ -420,6 +442,7 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
 
     workers = max_workers or MAX_AUDIT_WORKERS
     all_sops = list_all_sops()
+    sop_by_id = {s["sop_id"]: s for s in all_sops}
 
     def _audit_one(sop_meta: dict) -> str:
         sid = sop_meta["sop_id"]
@@ -428,11 +451,30 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
         except Exception as e:
             return f"{sid}: FAILED — {e}"
 
+    results_by_id: dict[str, str] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {executor.submit(_audit_one, s): s for s in all_sops}
-        results = []
+        futures = {executor.submit(_audit_one, s): s["sop_id"] for s in all_sops}
         for future in concurrent.futures.as_completed(futures):
-            results.append(future.result())
+            sid = futures[future]
+            results_by_id[sid] = future.result()
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        to_retry = [sid for sid, r in results_by_id.items() if _is_retryable(r)]
+        if not to_retry:
+            break
+        logger.info("Retry attempt %d/%d for %d SOPs: %s", attempt, MAX_RETRIES, len(to_retry), ", ".join(to_retry))
+        time.sleep(RETRY_BACKOFF * attempt)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(workers, len(to_retry))) as executor:
+            futures = {executor.submit(_audit_one, sop_by_id[sid]): sid for sid in to_retry}
+            for future in concurrent.futures.as_completed(futures):
+                sid = futures[future]
+                new_result = future.result()
+                if not _is_retryable(new_result):
+                    logger.info("Retry succeeded for %s", sid)
+                results_by_id[sid] = new_result
+
+    results = list(results_by_id.values())
+    still_failed = sum(1 for r in results if _is_retryable(r))
 
     findings = _audit_results["findings"]
     total = len(findings)
@@ -448,7 +490,8 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
         f"  Compliant: {compliant} ({100*compliant//max(total,1)}%)\n"
         f"  Partial:   {partial} ({100*partial//max(total,1)}%)\n"
         f"  Gap:       {gap} ({100*gap//max(total,1)}%)\n"
-        f"  Sub-agent tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n\n"
+        f"  Sub-agent tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n"
+        f"  Failed after retries: {still_failed}\n\n"
         "Per-SOP breakdown:\n" + "\n".join(sorted(results))
     )
     return summary
@@ -466,7 +509,14 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True) -> list:
     @tool
     def _audit_single_sop(sop_id: str) -> str:
         """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base (Pinecone). Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
-        return _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily)
+        result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily)
+        for attempt in range(1, MAX_RETRIES + 1):
+            if not _is_retryable(result):
+                break
+            logger.info("Retry attempt %d/%d for %s", attempt, MAX_RETRIES, sop_id)
+            time.sleep(RETRY_BACKOFF * attempt)
+            result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily)
+        return result
 
     @tool
     def _audit_all_sops() -> str:

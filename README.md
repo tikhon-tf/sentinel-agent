@@ -154,6 +154,7 @@ sentinel_agent/
 ├── ui/
 │   └── app.py                 # Streamlit chat UI with streaming + cost tracking
 ├── scripts/
+│   ├── validate_run.py        # Audit quality evaluation against compliance matrix
 │   ├── generate_sops.py       # SOP generation (one-time)
 │   ├── extract_pdf_text.py    # PDF -> text extraction for regulations
 │   └── sop_taxonomy.py        # SOP definitions + metadata
@@ -161,13 +162,41 @@ sentinel_agent/
 │   ├── sops/                  # 200 generated SOPs (10 business units)
 │   ├── regulations/           # 9 regulation frameworks (txt, md, pdf, xml)
 │   ├── company_profile.md     # Meridian Health Technologies background
-│   └── compliance_matrix.json # Ground truth
+│   ├── compliance_matrix.json # Ground truth
+│   └── compliance_matrix_revised.json # Revised ground truth (16 SOC 2 corrections)
 ├── .mcp.json                  # MCP server config (LangSmith)
 ├── langgraph.json             # LangGraph deployment config
 ├── pyproject.toml             # Dependencies
 ├── Makefile                   # Build/run targets
 └── .env.example               # API key template
 ```
+
+## Quality Evaluation
+
+`scripts/validate_run.py` measures audit quality by comparing a LangSmith run's output against the compliance matrix ground truth.
+
+```bash
+# Validate a single run (uses revised matrix by default)
+python3 scripts/validate_run.py <langsmith-run-id>
+
+# Compare two runs side by side
+python3 scripts/validate_run.py <run-id-1> <run-id-2>
+
+# Use original (uncorrected) matrix
+python3 scripts/validate_run.py --original <run-id>
+```
+
+The script fetches run data from LangSmith (model, timing, tokens, cost, audit content), parses the `audit_all_sops` output, classifies each finding by regulation, aggregates to worst compliance level per (SOP, regulation) pair, and reports:
+
+- **Matched %** — exact agreement with ground truth
+- **False positive %** — agent predicted stricter than ground truth (e.g. gap when matrix says partial)
+- **False negative %** — agent predicted more lenient than ground truth
+- **Per-class F1** — precision/recall/F1 for compliant, partial, and gap detection
+- **Failed %** — SOP-regulation pairs missing from run output (504 errors, no structured findings)
+- **Per-regulation accuracy** — breakdown across HIPAA, SOC 2, GDPR, etc.
+- **Cost, tokens, latency** — from LangSmith run metadata and parsed sub-agent token counts
+
+`data/compliance_matrix_revised.json` contains 16 SOC 2 corrections (15 gap→partial, 1 partial→compliant) based on manual review of SOP content against the SOC 2 Trust Services Criteria.
 
 ## Company Profile
 
