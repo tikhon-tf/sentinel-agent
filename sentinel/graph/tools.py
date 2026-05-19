@@ -358,8 +358,8 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
     findings = []
     for data in items:
         rid = data.get("requirement_id", data.get("clause_id", ""))
-        raw_cl = data.get("compliance_level", "gap").lower().strip()
-        raw_sev = data.get("severity", "high").lower().strip()
+        raw_cl = (data.get("compliance_level") or "gap").lower().strip()
+        raw_sev = (data.get("severity") or "high").lower().strip()
         try:
             findings.append(AuditFinding(
                 clause_id=rid,

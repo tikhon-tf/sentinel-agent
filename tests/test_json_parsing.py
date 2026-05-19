@@ -157,3 +157,43 @@ class TestJsonExtraction:
         result = self._extract_json_array(content)
         assert result is not None
         assert len(result) == 2
+
+
+class TestNullDefaultFallback:
+    """Regression: explicit `null` values must fall back to defaults.
+
+    `dict.get(key, default)` only returns the default when the key is
+    missing — if the sub-agent emits `{"severity": null}`, `.get` returns
+    `None` and `.lower()` raises AttributeError. Using
+    `(data.get(key) or default)` coerces both missing keys and explicit
+    None to the default before normalization.
+    """
+
+    def _normalize(self, data: dict) -> tuple[str, str]:
+        # Mirrors the parsing logic in sentinel/graph/tools.py.
+        raw_cl = (data.get("compliance_level") or "gap").lower().strip()
+        raw_sev = (data.get("severity") or "high").lower().strip()
+        return raw_cl, raw_sev
+
+    def test_explicit_null_severity_falls_back(self):
+        raw_cl, raw_sev = self._normalize({"severity": None, "compliance_level": None})
+        assert raw_cl == "gap"
+        assert raw_sev == "high"
+
+    def test_missing_keys_still_fall_back(self):
+        raw_cl, raw_sev = self._normalize({})
+        assert raw_cl == "gap"
+        assert raw_sev == "high"
+
+    def test_provided_values_are_normalized(self):
+        raw_cl, raw_sev = self._normalize(
+            {"severity": " HIGH ", "compliance_level": "Partial"}
+        )
+        assert raw_cl == "partial"
+        assert raw_sev == "high"
+
+    def test_old_unsafe_pattern_would_raise(self):
+        """Demonstrate the bug the fix prevents."""
+        data = {"severity": None}
+        with pytest.raises(AttributeError):
+            data.get("severity", "high").lower()
