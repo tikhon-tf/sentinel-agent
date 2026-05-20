@@ -26,6 +26,12 @@ TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
 SNOWGLOBE_API_KEY = os.environ.get("SNOWGLOBE_API_KEY", "")
 
+JIRA_BASE_URL = os.environ.get("JIRA_BASE_URL", "")
+JIRA_EMAIL = os.environ.get("JIRA_EMAIL", "")
+JIRA_API_TOKEN = os.environ.get("JIRA_API_TOKEN", "")
+JIRA_PROJECT_KEY = os.environ.get("JIRA_PROJECT_KEY", "")
+JIRA_DEFAULT_ISSUE_TYPE = os.environ.get("JIRA_DEFAULT_ISSUE_TYPE", "Task")
+
 LANGSMITH_API_KEY = os.environ.get("LANGSMITH_API_KEY", "")
 if LANGSMITH_API_KEY:
     os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")

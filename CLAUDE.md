@@ -13,7 +13,8 @@ make ingest-regulations   # Ingest regulation texts into Pinecone (namespace: re
 make act1                 # Act 1: GPT-5.5 + Pinecone agentic RAG
 make act2                 # Act 2: DeepSeek-V4-Pro + Pinecone Nexus one-shot
 make act3                 # Act 3: Snowglobe adversarial simulation
-make demo                 # All three acts sequentially
+make act4                 # Act 4: actuation — file Jira tickets for compliance gaps
+make demo                 # All four acts sequentially
 make test                 # Run regression tests (111 tests, no API keys needed)
 make dev                  # LangGraph dev server on port 2024
 make ui                   # Streamlit UI on port 8501
@@ -64,11 +65,12 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 | `sentinel/retrieval/ingest_regulations.py` | Regulation text chunker + Pinecone ingestion (`REGULATION_MAP`, `EDITION_PATTERNS`, edition metadata) |
 | `sentinel/retrieval/ingest.py` | SOP markdown parser (`parse_sop()`), chunker, Pinecone ingestion |
 | `sentinel/simulation/snowglobe.py` | Adversarial red-team scenarios (Act 3) |
+| `sentinel/actuation/jira_client.py` | Sync Jira Cloud REST client used by the `create_jira_ticket` tool (Act 4) |
 | `sentinel/output/heatmap.py` | Rich console heatmap rendering |
 | `sentinel/output/register.py` | CSV/JSON/metrics output |
 | `ui/app.py` | Streamlit chat UI with streaming, per-response and session token/cost tracking |
 | `scripts/validate_run.py` | Audit quality evaluation: compares LangSmith run output against compliance matrix |
-| `demo/act{1,2,3}_*.py` | Three-act demo scripts |
+| `demo/act{1,2,3,4}_*.py` | Four-act demo scripts |
 
 ## LangGraph Cloud deployment
 
@@ -110,7 +112,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 
 ## Environment variables
 
-Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Act 1), `PINECONE_API_KEY` (vector modes), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `SNOWGLOBE_API_KEY` (Act 3). See `.env.example`.
+Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Act 1), `PINECONE_API_KEY` (vector modes), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `SNOWGLOBE_API_KEY` (Act 3), `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` / `JIRA_PROJECT_KEY` (Act 4). See `.env.example`.
 
 ## Patterns to follow
 
