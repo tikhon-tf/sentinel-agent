@@ -521,6 +521,7 @@ def compare_runs(run_ids, gt):
 
     col1 = r1_label[:30]
     col2 = r2_label[:30]
+
     print(f"\n{'Metric':>20} {col1:>30} {col2:>30}")
     print("-" * 84)
 
