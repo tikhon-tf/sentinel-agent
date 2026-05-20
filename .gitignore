@@ -3,6 +3,7 @@
 .langgraph_api/
 __pycache__/
 output/
+.claude/
 *.pyc
 .DS_Store
 .idea/

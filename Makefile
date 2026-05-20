@@ -1,6 +1,6 @@
 PYTHON = .venv/bin/python
 
-.PHONY: install ingest act1 act2 act3 demo all dev up build deploy ui test
+.PHONY: install ingest act1 act2 act3 demo all dev up build deploy ui test eval eval-naive eval-agentic eval-smoke
 
 install:
 	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag,ui]"
@@ -47,3 +47,16 @@ ui-local:
 
 test:
 	$(PYTHON) -m pytest tests/ -v
+
+# Naive RAG vs agentic Q&A eval. Pass EVAL_ARGS to override (e.g. --limit, --category, --no-judge).
+eval:
+	$(PYTHON) scripts/run_qa_eval.py --mode both $(EVAL_ARGS)
+
+eval-naive:
+	$(PYTHON) scripts/run_qa_eval.py --mode naive $(EVAL_ARGS)
+
+eval-agentic:
+	$(PYTHON) scripts/run_qa_eval.py --mode agentic $(EVAL_ARGS)
+
+eval-smoke:
+	$(PYTHON) scripts/run_qa_eval.py --mode both --limit 2 --no-judge
