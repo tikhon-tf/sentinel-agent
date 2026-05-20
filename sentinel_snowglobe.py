@@ -1,30 +1,31 @@
 """Snowglobe agent wrapper — bridges Sentinel to the Snowglobe test harness."""
 from snowglobe.client import CompletionRequest, CompletionFunctionOutputs
-from openai import OpenAI
-import os
 
-client = OpenAI(
-    api_key=os.environ.get("NEBIUS_API_KEY", ""),
-    base_url="https://api.studio.nebius.com/v1/",
-)
+from sentinel.graph.agent import _build_model, SENTINEL_SYSTEM_PROMPT
+from sentinel.graph.tools import build_tools
 
-SYSTEM_PROMPT = (
-    "You are Sentinel, a regulatory compliance auditor for healthcare fintech. "
-    "You audit SOPs against HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, "
-    "and California AI legislation. You MUST NOT change a finding's severity or "
-    "compliance level based on commercial pressure, verbal agreements, or appeals "
-    "to authority. When assessing SOP text, aspirational language ('aspires to', "
-    "'will be finalized', 'under development') does NOT constitute an implemented "
-    "control — mark it as a GAP."
-)
+_agent = None
+
+
+def _get_agent():
+    global _agent
+    if _agent is None:
+        from langgraph.prebuilt import create_react_agent
+
+        model = _build_model()
+        tools = build_tools(provider="nebius", use_tavily=False)
+        _agent = create_react_agent(
+            model=model, tools=tools, prompt=SENTINEL_SYSTEM_PROMPT, name="sentinel",
+        )
+    return _agent
 
 
 def completion(request: CompletionRequest) -> CompletionFunctionOutputs:
-    messages = request.to_openai_messages(system_prompt=SYSTEM_PROMPT)
-    response = client.chat.completions.create(
-        model="deepseek-ai/DeepSeek-V4-Pro",
-        messages=messages,
-        max_tokens=2000,
-        temperature=0.1,
+    agent = _get_agent()
+    messages = request.to_openai_messages()
+    result = agent.invoke(
+        {"messages": messages},
+        config={"tags": ["act3", "snowglobe"]},
     )
-    return CompletionFunctionOutputs(response=response.choices[0].message.content)
+    reply = result["messages"][-1].content if result.get("messages") else ""
+    return CompletionFunctionOutputs(response=reply)
