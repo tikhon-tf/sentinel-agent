@@ -33,7 +33,7 @@ class TestPricing:
 class TestConstants:
     def test_model_names(self):
         assert MODEL == "deepseek-ai/DeepSeek-V4-Pro"
-        assert OPENAI_MODEL == "gpt-5.5"
+        assert OPENAI_MODEL == "gpt-5.5-mini"
 
     def test_nebius_base_url(self):
         assert NEBIUS_BASE_URL.startswith("https://")

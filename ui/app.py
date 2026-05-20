@@ -287,7 +287,7 @@ def render_sidebar():
         st.divider()
         active_model = _active_agent()["model"]
         if active_model == OPENAI_MODEL:
-            st.caption("Powered by GPT-5.5 on OpenAI")
+            st.caption("Powered by GPT-5.5-mini on OpenAI")
         else:
             st.caption("Powered by DeepSeek-V4-Pro on Nebius")
         st.caption("Orchestrated by deepagents + LangGraph")
