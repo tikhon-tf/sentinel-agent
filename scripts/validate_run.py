@@ -258,6 +258,7 @@ def parse_full_findings(text):
     findings = defaultdict(list)
     current_sop = None
     total_parsed = 0
+    sop_count = 0
     failed_sops = []
     error_sops = []
 
@@ -276,6 +277,7 @@ def parse_full_findings(text):
         sop_match = re.match(r'^(SOP-[A-Z]+-\d+)\s+\(', line)
         if sop_match:
             current_sop = sop_match.group(1)
+            sop_count += 1
             continue
 
         finding_match = re.match(r'^\s+([A-Za-z0-9\-_./()+:]+):\s+(compliant|partial|gap)\s+\(', line)
@@ -286,6 +288,11 @@ def parse_full_findings(text):
             if reg:
                 findings[(current_sop, reg)].append(level)
                 total_parsed += 1
+
+    if sop_count > 0 and total_parsed == 0:
+        print(f"  WARNING: Found {sop_count} SOP headers but 0 finding details — this run used a compact")
+        print(f"  output format without per-finding lines. Re-run the audit with the latest code to get")
+        print(f"  parseable output. Deploy first: make deploy")
 
     return findings, total_parsed, failed_sops, error_sops
 
