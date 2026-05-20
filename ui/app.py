@@ -168,7 +168,7 @@ def _parse_audit_table(tool_result: str) -> list[dict] | None:
         line = line.strip()
         if not line or line.startswith("Audit complete") or line.startswith("Compliant") or line.startswith("Partial") or line.startswith("Gap") or line.startswith("Per-SOP"):
             continue
-        match = re.match(r"([\w/.:-]+):\s+(\d+)\s+findings?\s+.*?(\d+)C/(\d+)P/(\d+)G", line)
+        match = re.match(r"(SOP-[A-Z]+-\d+)\s+\([^)]*\):\s+(\d+)\s+findings?\s+.*?(\d+)C/(\d+)P/(\d+)G", line)
         if match:
             findings.append({
                 "sop": match.group(1),

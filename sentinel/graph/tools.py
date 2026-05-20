@@ -486,6 +486,11 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
     tok_in = _audit_results["total_input_tokens"]
     tok_out = _audit_results["total_output_tokens"]
 
+    sop_lines = []
+    for r in sorted(results):
+        first_line = r.split("\n", 1)[0]
+        sop_lines.append(first_line)
+
     summary = (
         f"Audit complete: {total} findings across {len(all_sops)} SOPs\n"
         f"  Compliant: {compliant} ({100*compliant//max(total,1)}%)\n"
@@ -493,7 +498,7 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
         f"  Gap:       {gap} ({100*gap//max(total,1)}%)\n"
         f"  Sub-agent tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n"
         f"  Failed after retries: {still_failed}\n\n"
-        "Per-SOP breakdown:\n" + "\n".join(sorted(results))
+        "Per-SOP breakdown:\n" + "\n".join(sop_lines)
     )
     return summary
 

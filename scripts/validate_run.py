@@ -111,6 +111,26 @@ def fetch_run_data(run_id: str) -> dict:
             if content:
                 break
 
+    # If audit_all_sops output is compact (no per-finding detail lines),
+    # collect individual audit_single_sop outputs which still have them
+    if content and "\n  " not in content.split("Per-SOP breakdown:")[-1]:
+        print(f"  Compact audit_all_sops output detected, fetching individual audit_single_sop runs...")
+        sop_runs = list(client.list_runs(
+            project_name="sentinel-agent",
+            trace_id=run_id,
+            run_type="tool",
+            filter='eq(name, "audit_single_sop")',
+        ))
+        sop_outputs = []
+        for sr in sop_runs:
+            if sr.outputs:
+                out = sr.outputs.get("output", "")
+                if out and "findings" in out:
+                    sop_outputs.append(out)
+        if sop_outputs:
+            print(f"  Found {len(sop_outputs)} audit_single_sop outputs")
+            content = content.split("Per-SOP breakdown:")[0] + "Per-SOP breakdown:\n" + "\n".join(sop_outputs)
+
     # Fallback: search root run outputs
     if not content and root.outputs:
         content = _find_audit_text(root.outputs)

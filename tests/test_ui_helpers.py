@@ -78,13 +78,13 @@ class TestParseAuditTable:
     def test_valid_audit_output(self):
         text = (
             "Audit complete: 3 findings\n"
-            "SOP-001: 2 findings (1C/0P/1G) 1C/0P/1G\n"
-            "SOP-002: 1 findings (0C/1P/0G) 0C/1P/0G\n"
+            "SOP-ISEC-001 (Access Control): 2 findings — 1C/0P/1G\n"
+            "SOP-AIML-002 (Bias Detection): 1 findings — 0C/1P/0G\n"
         )
         result = self._parse(text)
         assert result is not None
         assert len(result) == 2
-        assert result[0]["sop"] == "SOP-001"
+        assert result[0]["sop"] == "SOP-ISEC-001"
         assert result[0]["gap"] == 1
         assert result[1]["partial"] == 1
 
