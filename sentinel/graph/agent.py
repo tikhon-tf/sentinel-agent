@@ -40,7 +40,7 @@ def _build_model(provider: str = "nebius") -> ChatOpenAI:
             model=OPENAI_MODEL,
             api_key=OPENAI_API_KEY,
             temperature=0.1,
-            max_tokens=4000,
+            max_tokens=32000,
             stream_usage=True,
             metadata={"ls_provider": "openai", "ls_model_name": OPENAI_MODEL},
         )
@@ -49,7 +49,7 @@ def _build_model(provider: str = "nebius") -> ChatOpenAI:
         api_key=NEBIUS_API_KEY,
         base_url=NEBIUS_BASE_URL,
         temperature=0.1,
-        max_tokens=4000,
+        max_tokens=32000,
         stream_usage=True,
         metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
     )
