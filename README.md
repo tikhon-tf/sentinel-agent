@@ -14,20 +14,25 @@ User Query
 +------------------------+
     |
     +---> audit_all_sops (10-wide ThreadPoolExecutor)
-              |
-              v  (per SOP)
-         +-------------------+
-         |  Sub-Agent        |  LangGraph ReAct
-         |  (audit_single_   |
-         |   sop)            |
-         +-------------------+
-              |
-              +---> retrieve_regulation (Pinecone semantic search)
-              +---> search_web (Tavily live search)
-              +---> read_sop (SOP text)
+    |         |
+    |         v  (per SOP)
+    |    +-------------------+
+    |    |  Sub-Agent        |  LangGraph ReAct
+    |    |  (audit_single_   |
+    |    |   sop)            |
+    |    +-------------------+
+    |         |
+    |         +---> retrieve_regulation (Pinecone semantic search)
+    |         +---> search_web (Tavily live search)
+    |         +---> read_sop (SOP text)
+    |         |
+    |         v
+    |    Structured JSON Findings
+    |
+    +---> create_jira_ticket (Act 4)
               |
               v
-         Structured JSON Findings
+         Jira Cloud REST API → ticket on Kanban board
 ```
 
 **Model:** DeepSeek-V4-Pro on Nebius AI Studio (Act 2 + deployment), GPT-5.5 on OpenAI (Act 1)
@@ -35,6 +40,7 @@ User Query
 **Retrieval:** Pinecone vector search (Qwen3-Embedding-8B embeddings, 4096 dimensions)
 **Grounding:** Tavily live regulation search
 **Observability:** LangSmith tracing with cost tracking + [LangSmith MCP](https://docs.langchain.com/langsmith/langsmith-remote-mcp) integration
+**Actuation:** Jira Cloud REST API for filing compliance gap tickets (Act 4)
 **Deployment:** LangGraph Cloud + Streamlit UI
 
 ## Four-Act Demo
@@ -129,6 +135,7 @@ Key tools:
 - `list_sops` — search and discover SOPs by title, ID, or business unit
 - `list_regulations` — list all regulations in the knowledge base
 - `retrieve_regulation_text_tool` — look up specific regulation requirements
+- `create_jira_ticket` — file a Jira ticket for a compliance gap or partial finding (Act 4)
 
 ## Project Structure
 
@@ -269,6 +276,7 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 | Full audit (Act 2) | Nebius DeepSeek-V4-Pro ($1.75/$3.50 per M tokens) | ~47M | ~$85 | ~4h     |
 | Full audit (Act 1) | GPT-5.5 ($5/$30 per M tokens)                     | ~25M | ~$182 | ~28m    |
 | Act 3 simulation | DeepSeek-V4-Pro                                   | <1M | ~$0.01 | <1m     |
+| Act 4 actuation (2 cases) | DeepSeek-V4-Pro + Jira REST API          | <5K | ~$0.01 | <10s    |
 | SOP ingestion | Qwen3-Embedding-8B                                | ~2M | ~$0.02 | ~5m     |
 
 Each SOP audit fans out a dedicated sub-agent with multiple tool calls (regulation retrieval, web search), so token counts are dominated by sub-agent usage across 200 SOPs. Token usage and cost are displayed per-response and per-session in the Streamlit UI. Use `scripts/validate_run.py` to get exact cost/token/latency breakdowns for any LangSmith run.
