@@ -488,8 +488,12 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
 
     sop_lines = []
     for r in sorted(results):
-        first_line = r.split("\n", 1)[0]
-        sop_lines.append(first_line)
+        for line in r.split("\n"):
+            if line.startswith("Sub-agent tokens:"):
+                continue
+            if line.startswith("  ") and " — " in line:
+                line = line.split(" — ", 1)[0]
+            sop_lines.append(line)
 
     summary = (
         f"Audit complete: {total} findings across {len(all_sops)} SOPs\n"
