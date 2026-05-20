@@ -35,7 +35,7 @@ User Query
          Jira Cloud REST API → ticket on Kanban board
 ```
 
-**Model:** DeepSeek-V4-Pro on Nebius AI Studio (Act 2 + deployment), GPT-5.5-mini on OpenAI (Act 1)
+**Model:** DeepSeek-V4-Pro on Nebius AI Studio (Act 2 + deployment), GPT-5.4-mini on OpenAI (Act 1)
 **Orchestration:** LangGraph ReAct agent with per-SOP sub-agents, optional deepagents upgrade
 **Retrieval:** Pinecone vector search (Qwen3-Embedding-8B embeddings, 4096 dimensions)
 **Grounding:** Tavily live regulation search
@@ -47,7 +47,7 @@ User Query
 
 | Act | Description | Model | Command |
 |-----|-------------|-------|---------|
-| **Act 1** | Agentic RAG prototype — same sub-agent architecture, shows baseline | GPT-5.5-mini | `make act1` |
+| **Act 1** | Agentic RAG prototype — same sub-agent architecture, shows baseline | GPT-5.4-mini | `make act1` |
 | **Act 2** | Production stack — DeepSeek on Nebius with full retrieval | DeepSeek-V4-Pro | `make act2` |
 | **Act 3** | Snowglobe adversarial simulation — red-teams the auditor | DeepSeek-V4-Pro | `make act3` |
 | **Act 4** | Actuation — files a Jira ticket when a compliance gap is confirmed | DeepSeek-V4-Pro | `make act4` |
@@ -83,7 +83,7 @@ make ingest-regulations   # Regulation texts into Pinecone (namespace: regulatio
 ### Run the demo
 
 ```bash
-make act1    # GPT-5.5-mini + Pinecone RAG
+make act1    # GPT-5.4-mini + Pinecone RAG
 make act2    # DeepSeek-V4-Pro + Pinecone
 make act3    # Adversarial simulation
 make act4    # Actuation — file Jira tickets for compliance gaps
@@ -161,7 +161,7 @@ sentinel_agent/
 │       ├── heatmap.py         # Rich console heatmap + summary
 │       └── register.py        # CSV/JSON/metrics output
 ├── demo/
-│   ├── act1_prototype.py      # Act 1: GPT-5.5-mini + RAG
+│   ├── act1_prototype.py      # Act 1: GPT-5.4-mini + RAG
 │   ├── act2_production.py     # Act 2: DeepSeek-V4-Pro
 │   ├── act3_simulation.py     # Act 3: Adversarial
 │   └── act4_actuation.py      # Act 4: Jira ticket creation
@@ -274,7 +274,7 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 | Operation | Model                                             | Tokens | Cost | Latency |
 |-----------|---------------------------------------------------|--------|------|---------|
 | Full audit (Act 2) | Nebius DeepSeek-V4-Pro ($1.75/$3.50 per M tokens) | ~47M | ~$85 | ~4h     |
-| Full audit (Act 1) | GPT-5.5-mini ($1.25/$5 per M tokens)                   | ~25M | ~$40 | ~28m    |
+| Full audit (Act 1) | GPT-5.4-mini ($0.40/$1.60 per M tokens)                | ~25M | ~$14 | ~28m    |
 | Act 3 simulation | DeepSeek-V4-Pro                                   | <1M | ~$0.01 | <1m     |
 | Act 4 actuation (2 cases) | DeepSeek-V4-Pro + Jira REST API          | <5K | ~$0.01 | <10s    |
 | SOP ingestion | Qwen3-Embedding-8B                                | ~2M | ~$0.02 | ~5m     |

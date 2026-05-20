@@ -20,7 +20,7 @@ MATRIX_PATH = Path("data/compliance_matrix.json")
 REVISED_MATRIX_PATH = Path("data/compliance_matrix_revised.json")
 
 PRICING = {
-    "gpt-5.5-mini": {"input": 1.25, "output": 5.00},
+    "gpt-5.4-mini": {"input": 0.40, "output": 1.60},
     "deepseek-ai/DeepSeek-V4-Pro": {"input": 1.75, "output": 3.50},
 }
 

@@ -21,8 +21,8 @@ class TestFormatUsage:
         assert "$5.2500" in result  # 1M * $1.75 + 1M * $3.50
 
     def test_openai_pricing(self):
-        result = self._format(1_000_000, 1_000_000, "gpt-5.5-mini")
-        assert "$6.2500" in result  # 1M * $1.25 + 1M * $5.00
+        result = self._format(1_000_000, 1_000_000, "gpt-5.4-mini")
+        assert "$2.0000" in result  # 1M * $0.40 + 1M * $1.60
 
     def test_unknown_model_uses_default(self):
         result = self._format(1_000_000, 1_000_000, "unknown-model")

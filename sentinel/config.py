@@ -17,7 +17,7 @@ MODEL_MAX_TOKENS = 16_000
 MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "10"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-5.5-mini"
+OPENAI_MODEL = "gpt-5.4-mini"
 
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", "")
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "sentinel-sops")
@@ -43,7 +43,7 @@ EMBEDDING_DIMENSION = 4096
 
 PRICING = {
     "deepseek-ai/DeepSeek-V4-Pro": {"input": 1.75, "output": 3.50},
-    "gpt-5.5-mini": {"input": 1.25, "output": 5.00},
+    "gpt-5.4-mini": {"input": 0.40, "output": 1.60},
 }
 
 SOP_BUSINESS_UNITS = [
