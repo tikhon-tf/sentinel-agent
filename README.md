@@ -37,13 +37,14 @@ User Query
 **Observability:** LangSmith tracing with cost tracking + [LangSmith MCP](https://docs.langchain.com/langsmith/langsmith-remote-mcp) integration
 **Deployment:** LangGraph Cloud + Streamlit UI
 
-## Three-Act Demo
+## Four-Act Demo
 
 | Act | Description | Model | Command |
 |-----|-------------|-------|---------|
 | **Act 1** | Agentic RAG prototype — same sub-agent architecture, shows baseline | GPT-5.5 | `make act1` |
 | **Act 2** | Production stack — DeepSeek on Nebius with full retrieval | DeepSeek-V4-Pro | `make act2` |
 | **Act 3** | Snowglobe adversarial simulation — red-teams the auditor | DeepSeek-V4-Pro | `make act3` |
+| **Act 4** | Actuation — files a Jira ticket when a compliance gap is confirmed | DeepSeek-V4-Pro | `make act4` |
 
 ## Quickstart
 
@@ -79,8 +80,11 @@ make ingest-regulations   # Regulation texts into Pinecone (namespace: regulatio
 make act1    # GPT-5.5 + Pinecone RAG
 make act2    # DeepSeek-V4-Pro + Pinecone
 make act3    # Adversarial simulation
-make demo    # All three acts sequentially
+make act4    # Actuation — file Jira tickets for compliance gaps
+make demo    # All four acts sequentially
 ```
+
+Act 4 requires a Jira sandbox to file tickets into. Create an Atlassian API token at id.atlassian.com, then set `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, and `JIRA_PROJECT_KEY` in `.env`. See the Environment Variables table below.
 
 ### Test
 
@@ -144,13 +148,16 @@ sentinel_agent/
 │   │   └── ingest_regulations.py  # Regulation text -> Pinecone ingestion
 │   ├── simulation/
 │   │   └── snowglobe.py       # Adversarial scenarios (Act 3)
+│   ├── actuation/
+│   │   └── jira_client.py     # Jira Cloud REST client (Act 4)
 │   └── output/
 │       ├── heatmap.py         # Rich console heatmap + summary
 │       └── register.py        # CSV/JSON/metrics output
 ├── demo/
 │   ├── act1_prototype.py      # Act 1: GPT-5.5 + RAG
 │   ├── act2_production.py     # Act 2: DeepSeek-V4-Pro
-│   └── act3_simulation.py     # Act 3: Adversarial
+│   ├── act3_simulation.py     # Act 3: Adversarial
+│   └── act4_actuation.py      # Act 4: Jira ticket creation
 ├── ui/
 │   └── app.py                 # Streamlit chat UI with streaming + cost tracking
 ├── scripts/
@@ -249,6 +256,10 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 | `TAVILY_API_KEY` | Optional | Live regulation grounding |
 | `LANGSMITH_API_KEY` | Optional | LangSmith tracing + cloud auth |
 | `SNOWGLOBE_API_KEY` | Optional | Adversarial simulation (Act 3) |
+| `JIRA_BASE_URL` | For Act 4 | Atlassian site URL (e.g. `https://your-org.atlassian.net`) |
+| `JIRA_EMAIL` | For Act 4 | Atlassian account email tied to the API token |
+| `JIRA_API_TOKEN` | For Act 4 | API token from id.atlassian.com |
+| `JIRA_PROJECT_KEY` | For Act 4 | Target Jira project key (e.g. `SENT`) |
 | `LANGGRAPH_URL` | Optional | Override UI backend URL |
 
 ## Cost

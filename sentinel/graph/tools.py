@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 
 from langchain_core.tools import tool
@@ -503,6 +504,135 @@ def audit_all_sops() -> str:
     return _audit_all_sops_impl(audit_single_sop)
 
 
+def _slug(text: str) -> str:
+    """Lowercase, alphanumeric-and-dashes slug for Jira labels."""
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def _render_ticket_description(
+    *,
+    sop_id: str,
+    clause_id: str,
+    clause_title: str,
+    regulation: str,
+    severity: str,
+    gap_description: str,
+    remediation: str,
+    evidence_quote: str,
+    reasoning: str,
+) -> str:
+    """Render a plain-text Jira description with section headers. ADF wrapping happens in the client."""
+    parts: list[str] = []
+    parts.append(f"SOP: {sop_id}")
+    parts.append(f"Regulation: {regulation}")
+    parts.append(f"Clause: {clause_id} — {clause_title}")
+    parts.append(f"Severity: {severity}")
+    if evidence_quote:
+        parts.append(f"Evidence:\n  \"{evidence_quote.strip()}\"")
+    parts.append(f"Gap:\n  {gap_description}")
+    if remediation:
+        parts.append(f"Recommended remediation:\n  {remediation}")
+    if reasoning:
+        parts.append(f"Reasoning:\n  {reasoning}")
+    parts.append("Filed automatically by the Sentinel compliance agent.")
+    return "\n\n".join(parts)
+
+
+@tool
+def create_jira_ticket(
+    sop_id: str,
+    clause_id: str,
+    clause_title: str,
+    regulation: str,
+    severity: str,
+    gap_description: str,
+    remediation: str = "",
+    evidence_quote: str = "",
+    reasoning: str = "",
+) -> str:
+    """Create a Jira ticket for a confirmed compliance gap in the project configured via JIRA_PROJECT_KEY.
+
+    Call this when an audit finding has compliance_level 'gap' or 'partial' AND severity is medium or higher,
+    so a human assignee can act on it. One call creates one ticket. Returns the issue key and URL on success.
+
+    Args:
+        sop_id: SOP identifier (e.g. 'SOP-ISEC-002')
+        clause_id: regulatory clause identifier (e.g. 'HIPAA-164.312(a)', 'CC6.1')
+        clause_title: short title of the clause (e.g. 'Access Control')
+        regulation: regulation name (e.g. 'HIPAA', 'SOC 2', 'GDPR')
+        severity: one of 'critical', 'high', 'medium', 'low', 'info'
+        gap_description: what is missing or insufficient in the SOP
+        remediation: recommended remediation (optional)
+        evidence_quote: exact quote from the SOP (optional)
+        reasoning: 2-3 sentence rationale citing the regulation (optional)
+    """
+    from sentinel.actuation.jira_client import JiraClient, SEVERITY_TO_PRIORITY
+    from sentinel.config import (
+        JIRA_API_TOKEN,
+        JIRA_BASE_URL,
+        JIRA_DEFAULT_ISSUE_TYPE,
+        JIRA_EMAIL,
+        JIRA_PROJECT_KEY,
+    )
+
+    missing = [
+        name for name, val in [
+            ("JIRA_BASE_URL", JIRA_BASE_URL),
+            ("JIRA_EMAIL", JIRA_EMAIL),
+            ("JIRA_API_TOKEN", JIRA_API_TOKEN),
+            ("JIRA_PROJECT_KEY", JIRA_PROJECT_KEY),
+        ] if not val
+    ]
+    if missing:
+        return f"Jira not configured — set {', '.join(missing)} in the environment"
+
+    sev = (severity or "").strip().lower()
+    if sev not in SEVERITY_TO_PRIORITY:
+        sev = "medium"
+
+    summary = f"[{sev.upper()}] {clause_id}: {clause_title} ({sop_id})"
+    labels = sorted({
+        "sentinel",
+        "compliance-finding",
+        f"sev-{sev}",
+        _slug(regulation) or "regulation",
+        _slug(sop_id) or "sop",
+    })
+    description = _render_ticket_description(
+        sop_id=sop_id,
+        clause_id=clause_id,
+        clause_title=clause_title,
+        regulation=regulation,
+        severity=sev,
+        gap_description=gap_description,
+        remediation=remediation,
+        evidence_quote=evidence_quote,
+        reasoning=reasoning,
+    )
+
+    try:
+        client = JiraClient(
+            base_url=JIRA_BASE_URL,
+            email=JIRA_EMAIL,
+            api_token=JIRA_API_TOKEN,
+            project_key=JIRA_PROJECT_KEY,
+            issue_type=JIRA_DEFAULT_ISSUE_TYPE,
+        )
+        try:
+            issue = client.create_issue(
+                summary=summary,
+                description=description,
+                labels=labels,
+                priority=SEVERITY_TO_PRIORITY[sev],
+            )
+        finally:
+            client.close()
+        return f"Filed Jira ticket {issue['key']} at {issue['url']}"
+    except Exception as e:
+        logger.exception("create_jira_ticket failed")
+        return f"Jira ticket creation failed: {e}"
+
+
 def build_tools(provider: str = "nebius", use_tavily: bool = True) -> list:
     """Build the complete tool list for the agent, parameterized by provider and Tavily usage."""
 
@@ -526,4 +656,11 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True) -> list:
     _audit_single_sop.name = "audit_single_sop"
     _audit_all_sops.name = "audit_all_sops"
 
-    return [list_sops, list_regulations, retrieve_regulation_text_tool, _audit_single_sop, _audit_all_sops]
+    return [
+        list_sops,
+        list_regulations,
+        retrieve_regulation_text_tool,
+        _audit_single_sop,
+        _audit_all_sops,
+        create_jira_ticket,
+    ]

@@ -1,6 +1,6 @@
 PYTHON = .venv/bin/python
 
-.PHONY: install ingest act1 act2 act3 demo all dev up build deploy ui test
+.PHONY: install ingest act1 act2 act3 act4 demo all dev up build deploy ui test
 
 install:
 	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag,ui]"
@@ -20,11 +20,14 @@ act2:
 act3:
 	$(PYTHON) -m demo.act3_simulation
 
-# Full demo sequence
-demo: act1 act2 act3
+act4:
+	$(PYTHON) -m demo.act4_actuation
 
-# Full pipeline: ingest SOPs, then run all three acts
-all: ingest act1 act2 act3
+# Full demo sequence
+demo: act1 act2 act3 act4
+
+# Full pipeline: ingest SOPs, then run all four acts
+all: ingest act1 act2 act3 act4
 
 # LangGraph deployment
 dev:
