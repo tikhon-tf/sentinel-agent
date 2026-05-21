@@ -61,6 +61,23 @@ class JiraClient:
         key = data["key"]
         return {"key": key, "url": f"{self._site}/browse/{key}"}
 
+    def list_issues(
+        self,
+        *,
+        jql: str,
+        fields: list[str] | None = None,
+        max_results: int = 100,
+    ) -> list[dict[str, Any]]:
+        """POST /rest/api/3/search/jql. Returns the `issues` array (truncated at max_results)."""
+        body: dict[str, Any] = {
+            "jql": jql,
+            "fields": fields or ["summary", "status", "priority", "labels", "created", "updated"],
+            "maxResults": max_results,
+        }
+        resp = self._http.post(f"{self._site}/rest/api/3/search/jql", json=body)
+        resp.raise_for_status()
+        return resp.json().get("issues", [])
+
     def close(self) -> None:
         self._http.close()
 

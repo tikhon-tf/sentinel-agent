@@ -1,0 +1,516 @@
+// Forge-styled Audit screen — composer + Jira-sourced findings register
+
+const AUDIT_AGENTS = [
+  { key: "sentinel_act0",     label: "Naive RAG",         sublabel: "DeepSeek-V4-Pro" },
+  { key: "sentinel_act1",     label: "OpenAI agent",      sublabel: "GPT-5.5 · no web" },
+  { key: "sentinel_act1_alt", label: "OpenAI + Tavily",   sublabel: "GPT-5.5 · web" },
+  { key: "sentinel",          label: "Nebius + Tavily",   sublabel: "DeepSeek-V4-Pro · web" },
+];
+
+const AUDIT_TEMPLATES = [
+  "Audit Meridian Health Technologies against HIPAA Security Rule and SOC 2 Trust Services Criteria. For each finding, report compliance level, the exact criterion violated, an evidence quote, recommended remediation, and severity.",
+  "Audit SOP-ISEC-008 against HIPAA §164.312 — focus on encryption mechanism, key lifecycle, and HSM use.",
+  "List all regulations available in the knowledge base.",
+  "Audit all SOPs tagged with GDPR. For every gap finding at medium+ severity, create a Jira ticket.",
+  "Show GDPR gaps only across SOP-DGP-*, with evidence quotes from each SOP.",
+];
+
+const AuditScreen = () => {
+  const data = window.SENTINEL_DATA || {};
+  const kb = data.kbStats || { sop_count: 200, regulation_count: 9, regulations: [] };
+  const findingsResp = data.findings || { issues: [], jira_configured: false };
+  const findings = findingsResp.issues || [];
+
+  // composer state
+  const [draft, setDraft] = React.useState("");
+  const [activeTemplate, setActiveTemplate] = React.useState(null);
+  const [selectedAgent, setSelectedAgent] = React.useState("sentinel");
+  const [audit, setAudit] = React.useState({
+    status: "idle",        // idle | running | done | error
+    tokens: [],            // streamed text chunks
+    toolCalls: [],         // {name, args, result?, t}
+    inputTokens: 0,
+    outputTokens: 0,
+    error: null,
+    startedAt: null,
+    endedAt: null,
+  });
+  const streamRef = React.useRef(null);
+
+  const sopCount = kb.sop_count ?? 200;
+  const regCount = kb.regulation_count ?? 9;
+  const regList  = (kb.regulations || []).join(", ") || "HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, SB 53/942, AB 853";
+
+  const sendAudit = (text) => {
+    if (!text || audit.status === "running") return;
+    const ctrl = new AbortController();
+    streamRef.current = ctrl;
+    setAudit({
+      status: "running", tokens: [], toolCalls: [],
+      inputTokens: 0, outputTokens: 0, error: null,
+      startedAt: Date.now(), endedAt: null,
+    });
+    window.ForgeAPI.streamAudit(text, selectedAgent, {
+      signal: ctrl.signal,
+      onEvent: (ev) => {
+        setAudit(prev => {
+          if (ev.type === "token") {
+            return { ...prev, tokens: [...prev.tokens, ev.text] };
+          }
+          if (ev.type === "tool_call") {
+            return { ...prev, toolCalls: [...prev.toolCalls, { name: ev.name, args: ev.args, t: Date.now() }] };
+          }
+          if (ev.type === "tool_result") {
+            const tc = [...prev.toolCalls];
+            for (let i = tc.length - 1; i >= 0; i--) {
+              if (!tc[i].result) { tc[i] = { ...tc[i], result: ev.text }; break; }
+            }
+            return { ...prev, toolCalls: tc };
+          }
+          if (ev.type === "usage") {
+            return { ...prev, inputTokens: ev.input_tokens, outputTokens: ev.output_tokens };
+          }
+          if (ev.type === "error") {
+            return { ...prev, error: ev.error, status: "error" };
+          }
+          return prev;
+        });
+      },
+      onDone:  () => setAudit(prev => ({ ...prev, status: prev.status === "error" ? "error" : "done", endedAt: Date.now() })),
+      onError: (err) => setAudit(prev => ({ ...prev, error: err.message, status: "error", endedAt: Date.now() })),
+    });
+  };
+
+  // Keep the elapsed counter ticking even when no SSE event has arrived
+  // (slow tool call, model warm-up). Cleared as soon as status leaves "running".
+  const [, setTick] = React.useState(0);
+  React.useEffect(() => {
+    if (audit.status !== "running") return;
+    const id = setInterval(() => setTick(t => t + 1), 200);
+    return () => clearInterval(id);
+  }, [audit.status]);
+
+  const elapsedSec = audit.startedAt
+    ? ((audit.endedAt || Date.now()) - audit.startedAt) / 1000
+    : 0;
+  const responseText = audit.tokens.join("");
+
+  return (
+    <div style={{ padding: "28px 32px", display: "flex", flexDirection: "column", gap: 28 }}>
+
+      {/* ─── HERO SLAB ─── */}
+      <Slab padding={36}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.05fr", gap: 40, alignItems: "center" }}>
+          {/* Left: kicker + title + body */}
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
+              <span className="f-kicker" style={{ color: "var(--forge-on-dark-mute)" }}>Live audit</span>
+              <OutlinePill size="s">Powered by {(AUDIT_AGENTS.find(a => a.key === selectedAgent) || {}).sublabel || "—"}</OutlinePill>
+            </div>
+            <h1 style={{
+              margin: 0, font: "700 64px/1.02 var(--forge-font)",
+              letterSpacing: "-0.025em", color: "var(--forge-on-dark-strong)"
+            }}>Sentinel<br />Audit Engine</h1>
+            <p style={{
+              margin: "22px 0 0", font: "400 16px/24px var(--forge-font)",
+              color: "var(--forge-on-dark-mute)", maxWidth: 480
+            }}>
+              Auditing <strong style={{ color: "var(--forge-on-dark)" }}>{sopCount} SOPs</strong> from{" "}
+              <strong style={{ color: "var(--forge-on-dark)" }}>Meridian Health Tech</strong> against {regCount} regulation frameworks.
+              ReAct sub-agent fan-out, region-pinned on Nebius GPUs, retrieval grounded in Pinecone.
+            </p>
+          </div>
+
+          {/* Right: 1×2 stat grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <StatCard
+              kicker="SOPs in scope"
+              value={sopCount}
+              body="Across 10 business units of Meridian Health Tech." />
+            <StatCard
+              kicker="Policies in scope"
+              value={regCount}
+              body={regList} />
+          </div>
+        </div>
+      </Slab>
+
+      {/* ─── COMPOSER + LIVE STREAM ─── */}
+      <Slab padding={28}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <span className="f-kicker">ReAct stream</span>
+          {audit.status === "running" && <StatusChip tone="running"><Spinner size={9} color="var(--forge-lime)" /> Running</StatusChip>}
+          {audit.status === "done"    && <StatusChip tone="warm"><Icon name="check" size={9} color="var(--forge-mint-warm)" stroke={3}/> Done</StatusChip>}
+          {audit.status === "error"   && <StatusChip tone="danger">Error</StatusChip>}
+          {audit.status === "idle"    && <StatusChip tone="cold">Idle</StatusChip>}
+        </div>
+        <h2 style={{ margin: "0 0 24px", font: "700 28px/1.1 var(--forge-font)", letterSpacing: "-0.015em", color: "var(--forge-on-dark-strong)" }}>Ask the audit agent</h2>
+
+        {/* Composer */}
+        <div style={{
+          marginBottom: 18,
+          border: "1px solid var(--forge-border-dark)",
+          borderRadius: 14,
+          background: "var(--forge-ink-2)",
+          overflow: "hidden"
+        }}>
+          <div style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(212,250,80,0.12)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <Icon name="search" size={13} color="var(--forge-lime)" />
+            </div>
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => { setDraft(e.target.value); setActiveTemplate(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && draft.trim()) sendAudit(draft.trim()); }}
+              placeholder="Ask the auditor — e.g. ‘Audit SOP-ISEC-008 against HIPAA §164.312’"
+              disabled={audit.status === "running"}
+              style={{
+                flex: 1, border: 0, outline: "none",
+                background: "transparent",
+                font: "400 15px/22px var(--forge-font)",
+                color: "var(--forge-on-dark)",
+                letterSpacing: "-0.005em",
+                opacity: audit.status === "running" ? 0.6 : 1,
+              }} />
+            <Btn
+              variant="lime"
+              size="m"
+              onClick={() => sendAudit(draft.trim())}
+              disabled={!draft.trim() || audit.status === "running"}
+              icon={<Icon name="send" size={12} color="var(--forge-ink)" stroke={2.5} />}>
+              Send
+            </Btn>
+          </div>
+
+          {/* Agent picker */}
+          <div style={{
+            padding: "12px 18px",
+            borderTop: "1px solid var(--forge-border-dark)",
+            background: "rgba(0,0,0,0.08)",
+            display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap"
+          }}>
+            <span className="f-kicker" style={{ color: "var(--forge-on-dark-faint)" }}>Agent</span>
+            {AUDIT_AGENTS.map(a => (
+              <TemplateChip
+                key={a.key}
+                selected={selectedAgent === a.key}
+                onClick={() => audit.status !== "running" && setSelectedAgent(a.key)}>
+                {a.label}
+              </TemplateChip>
+            ))}
+          </div>
+
+          {/* Templates */}
+          <div style={{
+            padding: "14px 18px",
+            borderTop: "1px solid var(--forge-border-dark)",
+            background: "rgba(0,0,0,0.15)",
+            display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap"
+          }}>
+            <span className="f-kicker" style={{ color: "var(--forge-on-dark-faint)" }}>Quick prompts</span>
+            {AUDIT_TEMPLATES.map((tpl, i) => {
+              const labels = ["Full HIPAA + SOC 2 audit", "Audit SOP-ISEC-008", "List regulations", "Audit GDPR + file Jira tickets", "Show GDPR gaps only"];
+              return (
+                <TemplateChip
+                  key={i}
+                  selected={activeTemplate === i}
+                  onClick={() => { setActiveTemplate(i); setDraft(tpl); }}>
+                  {labels[i]}
+                </TemplateChip>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Live stream output */}
+        {audit.status !== "idle" && (
+          <div style={{
+            border: "1px solid var(--forge-border-dark)",
+            borderRadius: 12,
+            background: "var(--forge-ink-2)",
+            overflow: "hidden",
+          }}>
+            {/* Metrics line — outside the scroll pane so it stays visible */}
+            <div style={{
+              padding: "14px 20px",
+              borderBottom: "1px solid var(--forge-border-dark)",
+              display: "flex", gap: 24,
+              font: "500 11px/1 var(--forge-mono)", color: "var(--forge-on-dark-mute)",
+            }}>
+              <span>elapsed <span style={{ color: "var(--forge-on-dark)" }}>{elapsedSec.toFixed(1)}s</span></span>
+              <span>tokens <span style={{ color: "var(--forge-on-dark)" }}>{(audit.inputTokens + audit.outputTokens).toLocaleString()}</span> ({audit.inputTokens.toLocaleString()} in / {audit.outputTokens.toLocaleString()} out)</span>
+              <span>tools <span style={{ color: "var(--forge-on-dark)" }}>{audit.toolCalls.length}</span></span>
+            </div>
+
+            <StreamPane status={audit.status} maxHeight={520} padding="16px 20px">
+              {audit.toolCalls.map((tc, i) => (
+                <ToolCard key={i} done={Boolean(tc.result)} name={tc.name} arg={summarizeArgs(tc.args)} result={tc.result ? truncate(tc.result, 240) : null} />
+              ))}
+
+              {responseText && (
+                <div style={{
+                  marginTop: 14, padding: "14px 16px", borderRadius: 12,
+                  background: audit.status === "done" ? "rgba(212,250,80,0.05)" : "rgba(255,255,255,0.03)",
+                  border: audit.status === "done"
+                    ? "1px solid rgba(212,250,80,0.18)"
+                    : "1px solid var(--forge-border-dark)",
+                  font: "400 13.5px/21px var(--forge-font)", color: "var(--forge-on-dark)", whiteSpace: "pre-wrap"
+                }}>{responseText}</div>
+              )}
+
+              {audit.error && (
+                <div style={{ marginTop: 14, color: "var(--forge-red)", font: "500 12px/18px var(--forge-mono)" }}>
+                  {audit.error}
+                </div>
+              )}
+            </StreamPane>
+          </div>
+        )}
+      </Slab>
+
+      {/* ─── FINDINGS TABLE — Jira-sourced ─── */}
+      <div style={{ paddingTop: 16 }}>
+        <SectionTitle kicker={
+          findingsResp.jira_configured
+            ? `Jira · ${findings.length} ticket${findings.length === 1 ? "" : "s"} with label "sentinel"`
+            : "Jira not configured — set JIRA_BASE_URL / JIRA_EMAIL / JIRA_API_TOKEN"
+        }
+        action={
+          findingsResp.register_url && (
+            <Btn
+              variant="ink"
+              size="m"
+              onClick={() => window.open(findingsResp.register_url, "_blank", "noopener,noreferrer")}
+              iconRight={<Icon name="arrowUR" size={13} color="#fff" />}>
+              Open full register
+            </Btn>
+          )
+        }>
+          Findings register
+        </SectionTitle>
+
+        <PaperCard>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "rgba(7,26,48,0.03)" }}>
+                <Th>SOP</Th>
+                <Th>Business unit</Th>
+                <Th>Regulation</Th>
+                <Th>Level</Th>
+                <Th>Evidence</Th>
+                <Th align="right">Severity</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {findings.length === 0 && (
+                <tr><Td muted style={{ textAlign: "center", padding: "32px 18px" }} colSpan={6}>
+                  {findingsResp.jira_configured ? "No tickets yet. Run an audit and the agent will file gaps as Jira tickets." : "Configure Jira to populate this table."}
+                </Td></tr>
+              )}
+              {findings.map((f, i) => <FindingRow key={f.key || i} f={f}/>)}
+            </tbody>
+          </table>
+        </PaperCard>
+      </div>
+    </div>);
+
+};
+
+const FindingRow = ({ f }) => {
+  const [hover, setHover] = React.useState(false);
+  const clickable = Boolean(f.url);
+  const open = (e) => {
+    if (!clickable) return;
+    // Cmd/Ctrl/middle-click → new tab; plain click → also new tab to keep the demo running.
+    window.open(f.url, "_blank", "noopener,noreferrer");
+  };
+  return (
+    <tr
+      onClick={open}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={clickable ? `Open ${f.key} in Jira` : ""}
+      style={{
+        borderTop: "1px solid rgba(7,26,48,0.08)",
+        background: hover && clickable ? "rgba(212,250,80,0.10)" : "transparent",
+        cursor: clickable ? "pointer" : "default",
+        transition: "background 90ms ease",
+      }}>
+      <Td>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ font: "600 12.5px/1.3 var(--forge-mono)", color: "var(--forge-on-light)" }}>{f.sop || "—"}</span>
+          {clickable && (
+            <span style={{
+              font: "600 9px/1 var(--forge-mono)",
+              color: hover ? "var(--forge-on-light)" : "var(--forge-on-light-mute)",
+              padding: "2px 6px", borderRadius: 4,
+              border: "1px solid rgba(7,26,48,0.15)",
+              background: "rgba(7,26,48,0.04)",
+              letterSpacing: "0.04em",
+            }}>{f.key}</span>
+          )}
+          <span style={{ opacity: clickable ? (hover ? 1 : 0.35) : 0, transition: "opacity 90ms" }}>
+            <Icon name="arrowUR" size={11} color="var(--forge-on-light-mute)" />
+          </span>
+        </div>
+        <div style={{ font: "400 11.5px/15px var(--forge-font)", color: "var(--forge-on-light-mute)", marginTop: 2 }}>{f.title}</div>
+      </Td>
+      <Td muted>{f.unit || "—"}</Td>
+      <Td><span style={{ font: "500 12px/16px var(--forge-mono)", color: "var(--forge-on-light)" }}>{f.reg}</span></Td>
+      <Td><LevelChip level={f.level} /></Td>
+      <Td muted style={{ maxWidth: 360 }}>{f.evidence}</Td>
+      <Td align="right">
+        {f.severity === "high" && <SeverityChip tone="danger">High</SeverityChip>}
+        {f.severity === "med"  && <SeverityChip tone="partial">Medium</SeverityChip>}
+        {f.severity === "low"  && <SeverityChip tone="partial">Low</SeverityChip>}
+      </Td>
+    </tr>
+  );
+};
+
+const summarizeArgs = (args) => {
+  if (!args || typeof args !== "object") return "";
+  const entries = Object.entries(args);
+  if (entries.length === 0) return "{}";
+  return entries.map(([k, v]) => `${k}: ${truncate(JSON.stringify(v), 60)}`).join(", ");
+};
+const truncate = (s, n) => (s.length > n ? s.slice(0, n) + "…" : s);
+
+// ──── helpers ────
+
+const TemplateChip = ({ children, selected, onClick }) =>
+<button onClick={onClick} style={{
+  display: "inline-flex", alignItems: "center", gap: 6,
+  padding: "6px 12px", borderRadius: 999,
+  background: selected ? "var(--forge-lime)" : "transparent",
+  color: selected ? "var(--forge-ink)" : "var(--forge-cyan)",
+  border: `1px solid ${selected ? "var(--forge-lime)" : "var(--forge-cyan-deep)"}`,
+  font: "600 11px/1 var(--forge-font)",
+  letterSpacing: "0.06em",
+  cursor: "pointer", whiteSpace: "nowrap"
+}}>{children}</button>;
+
+
+const ToolCard = ({ done, name, arg, duration, result }) =>
+<Panel padding={18} style={{ marginTop: 14 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {done ?
+    <Icon name="check" size={14} color="var(--forge-mint-warm)" stroke={2.5} /> :
+    <Spinner size={12} />}
+      <span style={{ font: "700 13px/1 var(--forge-mono)", color: "var(--forge-on-dark-strong)" }}>{name}</span>
+      <span style={{ font: "400 12px/1 var(--forge-mono)", color: "var(--forge-on-dark-mute)" }}>{arg}</span>
+      <div style={{ flex: 1 }} />
+      <span style={{ font: "500 11px/1 var(--forge-mono)", color: "var(--forge-on-dark-faint)" }}>{duration}</span>
+    </div>
+    {result &&
+  <div style={{ marginTop: 10, paddingLeft: 24, font: "400 12px/18px var(--forge-mono)", color: "var(--forge-on-dark-mute)" }}>
+        → {result}
+      </div>
+  }
+  </Panel>;
+
+
+const SubReturn = ({ sop, reg, level, note }) => {
+  const tone = { compliant: "var(--forge-mint-warm)", partial: "var(--forge-amber)", gap: "var(--forge-red)" }[level];
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "10px 12px", borderRadius: 10,
+      background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,255,255,0.06)"
+    }}>
+      <span style={{ width: 8, height: 8, borderRadius: 2, background: tone }} />
+      <div style={{ font: "600 12px/1.3 var(--forge-mono)", color: "var(--forge-on-dark-strong)", minWidth: 92 }}>{sop}</div>
+      <div style={{ font: "500 11px/1.3 var(--forge-mono)", color: "var(--forge-on-dark-mute)", minWidth: 116 }}>{reg}</div>
+      <div style={{ font: "400 11px/14px var(--forge-font)", color: "var(--forge-on-dark-mute)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{note}</div>
+    </div>);
+
+};
+
+const HeatDot = ({ status }) => {
+  const map = {
+    compliant: "var(--forge-mint-warm)",
+    partial: "var(--forge-amber)",
+    gap: "var(--forge-red)",
+    running: "var(--forge-lime)",
+    pending: "rgba(255,255,255,0.10)"
+  };
+  return (
+    <div style={{
+      width: "100%", aspectRatio: "1 / 1", borderRadius: 3,
+      background: map[status] || map.pending,
+      boxShadow: status === "running" ? "0 0 0 2px rgba(212,250,80,0.30)" : "none"
+    }} />);
+
+};
+
+const CountChip = ({ label, value, dot }) =>
+<div style={{
+  display: "flex", flexDirection: "column", gap: 8,
+  padding: "12px 14px", borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.02)"
+}}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ width: 8, height: 8, borderRadius: 2, background: dot }} />
+      <span className="f-kicker" style={{ color: "var(--forge-on-dark-mute)", letterSpacing: "0.12em" }}>{label}</span>
+    </div>
+    <div style={{ font: "800 28px/1 var(--forge-font)", color: "var(--forge-on-dark-strong)", letterSpacing: "-0.02em" }}>{value}</div>
+  </div>;
+
+
+const Th = ({ children, align }) =>
+<th style={{
+  font: "600 11px/1 var(--forge-font)", letterSpacing: "0.12em", textTransform: "uppercase",
+  color: "var(--forge-on-light-mute)", padding: "14px 18px",
+  textAlign: align || "left", whiteSpace: "nowrap"
+}}>{children}</th>;
+
+const Td = ({ children, muted, align, style }) =>
+<td style={{
+  padding: "14px 18px",
+  font: "400 13px/19px var(--forge-font)",
+  color: muted ? "var(--forge-on-light-mute)" : "var(--forge-on-light)",
+  textAlign: align || "left",
+  verticalAlign: "top", ...style
+}}>{children}</td>;
+
+
+const LevelChip = ({ level }) => {
+  const styles = {
+    compliant: { color: "rgb(0,100,40)", bg: "var(--forge-mint-bg)", border: "rgba(0,140,70,0.30)", label: "Compliant" },
+    partial: { color: "rgb(132,85,0)", bg: "var(--forge-amber-bg)", border: "rgba(180,130,0,0.30)", label: "Partial" },
+    gap: { color: "rgb(160,0,40)", bg: "var(--forge-rose-bg)", border: "rgba(207,0,43,0.30)", label: "Gap" }
+  }[level];
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "4px 10px", borderRadius: 999,
+      background: styles.bg, color: styles.color,
+      border: `1px solid ${styles.border}`,
+      font: "600 11px/16px var(--forge-font)", letterSpacing: "0.04em",
+      whiteSpace: "nowrap"
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: 2, background: styles.color, opacity: 0.85 }} />
+      {styles.label}
+    </span>);
+
+};
+
+const SeverityChip = ({ tone, children }) => {
+  const styles = {
+    danger: { color: "rgb(160,0,40)", border: "rgba(207,0,43,0.40)" },
+    partial: { color: "rgb(132,85,0)", border: "rgba(180,130,0,0.40)" }
+  }[tone];
+  return (
+    <span style={{
+      display: "inline-flex", padding: "3px 10px", borderRadius: 999,
+      border: `1px solid ${styles.border}`, color: styles.color,
+      font: "700 10px/16px var(--forge-font)", letterSpacing: "0.10em",
+      textTransform: "uppercase", whiteSpace: "nowrap"
+    }}>{children}</span>);
+
+};
+
+Object.assign(window, { AuditScreen });
