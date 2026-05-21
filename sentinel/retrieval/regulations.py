@@ -114,7 +114,17 @@ def _normalize_regulation_names(raw_names: list[str]) -> list[str]:
 
 
 def format_regulation_context(chunks: list[dict], max_chars: int = 12000) -> str:
-    """Format retrieved regulation chunks into a text block for the LLM prompt."""
+    """Format retrieved regulation chunks into a text block for the LLM prompt.
+
+    Section headers (e.g. ``### HIPAA``) are only emitted for regulations that
+    actually contribute at least one non-empty content chunk to the rendered
+    block. Emitting a bare header when no excerpt text follows previously
+    misled the LLM into treating header presence as evidence that the
+    regulation exists in the knowledge base (and, in the empty-excerpt case,
+    that it is the *only* regulation available). See issue:
+    "sentinel_act0 hallucinates 'HIPAA is the only regulation available'
+    from empty excerpts".
+    """
     if not chunks:
         return ""
 
@@ -123,18 +133,33 @@ def format_regulation_context(chunks: list[dict], max_chars: int = 12000) -> str
         reg = chunk.get("regulation", "Unknown")
         by_regulation.setdefault(reg, []).append(chunk)
 
-    parts = []
+    parts: list[str] = []
     total = 0
     for reg, reg_chunks in sorted(by_regulation.items()):
-        parts.append(f"\n### {reg}\n")
-        total += len(parts[-1])
+        header_str = f"\n### {reg}\n"
+        block_parts: list[str] = []
+        block_total = 0
         for chunk in reg_chunks:
-            section = chunk.get("section", "")
             text = chunk.get("text", "")
-            if total + len(text) > max_chars:
+            if not text or not text.strip():
+                # Skip empty/whitespace-only chunks — they contribute no
+                # content and would otherwise leave only the header behind.
+                continue
+            if total + len(header_str) + block_total + len(text) > max_chars:
                 break
-            header = f"**{section}**\n" if section else ""
-            parts.append(f"{header}{text}\n")
-            total += len(text)
+            section = chunk.get("section", "")
+            section_header = f"**{section}**\n" if section else ""
+            block_parts.append(f"{section_header}{text}\n")
+            block_total += len(section_header) + len(text)
+
+        if not block_parts:
+            # No content lines under this regulation — drop the entire
+            # block (including the ``### <Regulation>`` header) so the
+            # model doesn't read header presence as KB inventory.
+            continue
+
+        parts.append(header_str)
+        parts.extend(block_parts)
+        total += len(header_str) + block_total
 
     return "\n".join(parts)

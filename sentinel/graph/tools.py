@@ -202,6 +202,7 @@ Audit the SOP against ALL applicable regulations. You must determine which regul
 - Be specific: cite exact regulatory sections
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
+- When retrieved excerpts are insufficient or empty, do not invent details. The section headers (e.g. `### HIPAA`) in the retrieved excerpts indicate which regulation a chunk belongs to, not the full inventory of regulations in the knowledge base. Never state that a regulation is the only one available, or that other regulations are not present, unless the excerpts explicitly enumerate the knowledge base contents.
 
 ## CRITICAL: Output Format
 Your FINAL message MUST contain a JSON array (and nothing else) where each element has these exact fields:
