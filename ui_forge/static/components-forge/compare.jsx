@@ -18,6 +18,7 @@ const blankAgentState = (key) => ({
   toolCalls: [],
   answer: "",
   error: null,
+  traceUrl: null,
 });
 
 const pickQuestion = (dataset) => {
@@ -72,6 +73,9 @@ const CompareScreen = () => {
         setAgents(prev => {
           const a = prev[key];
           if (!a) return prev;
+          if (ev.type === "run_started") {
+            return { ...prev, [key]: { ...a, traceUrl: ev.trace_url } };
+          }
           if (ev.type === "token") {
             return { ...prev, [key]: { ...a, answer: a.answer + ev.text } };
           }
@@ -158,6 +162,7 @@ const CompareScreen = () => {
       gtMatch,
       hasGT: Boolean(expectedLevel),
       error: a.error,
+      traceUrl: a.traceUrl,
     };
   });
 
@@ -345,13 +350,28 @@ const AgentSlab = ({ agent: a }) => {
 
       {/* Meter row */}
       <div style={{
-        display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+        display: "flex", alignItems: "center", gap: 12,
         padding: "16px 24px", borderBottom: "1px solid var(--forge-border-dark)",
         background: "rgba(255,255,255,0.02)",
       }}>
-        <Meter label="elapsed" value={`${a.elapsed.toFixed(1)}s`} live={a.status === "running"}/>
-        <Meter label="tokens"  value={`${((a.tokens.in + a.tokens.out) / 1000).toFixed(1)}k`}/>
-        <Meter label="cost"    value={`$${a.cost.toFixed(4)}`} accent/>
+        <div style={{ flex: 1 }}><Meter label="elapsed" value={`${a.elapsed.toFixed(1)}s`} live={a.status === "running"}/></div>
+        <div style={{ flex: 1 }}><Meter label="tokens"  value={`${((a.tokens.in + a.tokens.out) / 1000).toFixed(1)}k`}/></div>
+        <div style={{ flex: 1 }}><Meter label="cost"    value={`$${a.cost.toFixed(4)}`} accent/></div>
+        {a.traceUrl && (
+          <a href={a.traceUrl} target="_blank" rel="noopener noreferrer"
+             style={{
+               display: "inline-flex", alignItems: "center", gap: 6,
+               padding: "5px 11px", borderRadius: 999,
+               border: "1px solid var(--forge-cyan-deep)",
+               color: "var(--forge-cyan)",
+               font: "700 10px/1 var(--forge-font)",
+               letterSpacing: "0.10em", textTransform: "uppercase",
+               textDecoration: "none", whiteSpace: "nowrap",
+             }}>
+            <Icon name="arrowUR" size={10} color="var(--forge-cyan)"/>
+            Trace
+          </a>
+        )}
       </div>
 
       {/* Stream — capped height + scroll so the slab doesn't grow as tokens arrive. */}
