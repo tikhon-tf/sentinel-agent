@@ -22,8 +22,10 @@ DEFAULT_URL = os.environ.get(
 )
 LANGSMITH_API_KEY = os.environ.get("LANGSMITH_API_KEY", "")
 AGENTS = {
-    "Nebius + Nexus + Tavily": {"graph_id": "sentinel", "model": MODEL},
-    "Agent + RAG": {"graph_id": "sentinel_act1", "model": OPENAI_MODEL},
+    "Act 0 — Naive RAG (DeepSeek)": {"graph_id": "sentinel_act0", "model": MODEL},
+    "Act 1 — Agent + RAG (OpenAI)": {"graph_id": "sentinel_act1", "model": OPENAI_MODEL},
+    "Act 1-alt — OpenAI + Tavily (agentic)": {"graph_id": "sentinel_act1_alt", "model": OPENAI_MODEL},
+    "Act 2 — Nebius + Tavily (agentic)": {"graph_id": "sentinel", "model": MODEL},
 }
 
 st.set_page_config(
@@ -285,12 +287,16 @@ def render_sidebar():
         )
 
         st.divider()
-        active_model = _active_agent()["model"]
+        active = _active_agent()
+        active_model = active["model"]
         if active_model == OPENAI_MODEL:
             st.caption("Powered by GPT-5.5 on OpenAI")
         else:
             st.caption("Powered by DeepSeek-V4-Pro on Nebius")
-        st.caption("Orchestrated by deepagents + LangGraph")
+        if active["graph_id"] == "sentinel_act0":
+            st.caption("Naive RAG (single retrieval + single LLM call, no tools)")
+        else:
+            st.caption("Orchestrated by deepagents + LangGraph")
 
 
 def main():
