@@ -12,10 +12,13 @@ REGULATIONS_DIR = DATA_DIR / "regulations"
 
 NEBIUS_API_KEY = os.environ.get("NEBIUS_API_KEY", "")
 NEBIUS_BASE_URL = "https://api.studio.nebius.com/v1/"
-# MODEL = "deepseek-ai/DeepSeek-V4-Pro"
-MODEL = "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd"
+NEBIUS_MODELS = {
+    "v3": "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd",
+    "v4": "deepseek-ai/DeepSeek-V4-Pro",
+}
+MODEL = NEBIUS_MODELS.get(os.environ.get("NEBIUS_MODEL", "v3"), NEBIUS_MODELS["v3"])
 MODEL_MAX_TOKENS = 16_000
-MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "200"))
+MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "50"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = "gpt-5.4-mini"
