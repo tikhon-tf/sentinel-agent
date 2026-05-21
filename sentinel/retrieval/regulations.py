@@ -114,7 +114,15 @@ def _normalize_regulation_names(raw_names: list[str]) -> list[str]:
 
 
 def format_regulation_context(chunks: list[dict], max_chars: int = 12000) -> str:
-    """Format retrieved regulation chunks into a text block for the LLM prompt."""
+    """Format retrieved regulation chunks into a text block for the LLM prompt.
+
+    Returns an empty string when the chunks contain no actual regulation text
+    (only section/regulation headers or separators). This prevents downstream
+    prompts — notably the ``sentinel_act0`` "Retrieved regulation excerpts"
+    template — from being fed a ``### HIPAA``-style header with no content,
+    which the LLM has been observed to hallucinate around (e.g. concluding
+    "HIPAA is the only regulation available").
+    """
     if not chunks:
         return ""
 
@@ -123,7 +131,8 @@ def format_regulation_context(chunks: list[dict], max_chars: int = 12000) -> str
         reg = chunk.get("regulation", "Unknown")
         by_regulation.setdefault(reg, []).append(chunk)
 
-    parts = []
+    parts: list[str] = []
+    content_chars = 0  # characters of actual chunk text, excluding headers/separators
     total = 0
     for reg, reg_chunks in sorted(by_regulation.items()):
         parts.append(f"\n### {reg}\n")
@@ -136,5 +145,12 @@ def format_regulation_context(chunks: list[dict], max_chars: int = 12000) -> str
             header = f"**{section}**\n" if section else ""
             parts.append(f"{header}{text}\n")
             total += len(text)
+            content_chars += len(text.strip())
+
+    # Empty-content guard: if every chunk's text was empty/whitespace, return
+    # an empty string so callers can short-circuit instead of emitting a
+    # header-only "excerpts" block.
+    if content_chars == 0:
+        return ""
 
     return "\n".join(parts)

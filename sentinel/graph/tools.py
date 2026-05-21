@@ -92,6 +92,51 @@ def _list_regulations_local() -> str:
     return f"{len(files)} regulation files available:\n" + "\n".join(lines)
 
 
+# Inventory-style queries — "what regulations exist in the KB" — must not go
+# through the semantic-retrieval path. They previously returned chunk lists
+# that the formatter rendered as a `### HIPAA` header with no content, which
+# the sentinel_act0 prompt injected verbatim and the LLM hallucinated around
+# (e.g. "HIPAA is the only regulation available"). Route them to the regulation
+# catalog instead.
+_INVENTORY_QUERY_PATTERNS = (
+    "list regulation",
+    "list all regulation",
+    "list the regulation",
+    "what regulation",
+    "which regulation",
+    "enumerate the regulation",
+    "enumerate regulation",
+    "available regulation",
+    "regulations available",
+    "knowledge base",
+    "regulation catalog",
+    "regulation list",
+)
+
+
+def _is_inventory_query(query: str) -> bool:
+    """Return True when ``query`` looks like an inventory/enumeration request.
+
+    These should be served from the regulation catalog, not the semantic
+    retriever. We also treat the bare token ``list`` (a common short-form
+    user input observed in traces) as an inventory query.
+    """
+    if not isinstance(query, str):
+        return False
+    q = query.strip().lower()
+    if not q:
+        return False
+    if q in {"list", "list regulations", "list all regulations"}:
+        return True
+    return any(pat in q for pat in _INVENTORY_QUERY_PATTERNS)
+
+
+_EMPTY_EXCERPTS_MESSAGE = (
+    "I could not find any regulation excerpts matching that query. "
+    "Please ask about a specific regulation, article, or section."
+)
+
+
 @tool
 def list_sops(query: str = "") -> str:
     """List all available SOPs. Optionally filter by a search query (matches against title, SOP ID, or business unit)."""
@@ -112,6 +157,12 @@ def list_sops(query: str = "") -> str:
 @tool
 def retrieve_regulation_text_tool(query: str, regulation: str = "") -> str:
     """Retrieve regulation text from the knowledge base for a given query. Optionally filter by regulation name (e.g. 'HIPAA', 'SOC 2', 'GDPR')."""
+    # Inventory-style queries ("list regulations", "what regulations are in the
+    # knowledge base", bare "list") are not a semantic-retrieval problem —
+    # serve them from the regulation catalog so the caller doesn't get a
+    # header-only excerpts block that downstream LLMs hallucinate around.
+    if not regulation and _is_inventory_query(query):
+        return list_regulations.invoke({})
     if not PINECONE_API_KEY:
         return "Pinecone not configured. Use local retrieval mode."
     try:
@@ -121,6 +172,13 @@ def retrieve_regulation_text_tool(query: str, regulation: str = "") -> str:
         if not chunks:
             return f"No regulation text found for: {query}"
         context = format_regulation_context(chunks)
+        # Empty-content guard: format_regulation_context returns "" when the
+        # retrieved chunks had no actual text (only headers/separators). Do
+        # not emit an empty "Retrieved N sections" block — return a
+        # deterministic no-match message so the downstream LLM cannot
+        # hallucinate a regulation list from an empty header.
+        if not context.strip():
+            return _EMPTY_EXCERPTS_MESSAGE
         return f"Retrieved {len(chunks)} regulation sections:\n{context}"
     except Exception as e:
         return f"Regulation retrieval failed: {e}"
@@ -134,6 +192,10 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
         """Search the regulation knowledge base (Pinecone) for specific regulatory requirements. Use targeted queries like 'HIPAA access control requirements' or 'SOC 2 CC6 logical access'. Optionally filter by regulation name. The `query` argument is required and must be a non-empty search phrase."""
         if not isinstance(query, str) or not query.strip():
             return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
+        # Inventory-style queries should be served from the catalog, not the
+        # semantic retriever. See _is_inventory_query for rationale.
+        if not regulation and _is_inventory_query(query):
+            return list_regulations.invoke({})
         if not PINECONE_API_KEY:
             return "Pinecone not configured."
         try:
@@ -143,6 +205,9 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
             if not chunks:
                 return f"No regulation text found for: {query}"
             context = format_regulation_context(chunks)
+            # Empty-content guard — see retrieve_regulation_text_tool above.
+            if not context.strip():
+                return _EMPTY_EXCERPTS_MESSAGE
             return f"Retrieved {len(chunks)} sections:\n{context}"
         except Exception as e:
             return f"Retrieval failed: {e}"
