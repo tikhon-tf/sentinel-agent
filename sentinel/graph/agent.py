@@ -77,12 +77,12 @@ def _build_deep_agent(model, tools):
 
 def _build_react_agent(model, tools):
     """Fallback: plain LangGraph ReAct agent."""
-    from langgraph.prebuilt import create_react_agent
+    from langchain.agents import create_agent
 
-    return create_react_agent(
+    return create_agent(
         model=model,
         tools=tools,
-        prompt=SENTINEL_SYSTEM_PROMPT,
+        system_prompt=SENTINEL_SYSTEM_PROMPT,
         name="sentinel",
     )
 

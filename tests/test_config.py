@@ -32,7 +32,7 @@ class TestPricing:
 
 class TestConstants:
     def test_model_names(self):
-        assert MODEL == "deepseek-ai/DeepSeek-V4-Pro"
+        assert MODEL == "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd"
         assert OPENAI_MODEL == "gpt-5.4-mini"
 
     def test_nebius_base_url(self):

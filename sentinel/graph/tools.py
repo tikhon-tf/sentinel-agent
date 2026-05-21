@@ -246,7 +246,7 @@ def _build_subagent_model(provider: str = "nebius"):
 
 def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True) -> str:
     """Core implementation for auditing a single SOP."""
-    from langgraph.prebuilt import create_react_agent
+    from langchain.agents import create_agent
     from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
 
     sop = load_sop_by_id(sop_id)
@@ -266,10 +266,10 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
     subagent_tools = _build_subagent_tools(sop_text, actual_id, title, use_tavily=use_tavily)
     model = _build_subagent_model(provider)
 
-    subagent = create_react_agent(
+    subagent = create_agent(
         model=model,
         tools=subagent_tools,
-        prompt=_AUDIT_SUBAGENT_PROMPT,
+        system_prompt=_AUDIT_SUBAGENT_PROMPT,
         name="sop_auditor",
     )
 

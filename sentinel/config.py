@@ -12,7 +12,8 @@ REGULATIONS_DIR = DATA_DIR / "regulations"
 
 NEBIUS_API_KEY = os.environ.get("NEBIUS_API_KEY", "")
 NEBIUS_BASE_URL = "https://api.studio.nebius.com/v1/"
-MODEL = "deepseek-ai/DeepSeek-V4-Pro"
+# MODEL = "deepseek-ai/DeepSeek-V4-Pro"
+MODEL = "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd"
 MODEL_MAX_TOKENS = 16_000
 MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "10"))
 
@@ -43,6 +44,7 @@ EMBEDDING_DIMENSION = 4096
 
 PRICING = {
     "deepseek-ai/DeepSeek-V4-Pro": {"input": 1.75, "output": 3.50},
+    "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd": {"input": 1.75, "output": 3.50},
     "gpt-5.4-mini": {"input": 0.40, "output": 1.60},
 }
 
