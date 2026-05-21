@@ -53,6 +53,35 @@ REGULATIONS_DIR = PROJECT_ROOT / "data" / "regulations"
 
 LANGGRAPH_URL = os.environ.get("LANGGRAPH_URL", "http://localhost:2024")
 LANGSMITH_API_KEY = os.environ.get("LANGSMITH_API_KEY", "")
+LANGSMITH_PROJECT = os.environ.get("LANGCHAIN_PROJECT", "sentinel-agent")
+
+# LangSmith URLs need the workspace + project UUIDs, not names. Looked up once
+# via the SDK and cached for the lifetime of the process.
+_LS_IDS: dict[str, str | None] = {"tenant": None, "project": None, "resolved": False}
+
+
+def _get_ls_ids() -> tuple[str | None, str | None]:
+    if _LS_IDS["resolved"]:
+        return _LS_IDS["tenant"], _LS_IDS["project"]
+    _LS_IDS["resolved"] = True
+    if not LANGSMITH_API_KEY:
+        return None, None
+    try:
+        from langsmith import Client
+        c = Client(api_key=LANGSMITH_API_KEY)
+        _LS_IDS["tenant"]  = c._get_tenant_id()
+        _LS_IDS["project"] = str(c.read_project(project_name=LANGSMITH_PROJECT).id)
+    except Exception as exc:
+        print(f"[forge] could not resolve LangSmith workspace/project for {LANGSMITH_PROJECT!r}: {exc}")
+    return _LS_IDS["tenant"], _LS_IDS["project"]
+
+
+def _trace_url(run_id: str) -> str | None:
+    """Direct LangSmith trace URL. Returns None if LangSmith is not reachable."""
+    tenant, project = _get_ls_ids()
+    if not tenant or not project:
+        return None
+    return f"https://smith.langchain.com/o/{tenant}/projects/p/{project}/r/{run_id}?poll=true"
 
 PARALLEL_AGENTS = [
     {"key": "naive",  "label": "Naive RAG",        "sublabel": "DeepSeek-V4-Pro",
@@ -403,6 +432,17 @@ def _stream_one(
     `prefix` is prepended to each event's payload so the multiplexed race
     endpoint can attribute events to the right agent column.
     """
+    def _on_run_created(meta):
+        rid = getattr(meta, "run_id", None) or (meta.get("run_id") if hasattr(meta, "get") else None)
+        if not rid:
+            return
+        out_q.put(json.dumps({
+            "type": "run_started",
+            "agent": prefix,
+            "run_id": rid,
+            "trace_url": _trace_url(rid),
+        }))
+
     try:
         client = _langgraph_client()
         for event in client.runs.stream(
@@ -410,6 +450,7 @@ def _stream_one(
             assistant_id=graph_id,
             input={"messages": [{"role": "user", "content": message}]},
             stream_mode=["messages-tuple", "values"],
+            on_run_created=_on_run_created,
         ):
             payload = _normalize_event(event, prefix)
             if payload is not None:

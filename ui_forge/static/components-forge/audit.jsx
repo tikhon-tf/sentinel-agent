@@ -34,6 +34,7 @@ const AuditScreen = () => {
     error: null,
     startedAt: null,
     endedAt: null,
+    traceUrl: null,
   });
   const streamRef = React.useRef(null);
 
@@ -49,11 +50,15 @@ const AuditScreen = () => {
       status: "running", tokens: [], toolCalls: [],
       inputTokens: 0, outputTokens: 0, error: null,
       startedAt: Date.now(), endedAt: null,
+      traceUrl: null,
     });
     window.ForgeAPI.streamAudit(text, selectedAgent, {
       signal: ctrl.signal,
       onEvent: (ev) => {
         setAudit(prev => {
+          if (ev.type === "run_started") {
+            return { ...prev, traceUrl: ev.trace_url };
+          }
           if (ev.type === "token") {
             return { ...prev, tokens: [...prev.tokens, ev.text] };
           }
@@ -235,12 +240,28 @@ const AuditScreen = () => {
             <div style={{
               padding: "14px 20px",
               borderBottom: "1px solid var(--forge-border-dark)",
-              display: "flex", gap: 24,
+              display: "flex", gap: 24, alignItems: "center",
               font: "500 11px/1 var(--forge-mono)", color: "var(--forge-on-dark-mute)",
             }}>
               <span>elapsed <span style={{ color: "var(--forge-on-dark)" }}>{elapsedSec.toFixed(1)}s</span></span>
               <span>tokens <span style={{ color: "var(--forge-on-dark)" }}>{(audit.inputTokens + audit.outputTokens).toLocaleString()}</span> ({audit.inputTokens.toLocaleString()} in / {audit.outputTokens.toLocaleString()} out)</span>
               <span>tools <span style={{ color: "var(--forge-on-dark)" }}>{audit.toolCalls.length}</span></span>
+              <div style={{ flex: 1 }}/>
+              {audit.traceUrl && (
+                <a href={audit.traceUrl} target="_blank" rel="noopener noreferrer"
+                   style={{
+                     display: "inline-flex", alignItems: "center", gap: 6,
+                     padding: "5px 11px", borderRadius: 999,
+                     border: "1px solid var(--forge-cyan-deep)",
+                     color: "var(--forge-cyan)",
+                     font: "700 10px/1 var(--forge-font)",
+                     letterSpacing: "0.10em", textTransform: "uppercase",
+                     textDecoration: "none", whiteSpace: "nowrap",
+                   }}>
+                  <Icon name="arrowUR" size={10} color="var(--forge-cyan)"/>
+                  Trace
+                </a>
+              )}
             </div>
 
             <StreamPane status={audit.status} maxHeight={520} padding="16px 20px">
