@@ -35,8 +35,14 @@ def agentic_qa_answer(
     sop_id: str | None = None,
     use_tavily: bool = True,
     recursion_limit: int = 30,
+    provider: str = "nebius",
 ) -> dict:
-    """Run the agentic Q&A path: ReAct agent with the demo's sub-agent toolset."""
+    """Run the agentic Q&A path: ReAct agent with the demo's sub-agent toolset.
+
+    `provider` swaps the underlying chat model — `"nebius"` (default) uses
+    DeepSeek-V4-Pro; `"openai"` uses gpt-5.5. Tools and prompt are identical
+    so the comparison isolates the model variable.
+    """
     from langgraph.prebuilt import create_react_agent
 
     sop_text = ""
@@ -62,7 +68,7 @@ def agentic_qa_answer(
     if not sop_text:
         tools = [t for t in tools if getattr(t, "name", "") != "read_sop"]
 
-    model = _build_subagent_model(provider="nebius")
+    model = _build_subagent_model(provider=provider)
     agent = create_react_agent(model=model, tools=tools, prompt=QA_AGENT_PROMPT, name="qa_agent")
 
     start = time.time()
@@ -94,5 +100,5 @@ def agentic_qa_answer(
         "tool_calls": tool_calls,
         "latency_s": elapsed,
         "model": getattr(model, "model_name", ""),
-        "mode": "agentic",
+        "mode": f"agentic-{provider}" if provider != "nebius" else "agentic",
     }

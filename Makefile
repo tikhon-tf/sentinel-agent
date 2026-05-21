@@ -1,6 +1,6 @@
 PYTHON = .venv/bin/python
 
-.PHONY: install ingest act1 act2 act3 demo all dev up build deploy ui test eval eval-naive eval-agentic eval-smoke
+.PHONY: install ingest act1 act2 act3 demo all dev up build deploy ui test eval eval-naive eval-agentic eval-agentic-openai eval-all eval-smoke
 
 install:
 	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag,ui]"
@@ -57,6 +57,13 @@ eval-naive:
 
 eval-agentic:
 	$(PYTHON) scripts/run_qa_eval.py --mode agentic $(EVAL_ARGS)
+
+eval-agentic-openai:
+	$(PYTHON) scripts/run_qa_eval.py --mode agentic-openai $(EVAL_ARGS)
+
+# Run all three baselines: naive + agentic (Nebius) + agentic-openai.
+eval-all:
+	$(PYTHON) scripts/run_qa_eval.py --mode all $(EVAL_ARGS)
 
 eval-smoke:
 	$(PYTHON) scripts/run_qa_eval.py --mode both --limit 2 --no-judge

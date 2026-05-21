@@ -2,10 +2,12 @@
 """Run the naive-vs-agentic Q&A eval over `data/eval/qa_dataset.jsonl`.
 
 Usage:
-    python scripts/run_qa_eval.py --mode both                # full sweep
-    python scripts/run_qa_eval.py --mode naive --limit 5     # 5 questions, naive only
+    python scripts/run_qa_eval.py --mode both                    # naive + agentic (Nebius)
+    python scripts/run_qa_eval.py --mode all                     # naive + agentic + agentic-openai
+    python scripts/run_qa_eval.py --mode naive --limit 5         # 5 questions, naive only
+    python scripts/run_qa_eval.py --mode agentic-openai          # agentic stack on OpenAI model
     python scripts/run_qa_eval.py --mode agentic --category sop_compliance
-    python scripts/run_qa_eval.py --mode both --no-judge     # skip LLM-as-judge (faster)
+    python scripts/run_qa_eval.py --mode both --no-judge         # skip LLM-as-judge
 """
 from __future__ import annotations
 
@@ -77,7 +79,10 @@ def run_single(mode: str, question: dict) -> dict:
         return naive_rag_answer(question["question"], sop_id=sop_id)
     if mode == "agentic":
         from sentinel.eval.agentic_qa import agentic_qa_answer
-        return agentic_qa_answer(question["question"], sop_id=sop_id)
+        return agentic_qa_answer(question["question"], sop_id=sop_id, provider="nebius")
+    if mode == "agentic-openai":
+        from sentinel.eval.agentic_qa import agentic_qa_answer
+        return agentic_qa_answer(question["question"], sop_id=sop_id, provider="openai")
     raise ValueError(f"unknown mode: {mode}")
 
 
@@ -311,41 +316,71 @@ def print_summary(payload: dict) -> None:
         print(f"    {cat:<22} {' | '.join(bits)}")
 
 
-def print_comparison(naive: dict, agentic: dict) -> None:
+_MODE_LABEL = {
+    "naive": "naive",
+    "agentic": "ag-neb",
+    "agentic-openai": "ag-oai",
+}
+_COL = 13  # column width in the comparison table
+
+
+def print_comparison(summaries: dict[str, dict]) -> None:
+    """Print an N-mode comparison table — works for 2 or 3+ modes."""
     def fmt(d, k):
         v = d.get(k)
         return f"{v:.2f}" if isinstance(v, (int, float)) else "—"
 
-    print("\n=== NAIVE vs AGENTIC ===")
-    cats = sorted(set(naive["per_category"]) | set(agentic["per_category"]))
-    print(f"{'category':<22} {'naive_corr':>11} {'agent_corr':>11} {'naive_cite':>11} {'agent_cite':>11} {'naive_bin':>11} {'agent_bin':>11}")
+    modes = list(summaries.keys())
+    header = "=== " + " vs ".join(m.upper() for m in modes) + " ==="
+    print(f"\n{header}")
+
+    cats = sorted(set().union(*(s["per_category"].keys() for s in summaries.values())))
+    abbr = [_MODE_LABEL.get(m, m[:7]) for m in modes]
+
+    # Correctness row
+    cols = "".join(f"{a + '_corr':>{_COL}}" for a in abbr)
+    print(f"{'category':<22}{cols}")
     for cat in cats:
-        n = naive["per_category"].get(cat, {})
-        a = agentic["per_category"].get(cat, {})
-        print(
-            f"{cat:<22} "
-            f"{fmt(n, 'judge_correctness_avg'):>11} {fmt(a, 'judge_correctness_avg'):>11} "
-            f"{fmt(n, 'judge_citations_avg'):>11} {fmt(a, 'judge_citations_avg'):>11} "
-            f"{fmt(n, 'binary_accuracy'):>11} {fmt(a, 'binary_accuracy'):>11}"
-        )
+        row = f"{cat:<22}"
+        for m in modes:
+            row += f"{fmt(summaries[m]['per_category'].get(cat, {}), 'judge_correctness_avg'):>{_COL}}"
+        print(row)
 
-    nb = naive.get("compliance_binary") or {}
-    ab = agentic.get("compliance_binary") or {}
-    if nb and ab:
+    # Citation row
+    print()
+    cols = "".join(f"{a + '_cite':>{_COL}}" for a in abbr)
+    print(f"{'category':<22}{cols}")
+    for cat in cats:
+        row = f"{cat:<22}"
+        for m in modes:
+            row += f"{fmt(summaries[m]['per_category'].get(cat, {}), 'judge_citations_avg'):>{_COL}}"
+        print(row)
+
+    # Binary compliance row (only sop_compliance has it)
+    has_compliance = any(s.get("compliance_binary") for s in summaries.values())
+    if has_compliance:
         print(f"\n  Binary compliance metric (compliant vs non-compliant):")
-        print(f"    accuracy:              naive {nb['accuracy']:.3f}   agent {ab['accuracy']:.3f}")
-        print(f"    non-compliant recall:  naive {nb['recall_non_compliant']:.3f}   agent {ab['recall_non_compliant']:.3f}   (catches real issues)")
-        print(f"    macro F1:              naive {nb['macro_f1']:.3f}   agent {ab['macro_f1']:.3f}")
+        for m in modes:
+            cb = summaries[m].get("compliance_binary") or {}
+            if cb:
+                print(f"    {m:<16} acc {cb['accuracy']:.3f}   non-comp recall {cb['recall_non_compliant']:.3f}   macro F1 {cb['macro_f1']:.3f}")
 
-    delta_cost = agentic["total_cost_usd"] - naive["total_cost_usd"]
-    delta_latency = agentic["latency_total_s"] - naive["latency_total_s"]
-    print(f"\n  Δ cost:    ${delta_cost:+.3f}   (naive ${naive['total_cost_usd']:.3f} → agentic ${agentic['total_cost_usd']:.3f})")
-    print(f"  Δ latency: {delta_latency:+.1f}s  (naive {naive['latency_total_s']:.1f}s → agentic {agentic['latency_total_s']:.1f}s)")
+    # Cost / latency table
+    print(f"\n  Cost / latency:")
+    print(f"    {'mode':<18}{'cost':>10}{'wall (min)':>14}{'avg (s)':>10}")
+    for m in modes:
+        s = summaries[m]
+        print(f"    {m:<18}${s['total_cost_usd']:>9.2f}{s['latency_total_s']/60:>14.1f}{s['latency_avg_s']:>10.1f}")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", choices=["naive", "agentic", "both"], default="both")
+    ap.add_argument(
+        "--mode",
+        choices=["naive", "agentic", "agentic-openai", "both", "all"],
+        default="both",
+        help="Single mode, or 'both' (naive+agentic) / 'all' (naive+agentic+agentic-openai).",
+    )
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--category", default=None)
     ap.add_argument("--dataset", default=str(DATASET_PATH))
@@ -364,29 +399,36 @@ def main():
 
     timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     run_judge = not args.no_judge
-    modes = ["naive", "agentic"] if args.mode == "both" else [args.mode]
+    if args.mode == "both":
+        modes = ["naive", "agentic"]
+    elif args.mode == "all":
+        modes = ["naive", "agentic", "agentic-openai"]
+    else:
+        modes = [args.mode]
 
     summaries = {}
     for mode in modes:
         print(f"\n--- Running {mode} ({len(rows)} questions, {args.workers} worker(s)) ---")
         summary = run_mode(mode, rows, run_judge, workers=args.workers)
-        path = write_results(summary, results_dir, mode, timestamp)
+        # Sanitize mode-name into a filesystem-safe label (agentic-openai → agentic_openai).
+        file_label = mode.replace("-", "_")
+        path = write_results(summary, results_dir, file_label, timestamp)
         print(f"  Wrote {path}")
         print_summary(summary)
         summaries[mode] = summary
 
-    if len(summaries) == 2:
+    if len(summaries) >= 2:
         comparison = {
             "timestamp": timestamp,
             "dataset": str(dataset_path),
             "limit": args.limit,
             "category_filter": args.category,
-            "naive": {k: v for k, v in summaries["naive"].items() if k != "rows"},
-            "agentic": {k: v for k, v in summaries["agentic"].items() if k != "rows"},
+            "modes": list(summaries.keys()),
+            **{mode: {k: v for k, v in s.items() if k != "rows"} for mode, s in summaries.items()},
         }
         cmp_path = write_results(comparison, results_dir, "comparison", timestamp)
         print(f"\n  Wrote {cmp_path}")
-        print_comparison(summaries["naive"], summaries["agentic"])
+        print_comparison(summaries)
 
 
 if __name__ == "__main__":
