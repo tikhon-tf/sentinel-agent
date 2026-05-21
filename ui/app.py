@@ -290,7 +290,7 @@ def render_sidebar():
         active = _active_agent()
         active_model = active["model"]
         if active_model == OPENAI_MODEL:
-            st.caption("Powered by GPT-5.4-mini on OpenAI")
+            st.caption("Powered by GPT-5.5 on OpenAI")
         else:
             st.caption("Powered by DeepSeek-V4-Pro on Nebius")
         if active["graph_id"] == "sentinel_act0":
