@@ -31,7 +31,7 @@ all: ingest act1 act2 act3 act4
 
 # LangGraph deployment
 dev:
-	.venv/bin/langgraph dev --no-browser --allow-blocking --no-reload
+	.venv/bin/langgraph dev --no-browser --allow-blocking --no-reload --n-jobs-per-worker 20
 
 up:
 	langgraph up --wait
