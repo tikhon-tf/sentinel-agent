@@ -32,7 +32,7 @@ Key modules:
 - `scripts/extract_pdf_text.py` — extracts text from regulation PDFs (pymupdf) for ingestion
 
 ### Sub-agent architecture (not single-shot LLM calls)
-Each SOP is audited by a dedicated LangGraph ReAct sub-agent (`audit_single_sop` in `tools.py`). The sub-agent has its own tool loop with access to Pinecone (regulation retrieval), Tavily (web search), and the SOP text. It determines which regulations apply based on the SOP's content and business unit, iteratively queries the knowledge base for each applicable regulation, then outputs structured JSON findings. `audit_all_sops` fans out 200 sub-agents through a 10-wide `ThreadPoolExecutor`. Do not revert to single-shot LLM calls.
+Each SOP is audited by a dedicated ReAct sub-agent (`audit_single_sop` in `tools.py`) built with `langchain.agents.create_agent`. The sub-agent has its own tool loop with access to Pinecone (regulation retrieval), Tavily (web search), and the SOP text. It determines which regulations apply based on the SOP's content and business unit, iteratively queries the knowledge base for each applicable regulation, then outputs structured JSON findings. `audit_all_sops` fans out 200 sub-agents through a `ThreadPoolExecutor` (configurable via `MAX_AUDIT_WORKERS`, default 200). Do not revert to single-shot LLM calls.
 
 Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 - `retrieve_regulation` — semantic search on Pinecone `regulations` namespace with optional regulation filter
@@ -41,12 +41,12 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 
 ### Dual-model support
 - **Act 1**: GPT-5.4-mini via OpenAI API (`https://api.openai.com/v1`)
-- **Act 2 + deployment default**: DeepSeek-V4-Pro on Nebius AI Studio (`https://api.studio.nebius.com/v1/`)
+- **Act 2 + deployment default**: DeepSeek on Nebius AI Studio (`https://api.studio.nebius.com/v1/`) — currently using a dedicated endpoint (`dedicated/deepseek-ai/DeepSeek-V3-0324-...`)
 - Provider switching is handled by `set_provider()` in `llm.py` and `_build_model()` in `agent.py`
 - The agent graph (`sentinel/graph/agent.py:agent`) always uses Nebius (DeepSeek) — that's the deployed default
 
 ### deepagents optional dependency
-`deepagents` is an optional dep (`[deep]` extra). It's lazy-imported in `agent.py` inside `_build_deep_agent()`. If the import fails, we fall back to `langgraph.prebuilt.create_react_agent`. This is required because deepagents pulls heavy transitive deps (grpcio, google-genai) that conflict with LangGraph Cloud's constraint file.
+`deepagents` is an optional dep (`[deep]` extra). It's lazy-imported in `agent.py` inside `_build_deep_agent()`. If the import fails, we fall back to `langchain.agents.create_agent`. This is required because deepagents pulls heavy transitive deps (grpcio, google-genai) that conflict with LangGraph Cloud's constraint file.
 
 ### Jira actuation (Act 4)
 When an audit finding is a gap or partial at medium+ severity, the `create_jira_ticket` tool files a ticket on the team's Kanban board. The tool is available to the outer Sentinel agent alongside the audit tools. The Jira client (`sentinel/actuation/jira_client.py`) uses the REST API v3 with basic auth (email + API token). Ticket description is rendered in Atlassian Document Format (ADF). Labels include `sentinel`, `compliance-finding`, severity, regulation slug, and SOP slug. Configuration via `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`, and optionally `JIRA_DEFAULT_ISSUE_TYPE` (default: Task).
@@ -111,9 +111,13 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 - PDFs are extracted to .txt via `scripts/extract_pdf_text.py` (pymupdf) before ingestion
 - See `data/regulations/README.md` for full file inventory and sources
 
-## MCP integrations
+## Integrations
 
-- **LangSmith**: Remote MCP server configured in `.mcp.json` (`https://api.smith.langchain.com/mcp`). Uses OAuth — authenticate via browser on first use. Provides access to LangSmith traces, runs, and datasets from Claude Code.
+### LangSmith MCP
+Remote MCP server configured in `.mcp.json` (`https://api.smith.langchain.com/mcp`). Uses OAuth — authenticate via browser on first use. Provides access to LangSmith traces, runs, datasets, experiments, and prompt hub from Claude Code and Codex. Key tools: `fetch_runs` (inspect audit traces), `list_projects`, `list_datasets`, `run_experiment`, `get_billing_usage`.
+
+### Jira Cloud (Act 4)
+The `create_jira_ticket` tool files compliance findings as tickets via the Jira Cloud REST API v3. Client: `sentinel/actuation/jira_client.py` (sync, basic auth). Ticket descriptions use Atlassian Document Format (ADF). Labels: `sentinel`, `compliance-finding`, severity, regulation slug, SOP slug. Priority mapped from severity (critical→Highest, high→High, medium→Medium, low→Low). Config: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`.
 
 ## Environment variables
 
