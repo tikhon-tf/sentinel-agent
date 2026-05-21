@@ -110,7 +110,6 @@ const AuditScreen = () => {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
               <span className="f-kicker" style={{ color: "var(--forge-on-dark-mute)" }}>Live audit</span>
-              <OutlinePill size="s">Powered by {(AUDIT_AGENTS.find(a => a.key === selectedAgent) || {}).sublabel || "—"}</OutlinePill>
             </div>
             <h1 style={{
               margin: 0, font: "700 64px/1.02 var(--forge-font)",
