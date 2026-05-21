@@ -40,12 +40,181 @@ PARALLEL_AGENTS = [
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATASET_PATH = PROJECT_ROOT / "data" / "eval" / "qa_dataset.jsonl"
 RESULTS_PATH = PROJECT_ROOT / "data" / "eval" / "results" / "comparison_3way_20260521.json"
+LOGO_PATH = Path(__file__).resolve().parent / "assets" / "nebius-logo.svg"
 
 st.set_page_config(
     page_title="Sentinel Compliance Auditor",
     page_icon="<shield>",
     layout="wide",
 )
+
+# Nebius design tokens (from forge.eu-north1.osmo.nebius.cloud CSS).
+NEBIUS_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+    --nebius-lime: #DAFF33;
+    --nebius-lime-dim: #B8DD1F;
+    --nebius-amber: #FFAC3C;
+    --nebius-green: #5ECF71;
+    --nebius-red: #FF5958;
+    --nebius-bg: #021621;
+    --nebius-surface: #052B42;
+    --nebius-surface-hi: #083149;
+    --nebius-border: rgba(240, 248, 255, 0.10);
+    --nebius-text: #F0F8FF;
+    --nebius-muted: #9CA3AF;
+}
+
+html, body, [class*="st-"], .stMarkdown, .stChatMessage, p, span, div, label, input, textarea, button {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.02em;
+}
+
+code, pre, .stCode, [data-testid="stMarkdownContainer"] code {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+}
+
+/* Primary buttons — Nebius lime accent */
+.stButton > button[kind="primary"],
+.stDownloadButton > button[kind="primary"],
+button[data-testid="baseButton-primary"] {
+    background: var(--nebius-lime) !important;
+    color: #021621 !important;
+    border: 1px solid var(--nebius-lime) !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: background 120ms ease, transform 120ms ease;
+}
+.stButton > button[kind="primary"]:hover,
+button[data-testid="baseButton-primary"]:hover {
+    background: var(--nebius-lime-dim) !important;
+    border-color: var(--nebius-lime-dim) !important;
+}
+
+/* Secondary buttons — outlined */
+.stButton > button:not([kind="primary"]),
+.stDownloadButton > button:not([kind="primary"]) {
+    background: transparent !important;
+    color: var(--nebius-text) !important;
+    border: 1px solid var(--nebius-border) !important;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+.stButton > button:not([kind="primary"]):hover {
+    background: var(--nebius-surface) !important;
+    border-color: rgba(218, 255, 51, 0.40) !important;
+}
+
+/* Inputs, selectboxes, textareas */
+.stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div,
+[data-testid="stChatInput"] {
+    background-color: var(--nebius-surface) !important;
+    border: 1px solid var(--nebius-border) !important;
+    border-radius: 8px !important;
+    color: var(--nebius-text) !important;
+}
+.stTextInput input:focus, .stTextArea textarea:focus {
+    border-color: var(--nebius-lime) !important;
+    box-shadow: 0 0 0 1px var(--nebius-lime) !important;
+}
+
+/* Containers with border={true} — card style */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border: 1px solid var(--nebius-border) !important;
+    border-radius: 12px !important;
+    background: rgba(5, 43, 66, 0.50);
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0;
+    border-bottom: 1px solid var(--nebius-border);
+}
+.stTabs [data-baseweb="tab"] {
+    background: transparent !important;
+    color: var(--nebius-muted) !important;
+    font-weight: 500 !important;
+    padding: 12px 18px !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+}
+.stTabs [aria-selected="true"] {
+    color: var(--nebius-text) !important;
+    border-bottom: 2px solid var(--nebius-lime) !important;
+}
+
+/* Dataframes */
+.stDataFrame, [data-testid="stDataFrame"] {
+    border: 1px solid var(--nebius-border) !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+/* Metric cards */
+[data-testid="stMetric"] {
+    background: var(--nebius-surface);
+    border: 1px solid var(--nebius-border);
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+[data-testid="stMetricValue"] {
+    color: var(--nebius-lime) !important;
+    font-weight: 600 !important;
+}
+
+/* Chat messages */
+.stChatMessage {
+    background: var(--nebius-surface) !important;
+    border: 1px solid var(--nebius-border) !important;
+    border-radius: 12px !important;
+}
+
+/* Code blocks */
+.stCodeBlock, pre code {
+    background: var(--nebius-surface-hi) !important;
+    border: 1px solid var(--nebius-border) !important;
+    border-radius: 8px !important;
+}
+
+/* Expanders */
+.streamlit-expanderHeader, [data-testid="stExpander"] details summary {
+    background: var(--nebius-surface) !important;
+    border-radius: 8px !important;
+}
+
+/* Info / success / warning / error banners */
+.stAlert {
+    border-radius: 8px !important;
+    border-width: 1px !important;
+}
+
+/* Dividers — softer */
+hr {
+    border-color: var(--nebius-border) !important;
+}
+
+/* Title accent bar */
+h1:first-of-type::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 1.1em;
+    background: var(--nebius-lime);
+    margin-right: 12px;
+    vertical-align: -3px;
+    border-radius: 2px;
+}
+</style>
+"""
 
 TOOL_LABELS = {
     "list_sops": "Searching SOPs...",
@@ -800,8 +969,16 @@ A separate `ChatOpenAI` grader call (Nebius DeepSeek, shared across modes) score
 
 
 def main():
-    st.title("Sentinel Compliance Auditor")
-    st.caption("AI-powered regulatory audit for HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF & more")
+    st.markdown(NEBIUS_CSS, unsafe_allow_html=True)
+
+    # Header: Nebius wordmark + page title
+    header_cols = st.columns([1, 6])
+    with header_cols[0]:
+        if LOGO_PATH.exists():
+            st.image(str(LOGO_PATH), width=120)
+    with header_cols[1]:
+        st.title("Sentinel Compliance Auditor")
+        st.caption("AI-powered regulatory audit for HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF & more")
 
     chat_tab, parallel_tab, results_tab = st.tabs(
         ["Chat", "Run parallel test", "Test results"]
