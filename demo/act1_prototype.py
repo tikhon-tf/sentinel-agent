@@ -2,7 +2,7 @@
 """
 Act 1 — ChatGPT sub-agent audit.
 
-Same sub-agent architecture as Act 2, but uses GPT-5.5 (OpenAI)
+Same sub-agent architecture as Act 2, but uses GPT-5.4-mini (OpenAI)
 instead of DeepSeek-V4-Pro (Nebius). No Tavily web search.
 
 Usage:
@@ -47,7 +47,7 @@ def main():
 
     console = Console()
 
-    model_label = "GPT-5.5 (OpenAI)" if args.provider == "openai" else "DeepSeek-V4-Pro (Nebius)"
+    model_label = "GPT-5.4-mini (OpenAI)" if args.provider == "openai" else "DeepSeek-V4-Pro (Nebius)"
 
     console.print()
     console.rule("[bold red]Act 1 — Agentic RAG Prototype[/bold red]")

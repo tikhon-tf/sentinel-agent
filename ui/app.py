@@ -170,7 +170,7 @@ def _parse_audit_table(tool_result: str) -> list[dict] | None:
         line = line.strip()
         if not line or line.startswith("Audit complete") or line.startswith("Compliant") or line.startswith("Partial") or line.startswith("Gap") or line.startswith("Per-SOP"):
             continue
-        match = re.match(r"([\w/.:-]+):\s+(\d+)\s+findings?\s+.*?(\d+)C/(\d+)P/(\d+)G", line)
+        match = re.match(r"(SOP-[A-Z]+-\d+)\s+\([^)]*\):\s+(\d+)\s+findings?\s+.*?(\d+)C/(\d+)P/(\d+)G", line)
         if match:
             findings.append({
                 "sop": match.group(1),
@@ -290,7 +290,7 @@ def render_sidebar():
         active = _active_agent()
         active_model = active["model"]
         if active_model == OPENAI_MODEL:
-            st.caption("Powered by GPT-5.5 on OpenAI")
+            st.caption("Powered by GPT-5.4-mini on OpenAI")
         else:
             st.caption("Powered by DeepSeek-V4-Pro on Nebius")
         if active["graph_id"] == "sentinel_act0":

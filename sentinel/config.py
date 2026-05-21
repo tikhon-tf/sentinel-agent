@@ -17,7 +17,7 @@ MODEL_MAX_TOKENS = 16_000
 MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "10"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-5.5"
+OPENAI_MODEL = "gpt-5.4-mini"
 
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", "")
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "sentinel-sops")
@@ -25,6 +25,12 @@ PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "sentinel-sops")
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
 SNOWGLOBE_API_KEY = os.environ.get("SNOWGLOBE_API_KEY", "")
+
+JIRA_BASE_URL = os.environ.get("JIRA_BASE_URL", "")
+JIRA_EMAIL = os.environ.get("JIRA_EMAIL", "")
+JIRA_API_TOKEN = os.environ.get("JIRA_API_TOKEN", "")
+JIRA_PROJECT_KEY = os.environ.get("JIRA_PROJECT_KEY", "")
+JIRA_DEFAULT_ISSUE_TYPE = os.environ.get("JIRA_DEFAULT_ISSUE_TYPE", "Task")
 
 LANGSMITH_API_KEY = os.environ.get("LANGSMITH_API_KEY", "")
 if LANGSMITH_API_KEY:
@@ -37,7 +43,7 @@ EMBEDDING_DIMENSION = 4096
 
 PRICING = {
     "deepseek-ai/DeepSeek-V4-Pro": {"input": 1.75, "output": 3.50},
-    "gpt-5.5": {"input": 5.00, "output": 30.00},
+    "gpt-5.4-mini": {"input": 0.40, "output": 1.60},
 }
 
 SOP_BUSINESS_UNITS = [

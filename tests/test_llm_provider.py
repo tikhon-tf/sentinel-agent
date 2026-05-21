@@ -24,7 +24,7 @@ class TestSetProvider:
 
     def test_switch_to_openai(self):
         set_provider("openai")
-        assert get_model() == "gpt-5.5"
+        assert get_model() == "gpt-5.4-mini"
 
     def test_switch_back_to_nebius(self):
         set_provider("openai")

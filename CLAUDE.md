@@ -10,10 +10,11 @@ Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs
 make install              # Install into .venv (includes dev, deep, demo, rag, ui extras)
 make ingest               # Ingest SOPs into Pinecone
 make ingest-regulations   # Ingest regulation texts into Pinecone (namespace: regulations)
-make act1                 # Act 1: GPT-5.5 + Pinecone agentic RAG
+make act1                 # Act 1: GPT-5.4-mini + Pinecone agentic RAG
 make act2                 # Act 2: DeepSeek-V4-Pro + Pinecone Nexus one-shot
 make act3                 # Act 3: Snowglobe adversarial simulation
-make demo                 # All three acts sequentially
+make act4                 # Act 4: actuation — file Jira tickets for compliance gaps
+make demo                 # All four acts sequentially
 make test                 # Run regression tests (111 tests, no API keys needed)
 make dev                  # LangGraph dev server on port 2024
 make ui                   # Streamlit UI on port 8501
@@ -39,7 +40,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 - `read_sop` — returns the full SOP text (closure over the loaded content)
 
 ### Dual-model support
-- **Act 1**: GPT-5.5 via OpenAI API (`https://api.openai.com/v1`)
+- **Act 1**: GPT-5.4-mini via OpenAI API (`https://api.openai.com/v1`)
 - **Act 2 + deployment default**: DeepSeek-V4-Pro on Nebius AI Studio (`https://api.studio.nebius.com/v1/`)
 - Provider switching is handled by `set_provider()` in `llm.py` and `_build_model()` in `agent.py`
 - The agent graph (`sentinel/graph/agent.py:agent`) always uses Nebius (DeepSeek) — that's the deployed default
@@ -47,15 +48,20 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 ### deepagents optional dependency
 `deepagents` is an optional dep (`[deep]` extra). It's lazy-imported in `agent.py` inside `_build_deep_agent()`. If the import fails, we fall back to `langgraph.prebuilt.create_react_agent`. This is required because deepagents pulls heavy transitive deps (grpcio, google-genai) that conflict with LangGraph Cloud's constraint file.
 
+### Jira actuation (Act 4)
+When an audit finding is a gap or partial at medium+ severity, the `create_jira_ticket` tool files a ticket on the team's Kanban board. The tool is available to the outer Sentinel agent alongside the audit tools. The Jira client (`sentinel/actuation/jira_client.py`) uses the REST API v3 with basic auth (email + API token). Ticket description is rendered in Atlassian Document Format (ADF). Labels include `sentinel`, `compliance-finding`, severity, regulation slug, and SOP slug. Configuration via `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`, and optionally `JIRA_DEFAULT_ISSUE_TYPE` (default: Task).
+
+`demo/act4_actuation.py` runs two hardcoded audit cases (HIPAA access control, GDPR breach notification) — calls the model directly (not through the agent graph), parses the JSON finding, and invokes `create_jira_ticket` for ticketable findings.
+
 ### Lazy imports for cloud compatibility
-`tavily` (in sub-agent tools in `tools.py`), `pinecone` (in `retrieval/ingest.py`, `retrieval/regulations.py`, `tools.py`), and `openai` (in `retrieval/ingest.py`) are imported lazily inside functions, not at module level. This prevents import failures in the LangGraph Cloud container where these packages may not be installed or configured. Do not move these to top-level imports.
+`tavily` (in sub-agent tools in `tools.py`), `pinecone` (in `retrieval/ingest.py`, `retrieval/regulations.py`, `tools.py`), `openai` (in `retrieval/ingest.py`), and `httpx` (in `actuation/jira_client.py`) are imported lazily inside functions, not at module level. This prevents import failures in the LangGraph Cloud container where these packages may not be installed or configured. Do not move these to top-level imports.
 
 ## Key modules
 
 | Module | Purpose |
 |--------|---------|
 | `sentinel/graph/agent.py` | ReAct agent definition, `build_agent()`, `run_audit()` entry point |
-| `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_single_sop` (sub-agent), `audit_all_sops`, `list_sops`, `list_regulations`, `retrieve_regulation_text_tool`; sub-agent builder `_build_subagent_tools()` |
+| `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_single_sop` (sub-agent), `audit_all_sops`, `list_sops`, `list_regulations`, `retrieve_regulation_text_tool`, `create_jira_ticket`; sub-agent builder `_build_subagent_tools()` |
 | `sentinel/llm.py` | OpenAI client provider switching (`set_provider()`, `get_client()`, `get_model()`) |
 | `sentinel/models.py` | Pydantic models (`AuditFinding`, `SOPChunk`, `AuditMetrics`), enums (`ComplianceLevel`, `Severity`) |
 | `sentinel/config.py` | API keys, model names, paths, pricing, business unit list |
@@ -64,11 +70,12 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 | `sentinel/retrieval/ingest_regulations.py` | Regulation text chunker + Pinecone ingestion (`REGULATION_MAP`, `EDITION_PATTERNS`, edition metadata) |
 | `sentinel/retrieval/ingest.py` | SOP markdown parser (`parse_sop()`), chunker, Pinecone ingestion |
 | `sentinel/simulation/snowglobe.py` | Adversarial red-team scenarios (Act 3) |
+| `sentinel/actuation/jira_client.py` | Sync Jira Cloud REST client used by the `create_jira_ticket` tool (Act 4) |
 | `sentinel/output/heatmap.py` | Rich console heatmap rendering |
 | `sentinel/output/register.py` | CSV/JSON/metrics output |
 | `ui/app.py` | Streamlit chat UI with streaming, per-response and session token/cost tracking |
 | `scripts/validate_run.py` | Audit quality evaluation: compares LangSmith run output against compliance matrix |
-| `demo/act{1,2,3}_*.py` | Three-act demo scripts |
+| `demo/act{1,2,3,4}_*.py` | Four-act demo scripts |
 
 ## LangGraph Cloud deployment
 
@@ -110,7 +117,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 
 ## Environment variables
 
-Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Act 1), `PINECONE_API_KEY` (vector modes), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `SNOWGLOBE_API_KEY` (Act 3). See `.env.example`.
+Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Act 1), `PINECONE_API_KEY` (vector modes), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `SNOWGLOBE_API_KEY` (Act 3), `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` / `JIRA_PROJECT_KEY` (Act 4). See `.env.example`.
 
 ## Patterns to follow
 
