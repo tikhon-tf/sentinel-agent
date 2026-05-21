@@ -110,10 +110,11 @@ def build_agent_act1():
 def build_agent_act1_alt():
     """Build the Sentinel agent (Act 1 alternative: OpenAI + Tavily).
 
-    Same model as Act 1 (gpt-5.5 on OpenAI) but with the full agentic toolset
-    including web search via Tavily. Matches the `agentic-openai` eval mode —
-    isolates "agentic stack value" from "underlying model value" by holding
-    tools constant against Act 2 and only varying the LLM.
+    Same model as Act 1 (OPENAI_MODEL from sentinel.config) but with the full
+    agentic toolset including web search via Tavily. Matches the
+    `agentic-openai` eval mode — isolates "agentic stack value" from
+    "underlying model value" by holding tools constant against Act 2 and only
+    varying the LLM.
     """
     model = _build_model("openai")
     tools = build_tools(provider="openai", use_tavily=True)
