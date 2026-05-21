@@ -126,6 +126,32 @@ def retrieve_regulation_text_tool(query: str, regulation: str = "") -> str:
         return f"Regulation retrieval failed: {e}"
 
 
+@tool
+def search_web(query: str = "") -> str:
+    """Search the web via Tavily for latest regulatory guidance, enforcement actions, or interpretation. Use for questions the static knowledge base can't answer — e.g. recent HHS OCR enforcement, FDA AI/ML device guidance, EU AI Office codes of practice, EDPB decisions, OCC bulletins. The `query` argument is required and must be a non-empty search phrase."""
+    if not isinstance(query, str) or not query.strip():
+        return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
+    if not TAVILY_API_KEY:
+        return "Tavily not configured — web search unavailable."
+    try:
+        from tavily import TavilyClient
+        client = TavilyClient(api_key=TAVILY_API_KEY)
+        response = client.search(
+            query=query,
+            search_depth="advanced",
+            max_results=3,
+            include_answer=True,
+        )
+        parts = []
+        if response.get("answer"):
+            parts.append(f"Summary: {response['answer']}")
+        for result in response.get("results", [])[:3]:
+            parts.append(f"Source: {result.get('title', '')}\nURL: {result.get('url', '')}\n{result.get('content', '')[:500]}")
+        return "\n\n".join(parts) if parts else "No results found."
+    except Exception as e:
+        return f"Web search failed: {e}"
+
+
 def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily: bool = True):
     """Build the tool set for the audit sub-agent."""
 
@@ -146,31 +172,6 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
             return f"Retrieved {len(chunks)} sections:\n{context}"
         except Exception as e:
             return f"Retrieval failed: {e}"
-
-    @tool
-    def search_web(query: str = "") -> str:
-        """Search the web via Tavily for latest regulatory guidance, enforcement actions, or interpretation. Use for questions the knowledge base can't answer — e.g. recent HHS enforcement, updated NIST guidance, or regulatory FAQs. The `query` argument is required and must be a non-empty search phrase."""
-        if not isinstance(query, str) or not query.strip():
-            return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
-        if not TAVILY_API_KEY:
-            return "Tavily not configured — web search unavailable."
-        try:
-            from tavily import TavilyClient
-            client = TavilyClient(api_key=TAVILY_API_KEY)
-            response = client.search(
-                query=query,
-                search_depth="advanced",
-                max_results=3,
-                include_answer=True,
-            )
-            parts = []
-            if response.get("answer"):
-                parts.append(f"Summary: {response['answer']}")
-            for result in response.get("results", [])[:3]:
-                parts.append(f"Source: {result.get('title', '')}\nURL: {result.get('url', '')}\n{result.get('content', '')[:500]}")
-            return "\n\n".join(parts) if parts else "No results found."
-        except Exception as e:
-            return f"Web search failed: {e}"
 
     @tool
     def read_sop() -> str:
@@ -656,7 +657,7 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True) -> list:
     _audit_single_sop.name = "audit_single_sop"
     _audit_all_sops.name = "audit_all_sops"
 
-    return [
+    tools = [
         list_sops,
         list_regulations,
         retrieve_regulation_text_tool,
@@ -664,3 +665,6 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True) -> list:
         _audit_all_sops,
         create_jira_ticket,
     ]
+    if use_tavily:
+        tools.insert(3, search_web)
+    return tools
