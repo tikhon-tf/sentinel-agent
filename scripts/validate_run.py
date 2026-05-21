@@ -220,7 +220,7 @@ def classify_regulation(criterion):
         return "SOC 2"
     if c.startswith("GDPR"):
         return "GDPR"
-    if c.startswith("EUAI") or c.startswith("EU-AI") or c.startswith("EUAIAct"):
+    if c.startswith("EUAI") or c.startswith("EU-AI") or c.startswith("EUAIAct") or c.startswith("EU AI"):
         return "EU AI Act"
     if c.startswith("NIST"):
         return "NIST AI RMF"
@@ -281,7 +281,7 @@ def parse_full_findings(text):
             sop_count += 1
             continue
 
-        finding_match = re.match(r'^\s+([A-Za-z0-9\-_./()+:]+):\s+(compliant|partial|gap)\s+\(', line)
+        finding_match = re.match(r'^\s+(.+?):\s+(compliant|partial|gap)\s+\(', line)
         if finding_match and current_sop:
             criterion = finding_match.group(1)
             level = normalize_level(finding_match.group(2))
