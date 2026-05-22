@@ -56,15 +56,18 @@
 }
 
 /* page reset */
-html, body {
+html, body, #root {
   margin: 0; padding: 0;
-  background:
-    linear-gradient(180deg, rgb(232, 244, 252) 0%, rgb(218, 234, 248) 60%, rgb(208, 226, 244) 100%);
+  /* Single solid tone — no gradient. Eliminates the lighter strip that
+     showed below content on large monitors where body height fell short
+     of the viewport. */
+  background: rgb(218, 234, 248);
   color: var(--forge-on-light);
   font-family: var(--forge-font);
   font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
 }
+html, body { min-height: 100vh; }
 * { box-sizing: border-box; }
 button { font-family: inherit; }
 svg { display: block; }
