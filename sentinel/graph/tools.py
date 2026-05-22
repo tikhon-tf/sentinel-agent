@@ -10,7 +10,7 @@ from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
 
-MAX_RETRIES = 2
+MAX_RETRIES = 4
 RETRY_BACKOFF = 5
 
 from sentinel.config import PINECONE_API_KEY, TAVILY_API_KEY

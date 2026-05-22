@@ -83,7 +83,7 @@ make ingest-regulations   # Regulation texts into Pinecone (namespace: regulatio
 ### Run the demo
 
 ```bash
-make act1    # GPT-5.4-mini + Pinecone RAG
+make act1    # GPT-5.5 + Pinecone RAG
 make act2    # DeepSeek-V4-Pro + Pinecone
 make act3    # Adversarial simulation
 make act4    # Actuation — file Jira tickets for compliance gaps
@@ -161,7 +161,7 @@ sentinel_agent/
 │       ├── heatmap.py         # Rich console heatmap + summary
 │       └── register.py        # CSV/JSON/metrics output
 ├── demo/
-│   ├── act1_prototype.py      # Act 1: GPT-5.4-mini + RAG
+│   ├── act1_prototype.py      # Act 1: GPT-5.5 + RAG
 │   ├── act2_production.py     # Act 2: DeepSeek-V4-Pro
 │   ├── act3_simulation.py     # Act 3: Adversarial
 │   └── act4_actuation.py      # Act 4: Jira ticket creation

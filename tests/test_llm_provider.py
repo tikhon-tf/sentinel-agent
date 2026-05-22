@@ -20,16 +20,16 @@ def _reset_provider():
 
 class TestSetProvider:
     def test_default_is_nebius(self):
-        assert get_model() == "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd"
+        assert get_model() == "deepseek-ai/DeepSeek-V4-Pro"
 
     def test_switch_to_openai(self):
         set_provider("openai")
-        assert get_model() == "gpt-5.4-mini"
+        assert get_model() == "gpt-5.5"
 
     def test_switch_back_to_nebius(self):
         set_provider("openai")
         set_provider("nebius")
-        assert get_model() == "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd"
+        assert get_model() == "deepseek-ai/DeepSeek-V4-Pro"
 
 
 class TestGetClient:
