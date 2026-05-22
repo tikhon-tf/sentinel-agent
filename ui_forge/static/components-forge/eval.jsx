@@ -20,7 +20,6 @@ const EvalScreen = () => {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
               <span className="f-kicker">120-question evaluation · 2026-05-21</span>
-              <OutlinePill size="s">Replayable on LangSmith</OutlinePill>
             </div>
             <h1 style={{ margin: 0, font: "700 60px/1.02 var(--forge-font)", letterSpacing: "-0.025em", color: "var(--forge-on-dark-strong)" }}>
               Naive RAG vs<br/>the agentic stack
@@ -33,10 +32,6 @@ const EvalScreen = () => {
               only in the underlying chat model. Naive RAG is the baseline: one retrieval, one LLM
               call, no tools.
             </p>
-            <div style={{ display: "flex", gap: 12, marginTop: 28 }}>
-              <Btn variant="lime"      icon={<Icon name="download" size={14} color="var(--forge-ink)" stroke={2.5}/>}>Download report</Btn>
-              <Btn variant="ghostDark" icon={<Icon name="link" size={14}/>}>Open in LangSmith</Btn>
-            </div>
           </div>
 
           {/* Right: 2×2 stat grid */}
