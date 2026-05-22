@@ -2,7 +2,9 @@
   "dependencies": ["."],
   "graphs": {
     "sentinel": "./sentinel/graph/agent.py:agent",
-    "sentinel_act1": "./sentinel/graph/agent.py:agent_act1"
+    "sentinel_act0": "./sentinel/graph/naive_agent.py:agent_act0",
+    "sentinel_act1": "./sentinel/graph/agent.py:agent_act1",
+    "sentinel_act1_alt": "./sentinel/graph/agent.py:agent_act1_alt"
   },
   "env": "./.env",
   "python_version": "3.12",

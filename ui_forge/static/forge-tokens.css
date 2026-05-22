@@ -1,0 +1,97 @@
+/* Forge tokens — re-skin of the Nebius design system for the Forge aesthetic.
+   Deep ink slabs + neon lime + cyan accent on a pale sky background.
+   Sourced from forge.eu-north1.osmo.nebius.cloud screenshots. */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* --- Surfaces --- */
+  --forge-page:        rgb(232, 244, 252);
+  --forge-page-2:      rgb(213, 230, 244);
+  --forge-page-edge:   rgb(199, 220, 240);
+
+  --forge-ink:         rgb(7, 26, 48);          /* primary dark slab */
+  --forge-ink-2:       rgb(5, 20, 38);          /* nested dark card inside slab */
+  --forge-ink-3:       rgb(3, 14, 28);          /* code blocks */
+  --forge-ink-hi:      rgba(255, 255, 255, 0.05); /* hover wash on dark */
+
+  /* --- Foreground on dark --- */
+  --forge-on-dark:        rgb(232, 244, 252);
+  --forge-on-dark-strong: rgb(255, 255, 255);
+  --forge-on-dark-mute:   rgba(232, 244, 252, 0.62);
+  --forge-on-dark-faint:  rgba(232, 244, 252, 0.42);
+
+  /* --- Foreground on light --- */
+  --forge-on-light:        rgb(7, 26, 48);
+  --forge-on-light-mute:   rgba(7, 26, 48, 0.65);
+  --forge-on-light-faint:  rgba(7, 26, 48, 0.45);
+
+  /* --- Borders --- */
+  --forge-border-dark:  rgba(255, 255, 255, 0.10);
+  --forge-border-dark-strong: rgba(255, 255, 255, 0.18);
+  --forge-border-light: rgba(7, 26, 48, 0.10);
+
+  /* --- Accents --- */
+  --forge-lime:         rgb(212, 250, 80);     /* neon — logo, key stats, primary CTA */
+  --forge-lime-soft:    rgb(232, 252, 138);
+  --forge-cyan:         rgb(140, 224, 220);    /* outline pills, secondary text */
+  --forge-cyan-deep:    rgb(94, 200, 195);
+  --forge-mint-warm:    rgb(120, 220, 140);    /* "warm right now", success */
+  --forge-amber:        rgb(255, 190, 92);     /* lightning / partial */
+  --forge-red:          rgb(247, 100, 110);    /* danger, gap */
+  --forge-rose-bg:      rgba(247, 100, 110, 0.14);
+  --forge-amber-bg:     rgba(255, 190, 92, 0.16);
+  --forge-mint-bg:      rgba(120, 220, 140, 0.16);
+
+  /* --- Radii --- */
+  --forge-r-sm:  8px;
+  --forge-r-md:  12px;
+  --forge-r-lg:  18px;
+  --forge-r-xl:  24px;
+  --forge-r-pill: 999px;
+
+  /* --- Fonts --- */
+  --forge-font:      'Geist', 'Inter', system-ui, -apple-system, sans-serif;
+  --forge-mono:      'Geist Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
+}
+
+/* page reset */
+html, body {
+  margin: 0; padding: 0;
+  background:
+    linear-gradient(180deg, rgb(232, 244, 252) 0%, rgb(218, 234, 248) 60%, rgb(208, 226, 244) 100%);
+  color: var(--forge-on-light);
+  font-family: var(--forge-font);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+button { font-family: inherit; }
+svg { display: block; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(7,26,48,0.15); border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
+::selection { background: rgba(212, 250, 80, 0.45); color: rgb(7,26,48); }
+
+/* Stylistic helpers used by primitives */
+.f-kicker {
+  font: 600 11px/1 var(--forge-font);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--forge-on-dark-mute);
+  white-space: nowrap;
+}
+.f-kicker-light {
+  font: 600 11px/1 var(--forge-font);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--forge-on-light-mute);
+  white-space: nowrap;
+}
+.f-display {
+  font: 700 56px/1.04 var(--forge-font);
+  letter-spacing: -0.02em;
+  color: var(--forge-on-dark-strong);
+}
+.f-mono { font-family: var(--forge-mono); }

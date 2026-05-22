@@ -107,12 +107,33 @@ def build_agent_act1():
         return _build_react_agent(model, tools)
 
 
+def build_agent_act1_alt():
+    """Build the Sentinel agent (Act 1 alternative: OpenAI + Tavily).
+
+    Same model as Act 1 (OPENAI_MODEL from sentinel.config) but with the full
+    agentic toolset including web search via Tavily. Matches the
+    `agentic-openai` eval mode — isolates "agentic stack value" from
+    "underlying model value" by holding tools constant against Act 2 and only
+    varying the LLM.
+    """
+    model = _build_model("openai")
+    tools = build_tools(provider="openai", use_tavily=True)
+    try:
+        return _build_deep_agent(model, tools)
+    except ImportError:
+        return _build_react_agent(model, tools)
+
+
 def agent():
     return build_agent()
 
 
 def agent_act1():
     return build_agent_act1()
+
+
+def agent_act1_alt():
+    return build_agent_act1_alt()
 
 
 def run_audit(
