@@ -18,6 +18,7 @@ NEBIUS_MODELS = {
 }
 MODEL = NEBIUS_MODELS.get(os.environ.get("NEBIUS_MODEL", "v4"), NEBIUS_MODELS["v4"])
 MODEL_MAX_TOKENS = 16_000
+REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "off")  # off, high, max
 MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "50"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")

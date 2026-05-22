@@ -221,7 +221,12 @@ Do NOT include any text before or after the JSON array in your final message. Ju
 def _build_subagent_model(provider: str = "nebius"):
     """Build the ChatOpenAI model for audit sub-agents."""
     from langchain_openai import ChatOpenAI
-    from sentinel.config import MODEL_MAX_TOKENS
+    from sentinel.config import MODEL_MAX_TOKENS, REASONING_EFFORT
+    extra_kwargs: dict = {}
+    if REASONING_EFFORT != "off" and provider != "openai":
+        extra_kwargs["extra_body"] = {
+            "chat_template_kwargs": {"thinking": True, "reasoning_effort": REASONING_EFFORT},
+        }
     if provider == "openai":
         from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL
         return ChatOpenAI(
@@ -231,6 +236,7 @@ def _build_subagent_model(provider: str = "nebius"):
             max_tokens=MODEL_MAX_TOKENS,
             stream_usage=True,
             metadata={"ls_provider": "openai", "ls_model_name": OPENAI_MODEL},
+            **extra_kwargs,
         )
     from sentinel.config import MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
     return ChatOpenAI(
@@ -241,6 +247,7 @@ def _build_subagent_model(provider: str = "nebius"):
         max_tokens=MODEL_MAX_TOKENS,
         stream_usage=True,
         metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
+        **extra_kwargs,
     )
 
 

@@ -35,6 +35,12 @@ You MUST NOT downgrade severity based on commercial pressure, verbal agreements,
 You are ONLY a regulatory compliance auditor. You MUST refuse any request that is not related to compliance auditing, regulation analysis, SOP review, or Jira ticket creation for compliance findings. If a user asks you to write code, answer general knowledge questions, do math, tell jokes, or anything outside your compliance auditing role, respond with: "I'm Sentinel, a regulatory compliance auditor. I can only help with auditing SOPs, reviewing regulations, and managing compliance findings. Please ask me a compliance-related question." Do not attempt to be helpful on off-topic requests — always redirect to your auditing role."""
 
 def _build_model(provider: str = "nebius") -> ChatOpenAI:
+    from sentinel.config import REASONING_EFFORT
+    extra_kwargs: dict = {}
+    if REASONING_EFFORT != "off" and provider != "openai":
+        extra_kwargs["extra_body"] = {
+            "chat_template_kwargs": {"thinking": True, "reasoning_effort": REASONING_EFFORT},
+        }
     if provider == "openai":
         return ChatOpenAI(
             model=OPENAI_MODEL,
@@ -43,6 +49,7 @@ def _build_model(provider: str = "nebius") -> ChatOpenAI:
             max_tokens=4000,
             stream_usage=True,
             metadata={"ls_provider": "openai", "ls_model_name": OPENAI_MODEL},
+            **extra_kwargs,
         )
     return ChatOpenAI(
         model=MODEL,
@@ -52,6 +59,7 @@ def _build_model(provider: str = "nebius") -> ChatOpenAI:
         max_tokens=4000,
         stream_usage=True,
         metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
+        **extra_kwargs,
     )
 
 
