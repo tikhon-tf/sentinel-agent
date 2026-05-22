@@ -13,30 +13,33 @@ function useForgeData() {
 
   React.useEffect(() => {
     let cancelled = false;
-    async function hydrate() {
-      const API = window.ForgeAPI;
-      if (!API) return;
+    const API = window.ForgeAPI;
+    if (!API) return;
 
-      const tasks = [
-        ["kb",       API.getKbStats,     (d) => { window.SENTINEL_DATA.kbStats = d; }],
-        ["eval",     API.getEvalResults, (d) => { window.SENTINEL_DATA.evalResults = mapEvalResults(d); }],
-        ["dataset",  API.getDataset,     (d) => { window.SENTINEL_DATA.dataset = d.questions || []; }],
-        ["findings", API.getFindings,    (d) => { window.SENTINEL_DATA.findings = d; }],
-      ];
-      for (const [key, fetcher, assign] of tasks) {
-        try {
-          const data = await fetcher();
+    // Fire all four endpoints in parallel. Each one updates its own slice of
+    // window.SENTINEL_DATA + status the moment it returns, so a slow query
+    // (e.g. cold Pinecone /api/kb-stats taking ~10s) no longer blocks the
+    // others. The screen re-renders after each individual completion.
+    const tasks = [
+      ["kb",       API.getKbStats,     (d) => { window.SENTINEL_DATA.kbStats = d; }],
+      ["eval",     API.getEvalResults, (d) => { window.SENTINEL_DATA.evalResults = mapEvalResults(d); }],
+      ["dataset",  API.getDataset,     (d) => { window.SENTINEL_DATA.dataset = d.questions || []; }],
+      ["findings", API.getFindings,    (d) => { window.SENTINEL_DATA.findings = d; }],
+    ];
+    tasks.forEach(([key, fetcher, assign]) => {
+      fetcher()
+        .then((data) => {
           if (cancelled) return;
           assign(data);
           setStatus(s => ({ ...s, [key]: "ok" }));
           setVersion(v => v + 1);
-        } catch (err) {
+        })
+        .catch((err) => {
           console.warn(`[forge] failed to load /api/${key}:`, err);
           if (!cancelled) setStatus(s => ({ ...s, [key]: "error" }));
-        }
-      }
-    }
-    hydrate();
+        });
+    });
+
     return () => { cancelled = true; };
   }, []);
 
@@ -109,9 +112,9 @@ function App() {
         {/* All three screens stay mounted so in-flight streams + composer state
             survive tab switches. Inactive screens are display:none, which keeps
             React state + SSE readers alive but skips layout. */}
-        <div style={{ display: scene === "audit"   ? "block" : "none" }}><AuditScreen   dataVersion={version}/></div>
-        <div style={{ display: scene === "compare" ? "block" : "none" }}><CompareScreen dataVersion={version}/></div>
-        <div style={{ display: scene === "eval"    ? "block" : "none" }}><EvalScreen    dataVersion={version}/></div>
+        <div style={{ display: scene === "audit"   ? "block" : "none" }}><AuditScreen   dataVersion={version} loadStatus={status}/></div>
+        <div style={{ display: scene === "compare" ? "block" : "none" }}><CompareScreen dataVersion={version} loadStatus={status}/></div>
+        <div style={{ display: scene === "eval"    ? "block" : "none" }}><EvalScreen    dataVersion={version} loadStatus={status}/></div>
       </main>
 
       <TweaksPanel>

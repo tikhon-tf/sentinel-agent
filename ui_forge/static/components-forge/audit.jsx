@@ -16,7 +16,10 @@ const AUDIT_TEMPLATES = [
   "Has the HHS Office for Civil Rights issued any HIPAA enforcement actions in the past 12 months that specifically address AI systems processing protected health information? Cite the case name(s) and approximate resolution date(s).",
 ];
 
-const AuditScreen = () => {
+const AuditScreen = ({ loadStatus }) => {
+  const _ls = loadStatus || {};
+  const kbLoading       = _ls.kb       === "loading";
+  const findingsLoading = _ls.findings === "loading";
   const data = window.SENTINEL_DATA || {};
   const kb = data.kbStats || { sop_count: 200, regulation_count: 9, regulations: [] };
   const findingsResp = data.findings || { issues: [], jira_configured: false };
@@ -127,13 +130,17 @@ const AuditScreen = () => {
           </div>
 
           {/* Right: 1×2 stat grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, position: "relative" }}>
             <StatCard
-              kicker="SOPs in scope"
+              kicker={<span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                SOPs in scope{kbLoading && <Spinner size={9} color="var(--forge-lime)"/>}
+              </span>}
               value={sopCount}
               body="Across 10 business units of Meridian Health Tech." />
             <StatCard
-              kicker="Policies in scope"
+              kicker={<span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                Policies in scope{kbLoading && <Spinner size={9} color="var(--forge-lime)"/>}
+              </span>}
               value={regCount}
               body={regList} />
           </div>
@@ -293,9 +300,14 @@ const AuditScreen = () => {
       {/* ─── FINDINGS TABLE — Jira-sourced ─── */}
       <div style={{ paddingTop: 16 }}>
         <SectionTitle kicker={
-          findingsResp.jira_configured
-            ? `Jira · ${findings.length} ticket${findings.length === 1 ? "" : "s"} with label "sentinel"`
-            : "Jira not configured — set JIRA_BASE_URL / JIRA_EMAIL / JIRA_API_TOKEN"
+          findingsLoading
+            ? <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Spinner size={9} color="var(--forge-ink)"/>
+                Loading findings from Jira…
+              </span>
+            : findingsResp.jira_configured
+              ? `Jira · ${findings.length} ticket${findings.length === 1 ? "" : "s"} with label "sentinel"`
+              : "Jira not configured — set JIRA_BASE_URL / JIRA_EMAIL / JIRA_API_TOKEN"
         }
         action={
           findingsResp.register_url && (
@@ -326,7 +338,14 @@ const AuditScreen = () => {
             <tbody>
               {findings.length === 0 && (
                 <tr><Td muted style={{ textAlign: "center", padding: "32px 18px" }} colSpan={6}>
-                  {findingsResp.jira_configured ? "No tickets yet. Run an audit and the agent will file gaps as Jira tickets." : "Configure Jira to populate this table."}
+                  {findingsLoading
+                    ? <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        <Spinner size={9} color="var(--forge-on-light-mute)"/>
+                        Loading findings from Jira…
+                      </span>
+                    : findingsResp.jira_configured
+                      ? "No tickets yet. Run an audit and the agent will file gaps as Jira tickets."
+                      : "Configure Jira to populate this table."}
                 </Td></tr>
               )}
               {findings.map((f, i) => <FindingRow key={f.key || i} f={f}/>)}
