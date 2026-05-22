@@ -83,7 +83,7 @@ make ingest-regulations   # Regulation texts into Pinecone (namespace: regulatio
 ### Run the demo
 
 ```bash
-make act1    # GPT-5.4-mini + Pinecone RAG
+make act1    # GPT-5.5 + Pinecone RAG
 make act2    # DeepSeek-V4-Pro + Pinecone
 make act3    # Adversarial simulation
 make act4    # Actuation — file Jira tickets for compliance gaps
@@ -161,7 +161,7 @@ sentinel_agent/
 │       ├── heatmap.py         # Rich console heatmap + summary
 │       └── register.py        # CSV/JSON/metrics output
 ├── demo/
-│   ├── act1_prototype.py      # Act 1: GPT-5.4-mini + RAG
+│   ├── act1_prototype.py      # Act 1: GPT-5.5 + RAG
 │   ├── act2_production.py     # Act 2: DeepSeek-V4-Pro
 │   ├── act3_simulation.py     # Act 3: Adversarial
 │   └── act4_actuation.py      # Act 4: Jira ticket creation
@@ -271,16 +271,48 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 
 ## Cost
 
-| Operation | Model                                             | Tokens | Cost | Latency |
-|-----------|---------------------------------------------------|--------|------|---------|
-| Full audit (Act 2) | Nebius DeepSeek-V4-Pro ($1.75/$3.50 per M tokens) | ~47M | ~$85 | ~4h     |
-| Full audit (Act 1) | GPT-5.4-mini ($0.40/$1.60 per M tokens)                | ~25M | ~$14 | ~28m    |
-| Act 3 simulation | DeepSeek-V4-Pro                                   | <1M | ~$0.01 | <1m     |
-| Act 4 actuation (2 cases) | DeepSeek-V4-Pro + Jira REST API          | <5K | ~$0.01 | <10s    |
-| SOP ingestion | Qwen3-Embedding-8B                                | ~2M | ~$0.02 | ~5m     |
+| Operation | Model                                               | Tokens | Cost   | Latency |
+|-----------|-----------------------------------------------------|--------|--------|---------|
+| Full audit (Act 2) | Nebius DeepSeek-V4-Pro (\$1.75/\$3.50 per M tokens) | ~47M | ~$85   | ~4h     |
+| Full audit (Act 1) | GPT-5.4-mini (\$0.40/\$1.60 per M tokens)            | ~14M | ~$7    | ~5m     |
+| Act 3 simulation | DeepSeek-V4-Pro                                     | <1M | ~$0.01 | <1m     |
+| Act 4 actuation (2 cases) | DeepSeek-V4-Pro + Jira REST API                     | <5K | ~$0.01 | <10s    |
+| SOP ingestion | Qwen3-Embedding-8B                                  | ~2M | ~$0.02 | ~5m     |
 
 Each SOP audit fans out a dedicated sub-agent with multiple tool calls (regulation retrieval, web search), so token counts are dominated by sub-agent usage across 200 SOPs. Token usage and cost are displayed per-response and per-session in the Streamlit UI. Use `scripts/validate_run.py` to get exact cost/token/latency breakdowns for any LangSmith run.
 
-## MCP Integrations
+## Integrations
 
-A [LangSmith remote MCP server](https://docs.langchain.com/langsmith/langsmith-remote-mcp) is configured in `.mcp.json` for accessing LangSmith traces, runs, and datasets from Claude Code. Uses OAuth authentication — a browser login flow runs on first use.
+### LangSmith MCP
+
+A [LangSmith remote MCP server](https://docs.langchain.com/langsmith/langsmith-remote-mcp) is configured in `.mcp.json` for accessing LangSmith data from Claude Code and Codex. Uses OAuth authentication — a browser login flow runs on first use.
+
+Available MCP tools:
+- `list_projects` — list LangSmith projects
+- `fetch_runs` — fetch runs by project, trace ID, or filters
+- `get_thread_history` — retrieve thread message history
+- `list_datasets` / `read_dataset` / `list_examples` / `read_example` — dataset access
+- `list_experiments` / `run_experiment` — experiment management
+- `list_prompts` / `get_prompt_by_name` / `push_prompt` — prompt hub
+- `get_billing_usage` — billing and usage stats
+- `create_dataset` / `update_examples` — dataset creation and mutation
+
+Use these tools to inspect audit run traces, compare run metrics, or debug sub-agent behavior without leaving the editor.
+
+### Jira Cloud (Act 4)
+
+The `create_jira_ticket` tool files compliance findings as tickets on a Jira Kanban board via the [Jira Cloud REST API v3](https://developer.atlassian.com/cloud/jira/platform/rest/v3/). Tickets are created for gap or partial findings at medium+ severity.
+
+- **Client:** `sentinel/actuation/jira_client.py` — sync REST client with basic auth (email + API token)
+- **Description format:** Atlassian Document Format (ADF)
+- **Labels:** `sentinel`, `compliance-finding`, severity, regulation slug, SOP slug
+- **Priority mapping:** critical → Highest, high → High, medium → Medium, low → Low
+
+Setup: create an API token at [id.atlassian.com](https://id.atlassian.com), then set in `.env`:
+
+```bash
+JIRA_BASE_URL=https://your-org.atlassian.net
+JIRA_EMAIL=your-email@example.com
+JIRA_API_TOKEN=your-api-token
+JIRA_PROJECT_KEY=SENT
+```

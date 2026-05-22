@@ -2,8 +2,8 @@
 """
 Act 1 — ChatGPT sub-agent audit.
 
-Same sub-agent architecture as Act 2, but uses GPT-5.5 (OpenAI) instead
-of DeepSeek-V4-Pro (Nebius). No Tavily web search.
+Same sub-agent architecture as Act 2, but uses GPT-5.5 (OpenAI)
+instead of DeepSeek-V4-Pro (Nebius). No Tavily web search.
 
 Usage:
     python -m demo.act1_prototype

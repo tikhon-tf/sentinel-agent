@@ -65,13 +65,13 @@ def _default_finding() -> AuditFinding:
 
 def _build_scenario_agent(system_prompt: str):
     """Build a Sentinel LangGraph ReAct agent for adversarial testing."""
-    from langgraph.prebuilt import create_react_agent
+    from langchain.agents import create_agent
     from sentinel.graph.agent import _build_model
     from sentinel.graph.tools import build_tools
 
     model = _build_model()
     tools = build_tools(provider="nebius", use_tavily=False)
-    return create_react_agent(model=model, tools=tools, prompt=system_prompt, name="snowglobe")
+    return create_agent(model=model, tools=tools, system_prompt=system_prompt, name="snowglobe")
 
 
 def _invoke_agent(system_prompt: str, user_message: str) -> tuple[str, int, float]:
