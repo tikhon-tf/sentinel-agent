@@ -13,6 +13,7 @@ const AUDIT_TEMPLATES = [
   "List all regulations available in the knowledge base.",
   "Audit all SOPs tagged with GDPR. For every gap finding at medium+ severity, create a Jira ticket.",
   "Show GDPR gaps only across SOP-DGP-*, with evidence quotes from each SOP.",
+  "Has the HHS Office for Civil Rights issued any HIPAA enforcement actions in the past 12 months that specifically address AI systems processing protected health information? Cite the case name(s) and approximate resolution date(s).",
 ];
 
 const AuditScreen = () => {
@@ -214,7 +215,7 @@ const AuditScreen = () => {
           }}>
             <span className="f-kicker" style={{ color: "var(--forge-on-dark-faint)" }}>Quick prompts</span>
             {AUDIT_TEMPLATES.map((tpl, i) => {
-              const labels = ["Full HIPAA + SOC 2 audit", "Audit SOP-ISEC-008", "List regulations", "Audit GDPR + file Jira tickets", "Show GDPR gaps only"];
+              const labels = ["Full HIPAA + SOC 2 audit", "Audit SOP-ISEC-008", "List regulations", "Audit GDPR + file Jira tickets", "Show GDPR gaps only", "Recent OCR AI enforcement"];
               return (
                 <TemplateChip
                   key={i}
