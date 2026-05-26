@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from langchain_openai import ChatOpenAI
 
-from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
+from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL, USE_NEXUS
 from sentinel.graph.tools import (
     build_tools,
     get_audit_results,
@@ -97,9 +97,9 @@ def _build_react_agent(model, tools):
 
 
 def build_agent():
-    """Build the Sentinel agent (Act 2: Nebius + Nexus + Tavily)."""
+    """Build the Sentinel agent (Act 2: Nebius + Tavily, Nexus or Pinecone RAG via USE_NEXUS)."""
     model = _build_model()
-    tools = build_tools(provider="nebius", use_tavily=True, use_nexus=True)
+    tools = build_tools(provider="nebius", use_tavily=True, use_nexus=USE_NEXUS)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -158,7 +158,7 @@ def run_audit(
 
     use_tavily = provider != "openai"
     if use_nexus is None:
-        use_nexus = provider != "openai"
+        use_nexus = USE_NEXUS and provider != "openai"
     model = _build_model(provider)
     tools = build_tools(provider=provider, use_tavily=use_tavily, use_nexus=use_nexus)
     try:

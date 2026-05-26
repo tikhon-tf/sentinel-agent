@@ -30,6 +30,7 @@ PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "sentinel-sops")
 NEXUS_API_KEY = os.environ.get("NEXUS_API_KEY", "")
 NEXUS_BASE_URL = os.environ.get("NEXUS_BASE_URL", "https://prod.nexus.pinecone.io")
 NEXUS_CONTEXT_SLUG = os.environ.get("NEXUS_CONTEXT_SLUG", "sentinel-regs-test")
+USE_NEXUS = os.environ.get("USE_NEXUS", "true").lower() in ("true", "1", "yes")
 
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 

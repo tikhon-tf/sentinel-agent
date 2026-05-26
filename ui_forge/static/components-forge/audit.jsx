@@ -4,7 +4,7 @@ const AUDIT_AGENTS = [
   { key: "sentinel_act0",     label: "Naive RAG",         sublabel: "DeepSeek-V4-Pro" },
   { key: "sentinel_act1",     label: "OpenAI agent",      sublabel: "GPT-5.5 · no web" },
   { key: "sentinel_act1_alt", label: "OpenAI + Tavily",   sublabel: "GPT-5.5 · web" },
-  { key: "sentinel",          label: "Nebius + Tavily",   sublabel: "DeepSeek-V4-Pro · web" },
+  { key: "sentinel",          label: "Nebius + Nexus + Tavily",   sublabel: "DeepSeek-V4-Pro · web" },
 ];
 
 const AUDIT_TEMPLATES = [
@@ -43,8 +43,8 @@ const AuditScreen = ({ loadStatus }) => {
   const streamRef = React.useRef(null);
 
   const sopCount = kb.sop_count ?? 200;
-  const regCount = kb.regulation_count ?? 9;
-  const regList  = (kb.regulations || []).join(", ") || "HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, SB 53/942, AB 853";
+  const regCount = kb.regulation_count ?? 33;
+  const regList  = (kb.regulations || []).join(", ") || "HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853, NIST SP 800-53, NIST CSF 2.0, FDA 21 CFR, OWASP, PCI DSS, BSA, FCRA, EU MDR, and more";
 
   const sendAudit = (text) => {
     if (!text || audit.status === "running") return;
@@ -124,7 +124,7 @@ const AuditScreen = ({ loadStatus }) => {
               color: "var(--forge-on-dark-mute)", maxWidth: 480
             }}>
               Auditing <strong style={{ color: "var(--forge-on-dark)" }}>{sopCount} SOPs</strong> from{" "}
-              <strong style={{ color: "var(--forge-on-dark)" }}>Meridian Health Tech</strong> against {regCount} regulation frameworks.
+              <strong style={{ color: "var(--forge-on-dark)" }}>Meridian Health Tech</strong> against {regCount} regulations.
               ReAct sub-agent fan-out, region-pinned on Nebius GPUs, retrieval grounded in Pinecone.
             </p>
           </div>
