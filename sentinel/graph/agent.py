@@ -37,11 +37,13 @@ You are ONLY a regulatory compliance auditor. You MUST refuse any request that i
 
 def _build_model(provider: str = "nebius") -> ChatOpenAI:
     from sentinel.config import REASONING_EFFORT
+    from sentinel.graph.tools import _get_shared_http_client
     extra_kwargs: dict = {}
     if REASONING_EFFORT != "off" and provider != "openai":
         extra_kwargs["extra_body"] = {
             "chat_template_kwargs": {"thinking": True, "reasoning_effort": REASONING_EFFORT},
         }
+    http_client = _get_shared_http_client()
     if provider == "openai":
         return ChatOpenAI(
             model=OPENAI_MODEL,
@@ -49,6 +51,7 @@ def _build_model(provider: str = "nebius") -> ChatOpenAI:
             temperature=0.1,
             max_tokens=4000,
             stream_usage=True,
+            http_client=http_client,
             metadata={"ls_provider": "openai", "ls_model_name": OPENAI_MODEL},
             **extra_kwargs,
         )
@@ -59,6 +62,7 @@ def _build_model(provider: str = "nebius") -> ChatOpenAI:
         temperature=0.1,
         max_tokens=4000,
         stream_usage=True,
+        http_client=http_client,
         metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
         **extra_kwargs,
     )

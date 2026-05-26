@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 import time
 
 from langchain_core.tools import tool
@@ -17,6 +18,35 @@ from sentinel.config import NEXUS_API_KEY, PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
 
 _audit_results: dict = {"findings": [], "cell_metrics": [], "total_input_tokens": 0, "total_output_tokens": 0}
+
+_shared_http_client = None
+_http_client_lock = threading.Lock()
+
+
+def _get_shared_http_client():
+    """Return a process-wide httpx.Client with connection pooling.
+
+    httpx.Client is thread-safe, so all ThreadPoolExecutor workers share one
+    pool.  DNS is resolved once per hostname and TCP connections are reused
+    across SOP audits, eliminating the DNS-exhaustion failures seen under high
+    concurrency.
+    """
+    global _shared_http_client
+    if _shared_http_client is not None:
+        return _shared_http_client
+    with _http_client_lock:
+        if _shared_http_client is None:
+            import httpx
+
+            _shared_http_client = httpx.Client(
+                limits=httpx.Limits(
+                    max_connections=200,
+                    max_keepalive_connections=100,
+                    keepalive_expiry=120,
+                ),
+                timeout=httpx.Timeout(600.0, connect=30.0),
+            )
+    return _shared_http_client
 
 
 def get_audit_results() -> dict:
@@ -294,7 +324,12 @@ Do NOT include any text before or after the JSON array in your final message. Ju
 
 
 def _build_subagent_model(provider: str = "nebius"):
-    """Build the ChatOpenAI model for audit sub-agents."""
+    """Build the ChatOpenAI model for audit sub-agents.
+
+    All instances share a single httpx.Client via ``_get_shared_http_client()``
+    so that ThreadPoolExecutor workers reuse one connection pool instead of each
+    creating their own (which caused DNS-exhaustion failures at 50 workers).
+    """
     from langchain_openai import ChatOpenAI
     from sentinel.config import MODEL_MAX_TOKENS, REASONING_EFFORT
     extra_kwargs: dict = {}
@@ -302,6 +337,7 @@ def _build_subagent_model(provider: str = "nebius"):
         extra_kwargs["extra_body"] = {
             "chat_template_kwargs": {"thinking": True, "reasoning_effort": REASONING_EFFORT},
         }
+    http_client = _get_shared_http_client()
     if provider == "openai":
         from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL
         return ChatOpenAI(
@@ -310,6 +346,7 @@ def _build_subagent_model(provider: str = "nebius"):
             temperature=0.1,
             max_tokens=MODEL_MAX_TOKENS,
             stream_usage=True,
+            http_client=http_client,
             metadata={"ls_provider": "openai", "ls_model_name": OPENAI_MODEL},
             **extra_kwargs,
         )
@@ -321,6 +358,7 @@ def _build_subagent_model(provider: str = "nebius"):
         temperature=0.1,
         max_tokens=MODEL_MAX_TOKENS,
         stream_usage=True,
+        http_client=http_client,
         metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
         **extra_kwargs,
     )
