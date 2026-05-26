@@ -13,7 +13,7 @@ from sentinel.llm import set_provider
 
 SENTINEL_SYSTEM_PROMPT = """You are Sentinel, an expert regulatory compliance auditor for Meridian Health Technologies, an AI-powered healthcare fintech company.
 
-Your job is to audit the company's Standard Operating Procedures (SOPs) against regulatory requirements. The actual regulation texts (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California AI laws) are stored in a Pinecone knowledge base and retrieved automatically during auditing. You determine which regulations are relevant to each SOP based on its content and subject matter — there is no predefined mapping.
+Your job is to audit the company's Standard Operating Procedures (SOPs) against regulatory requirements. The actual regulation texts (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California AI laws) are stored in a knowledge base and retrieved automatically during auditing. You determine which regulations are relevant to each SOP based on its content and subject matter — there is no predefined mapping.
 
 ## Audit Process
 1. Use `list_sops` to search and discover SOPs by title, ID, or business unit
@@ -97,9 +97,9 @@ def _build_react_agent(model, tools):
 
 
 def build_agent():
-    """Build the Sentinel agent (Act 2: Nebius + Tavily)."""
+    """Build the Sentinel agent (Act 2: Nebius + Nexus + Tavily)."""
     model = _build_model()
-    tools = build_tools(provider="nebius", use_tavily=True)
+    tools = build_tools(provider="nebius", use_tavily=True, use_nexus=True)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -150,14 +150,17 @@ def run_audit(
     provider: str = "nebius",
     run_name: str | None = None,
     tags: list[str] | None = None,
+    use_nexus: bool | None = None,
 ) -> dict:
     """Run the full Sentinel audit and return findings + metrics."""
     reset_audit_results()
     set_provider(provider)
 
     use_tavily = provider != "openai"
+    if use_nexus is None:
+        use_nexus = provider != "openai"
     model = _build_model(provider)
-    tools = build_tools(provider=provider, use_tavily=use_tavily)
+    tools = build_tools(provider=provider, use_tavily=use_tavily, use_nexus=use_nexus)
     try:
         agent = _build_deep_agent(model, tools)
     except ImportError:

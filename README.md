@@ -1,6 +1,6 @@
 # Sentinel — Regulatory Compliance Auditor Agent
 
-Sentinel is an AI-powered compliance auditor that assesses 200 enterprise SOPs against 9 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853). Regulation text is stored in a Pinecone knowledge base and retrieved dynamically during auditing. Built for the [Nebius Blueprint for Agents](https://nebius.com/) demo (Nebius Inflection, June 9, 2026).
+Sentinel is an AI-powered compliance auditor that assesses 200 enterprise SOPs against 9 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853). Act 1 retrieves regulation text from a Pinecone vector index via agentic RAG; Act 2 retrieves from Pinecone Nexus KnowQL — grounded, cited answers in one shot. Built for the [Nebius Blueprint for Agents](https://nebius.com/) demo (Nebius Inflection, June 9, 2026).
 
 ## Architecture
 
@@ -22,7 +22,8 @@ User Query
     |    |   sop)            |
     |    +-------------------+
     |         |
-    |         +---> retrieve_regulation (Pinecone semantic search)
+    |         +---> retrieve_regulation_rag (Act 1: Pinecone semantic search)
+    |         |  OR retrieve_regulation_nexus (Act 2: Nexus KnowQL)
     |         +---> search_web (Tavily live search)
     |         +---> read_sop (SOP text)
     |         |
@@ -37,7 +38,7 @@ User Query
 
 **Model:** DeepSeek-V4-Pro on Nebius AI Studio (Act 2 + deployment), GPT-5.4-mini on OpenAI (Act 1)
 **Orchestration:** LangGraph ReAct agent with per-SOP sub-agents, optional deepagents upgrade
-**Retrieval:** Pinecone vector search (Qwen3-Embedding-8B embeddings, 4096 dimensions)
+**Retrieval:** Act 1: Pinecone vector search (Qwen3-Embedding-8B, 4096 dims) · Act 2: Pinecone Nexus KnowQL (50-doc corpus, grounded + cited)
 **Grounding:** Tavily live regulation search
 **Observability:** LangSmith tracing with cost tracking + [LangSmith MCP](https://docs.langchain.com/langsmith/langsmith-remote-mcp) integration
 **Actuation:** Jira Cloud REST API for filing compliance gap tickets (Act 4)
@@ -47,8 +48,8 @@ User Query
 
 | Act | Description | Model | Command |
 |-----|-------------|-------|---------|
-| **Act 1** | Agentic RAG prototype — same sub-agent architecture, shows baseline | GPT-5.4-mini | `make act1` |
-| **Act 2** | Production stack — DeepSeek on Nebius with full retrieval | DeepSeek-V4-Pro | `make act2` |
+| **Act 1** | Agentic RAG prototype — Pinecone vector search, shows baseline | GPT-5.4-mini | `make act1` |
+| **Act 2** | Production stack — Nexus KnowQL one-shot retrieval | DeepSeek-V4-Pro | `make act2` |
 | **Act 3** | Snowglobe adversarial simulation — red-teams the auditor | DeepSeek-V4-Pro | `make act3` |
 | **Act 4** | Actuation — files a Jira ticket when a compliance gap is confirmed | DeepSeek-V4-Pro | `make act4` |
 
@@ -57,7 +58,7 @@ User Query
 ### Prerequisites
 
 - Python 3.11+
-- API keys: Nebius, OpenAI (Act 1), Pinecone, Tavily (optional), LangSmith (optional)
+- API keys: Nebius, OpenAI (Act 1), Pinecone (Act 1), Nexus (Act 2), Tavily (optional), LangSmith (optional)
 
 ### Setup
 
@@ -84,7 +85,7 @@ make ingest-regulations   # Regulation texts into Pinecone (namespace: regulatio
 
 ```bash
 make act1    # GPT-5.5 + Pinecone RAG
-make act2    # DeepSeek-V4-Pro + Pinecone
+make act2    # DeepSeek-V4-Pro + Nexus KnowQL
 make act3    # Adversarial simulation
 make act4    # Actuation — file Jira tickets for compliance gaps
 make demo    # All four acts sequentially
@@ -123,7 +124,7 @@ Sentinel fans out by SOP using a sub-agent architecture. Each SOP is audited by 
 
 1. Reads the full SOP text
 2. Determines which regulations apply based on content and business unit
-3. Iteratively queries the Pinecone knowledge base for each applicable regulation
+3. Queries the regulation knowledge base — **Act 1** uses Pinecone vector search (multiple keyword queries per regulation); **Act 2** uses Nexus KnowQL (natural-language questions, grounded cited answers in one shot)
 4. Optionally searches the web for latest guidance
 5. Outputs structured JSON findings with compliance levels, severity, evidence, and remediation
 
@@ -150,7 +151,8 @@ sentinel_agent/
 │   │   └── tools.py           # LangChain tools: sub-agent auditing + retrieval
 │   ├── retrieval/
 │   │   ├── local.py           # SOP file loading and search
-│   │   ├── regulations.py     # Pinecone regulation text retrieval
+│   │   ├── nexus.py           # Nexus KnowQL client (Act 2)
+│   │   ├── regulations.py     # Pinecone regulation text retrieval (Act 1)
 │   │   ├── ingest.py          # SOP -> Pinecone ingestion
 │   │   └── ingest_regulations.py  # Regulation text -> Pinecone ingestion
 │   ├── simulation/
@@ -161,8 +163,8 @@ sentinel_agent/
 │       ├── heatmap.py         # Rich console heatmap + summary
 │       └── register.py        # CSV/JSON/metrics output
 ├── demo/
-│   ├── act1_prototype.py      # Act 1: GPT-5.5 + RAG
-│   ├── act2_production.py     # Act 2: DeepSeek-V4-Pro
+│   ├── act1_prototype.py      # Act 1: GPT-5.5 + Pinecone RAG
+│   ├── act2_production.py     # Act 2: DeepSeek-V4-Pro + Nexus KnowQL
 │   ├── act3_simulation.py     # Act 3: Adversarial
 │   └── act4_actuation.py      # Act 4: Jira ticket creation
 ├── ui/
@@ -222,7 +224,7 @@ The script fetches run data from LangSmith (model, timing, tokens, cost, audit c
 
 ## Regulation Coverage
 
-9 core regulation frameworks with full text in the Pinecone knowledge base:
+9 core regulation frameworks with full text in the Pinecone index and Nexus corpus:
 
 - **HIPAA Security Rule** — Administrative (164.308), Physical (164.310), Technical (164.312) safeguards
 - **SOC 2 Trust Services Criteria** — CC1 through CC9
@@ -259,7 +261,10 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 |----------|----------|-------------|
 | `NEBIUS_API_KEY` | Yes | Nebius AI Studio API key |
 | `OPENAI_API_KEY` | For Act 1 | OpenAI API key |
-| `PINECONE_API_KEY` | Yes | Pinecone vector DB key |
+| `PINECONE_API_KEY` | For Act 1 | Pinecone vector DB key (agentic RAG) |
+| `NEXUS_API_KEY` | For Act 2 | Pinecone Nexus API key (KnowQL, project `dbljkrx`) |
+| `NEXUS_BASE_URL` | Optional | Override Nexus endpoint (default: `https://prod.nexus.pinecone.io`) |
+| `NEXUS_CONTEXT_SLUG` | Optional | Override Nexus context (default: `sentinel-regs-test`) |
 | `TAVILY_API_KEY` | Optional | Live regulation grounding |
 | `LANGSMITH_API_KEY` | Optional | LangSmith tracing + cloud auth |
 | `SNOWGLOBE_API_KEY` | Optional | Adversarial simulation (Act 3) |
