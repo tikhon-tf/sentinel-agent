@@ -38,15 +38,13 @@ def list_regulations() -> str:
     try:
         from sentinel.config import PINECONE_INDEX_NAME
         from sentinel.retrieval.ingest import embed_texts
+        from sentinel.retrieval.ingest_regulations import REGULATION_MAP
         from pinecone import Pinecone
 
         pc = Pinecone(api_key=PINECONE_API_KEY)
         index = pc.Index(PINECONE_INDEX_NAME)
 
-        known_regs = [
-            "HIPAA", "SOC 2", "GDPR", "EU AI Act", "NIST AI RMF",
-            "SR 11-7", "California SB 53", "California SB 942", "California AB 853",
-        ]
+        known_regs = sorted(set(REGULATION_MAP.values()))
         query_text = "regulatory compliance requirements"
         embedding = embed_texts([query_text])[0]
 
@@ -63,16 +61,6 @@ def list_regulations() -> str:
                 source = match.metadata.get("source", "")
                 edition = match.metadata.get("edition", "current")
                 regs.setdefault(reg_name, set()).add(f"{source} ({edition})")
-
-        # Also do an unfiltered query to catch anything not in known_regs
-        results = index.query(
-            vector=embedding, top_k=20, namespace="regulations", include_metadata=True,
-        )
-        for match in results.matches:
-            reg = match.metadata.get("regulation", "Unknown")
-            source = match.metadata.get("source", "")
-            edition = match.metadata.get("edition", "current")
-            regs.setdefault(reg, set()).add(f"{source} ({edition})")
 
         lines = []
         for reg in sorted(regs.keys()):
@@ -756,7 +744,9 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, use_nexus: bo
         def _list_regulations() -> str:
             """List all regulations available in the Nexus knowledge base. Returns regulation names and document coverage."""
             return (
-                "9 regulation frameworks in Nexus knowledge base (50 source documents):\n"
+                "Nexus knowledge base (50 source documents):\n"
+                "\n"
+                "Core 9 frameworks:\n"
                 "- HIPAA: 45 CFR Parts 160, 162, 164 (current + 2017/2020/2024 editions)\n"
                 "- SOC 2: 2017 Trust Services Criteria, 2018 Description Criteria\n"
                 "- GDPR: Regulation (EU) 2016/679, full article-by-article text\n"
@@ -765,7 +755,44 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, use_nexus: bo
                 "- SR 11-7 / SR 26-2: Model Risk Management (2011 original + 2026 revised)\n"
                 "- California SB 53: Frontier AI Transparency\n"
                 "- California SB 942: AI Transparency Act\n"
-                "- California AB 853: Amendments"
+                "- California AB 853: AI Transparency Amendments\n"
+                "\n"
+                "NIST publications:\n"
+                "- NIST CSF 2.0: Cybersecurity Framework\n"
+                "- NIST Privacy Framework 1.0\n"
+                "- NIST SP 1270: AI Bias\n"
+                "- NIST SP 800-53 Rev 5: Security and Privacy Controls\n"
+                "- NIST SP 800-88 Rev 1: Media Sanitization\n"
+                "- NIST SP 800-61 Rev 2: Incident Handling\n"
+                "- NIST SP 800-63B: Digital Identity / Authentication\n"
+                "- NIST SP 800-207: Zero Trust Architecture\n"
+                "- NIST SP 800-34 Rev 1: Contingency Planning\n"
+                "- NIST SP 800-161 Rev 1: Supply Chain Risk Management\n"
+                "- NIST SP 800-218: Secure Software Development (SSDF)\n"
+                "\n"
+                "FDA / 21 CFR:\n"
+                "- FDA 21 CFR Part 11: Electronic Records & Signatures\n"
+                "- FDA 21 CFR Part 807: Premarket Notification (510k)\n"
+                "- FDA 21 CFR Part 820: Quality System Regulation\n"
+                "- FDA AI/ML SaMD: Software as Medical Device Framework\n"
+                "- FDA CDS Guidance: Clinical Decision Support\n"
+                "\n"
+                "EU directives & regulations:\n"
+                "- EU MDR: Medical Device Regulation 2017/745\n"
+                "- EU SCCs: Standard Contractual Clauses 2021/914\n"
+                "- EU ePrivacy Directive 2002/58\n"
+                "- EU AMLD4: Anti-Money Laundering Directive 2015/849\n"
+                "- EU Funds Transfer Regulation 2015/847\n"
+                "\n"
+                "OWASP:\n"
+                "- OWASP Top 10 (2021)\n"
+                "- OWASP API Security Top 10 (2023)\n"
+                "\n"
+                "Financial:\n"
+                "- BSA: Bank Secrecy Act (31 CFR Chapter X)\n"
+                "- ECOA Regulation B: Equal Credit Opportunity\n"
+                "- FCRA: Fair Credit Reporting Act\n"
+                "- PCI DSS: Payment Card Industry Data Security Standard"
             )
         _list_regulations.name = "list_regulations"
 
