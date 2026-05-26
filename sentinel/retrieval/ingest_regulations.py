@@ -13,6 +13,7 @@ from sentinel.config import (
 from sentinel.retrieval.ingest import embed_texts
 
 REGULATION_MAP = {
+    # Core 9 frameworks
     "hipaa_45cfr_part160": "HIPAA",
     "hipaa_45cfr_part162": "HIPAA",
     "hipaa_45cfr_part164": "HIPAA",
@@ -26,6 +27,38 @@ REGULATION_MAP = {
     "california_ab853": "California AB 853",
     "sr_11_7": "SR 11-7",
     "sr_26_2": "SR 11-7",
+    # NIST publications
+    "nist_csf": "NIST CSF 2.0",
+    "nist_privacy_framework": "NIST Privacy Framework",
+    "nist_sp_1270": "NIST SP 1270",
+    "nist_sp_800_53": "NIST SP 800-53",
+    "nist_sp_800_88": "NIST SP 800-88",
+    "nist_sp_800_61": "NIST SP 800-61",
+    "nist_sp_800_63b": "NIST SP 800-63B",
+    "nist_sp_800_207": "NIST SP 800-207",
+    "nist_sp_800_34": "NIST SP 800-34",
+    "nist_sp_800_161": "NIST SP 800-161",
+    "nist_sp_800_218": "NIST SP 800-218",
+    # FDA / 21 CFR
+    "fda_21cfr_part11": "FDA 21 CFR Part 11",
+    "fda_21cfr_part807": "FDA 21 CFR Part 807",
+    "fda_21cfr_part820": "FDA 21 CFR Part 820",
+    "fda_ai_ml_samd": "FDA AI/ML SaMD",
+    "fda_clinical_decision_support": "FDA CDS Guidance",
+    # EU directives & regulations
+    "eu_mdr": "EU MDR",
+    "eu_standard_contractual_clauses": "EU SCCs",
+    "eu_eprivacy": "EU ePrivacy Directive",
+    "eu_amld4": "EU AMLD4",
+    "eu_funds_transfer": "EU Funds Transfer Regulation",
+    # OWASP
+    "owasp_top_10": "OWASP Top 10",
+    "owasp_api_security": "OWASP API Security Top 10",
+    # Financial laws
+    "bsa_31cfr": "BSA",
+    "ecoa_regulation_b": "ECOA Regulation B",
+    "fcra": "FCRA",
+    "pci_dss": "PCI DSS",
 }
 
 
