@@ -459,12 +459,17 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
     )
 
     start = time.time()
-    result = subagent.invoke({
-        "messages": [{
-            "role": "user",
-            "content": f"Audit SOP {actual_id}: {title} (Business Unit: {business_unit})",
-        }],
-    })
+    try:
+        result = subagent.invoke({
+            "messages": [{
+                "role": "user",
+                "content": f"Audit SOP {actual_id}: {title} (Business Unit: {business_unit})",
+            }],
+        })
+    except Exception as e:
+        elapsed = time.time() - start
+        logger.error("Sub-agent for %s failed after %.1fs: %s", actual_id, elapsed, e)
+        return f"FAILED: {actual_id} — sub-agent error: {e}"
     elapsed = time.time() - start
 
     messages = result.get("messages", [])
