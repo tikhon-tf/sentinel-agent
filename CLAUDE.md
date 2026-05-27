@@ -2,7 +2,7 @@
 
 ## What this project is
 
-Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs for a fictional healthcare fintech (Meridian Health Technologies) against 9 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853). Act 1 retrieves regulation text from a Pinecone vector index via agentic RAG; Act 2 retrieves from Pinecone Nexus KnowQL (grounded, cited answers in one shot). Built for the Nebius Blueprint for Agents demo (Nebius Inflection, June 9, 2026).
+Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs for a fictional healthcare fintech (Meridian Health Technologies) against 9 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853). Act 1 retrieves regulation text from a Pinecone vector index via agentic RAG; Act 2 defaults to Pinecone RAG as well but can optionally use Pinecone Nexus KnowQL or both (via `AGENT2_RETRIEVAL`). Built for the Nebius Blueprint for Agents demo (Nebius Inflection, June 9, 2026).
 
 ## Quick reference
 
@@ -11,7 +11,7 @@ make install              # Install into .venv (includes dev, deep, demo, rag, u
 make ingest               # Ingest SOPs into Pinecone
 make ingest-regulations   # Ingest regulation texts into Pinecone (namespace: regulations)
 make act1                 # Act 1: GPT-5.5 + Pinecone agentic RAG
-make act2                 # Act 2: DeepSeek-V4-Pro + Nexus KnowQL one-shot
+make act2                 # Act 2: DeepSeek-V4-Pro + Pinecone RAG (default; set AGENT2_RETRIEVAL=nexus|both to change)
 make act3                 # Act 3: Snowglobe adversarial simulation
 make act4                 # Act 4: actuation — file Jira tickets for compliance gaps
 make demo                 # All four acts sequentially
@@ -28,7 +28,7 @@ Regulation texts live in `data/regulations/` as `.txt` and `.md` files. Two retr
 
 **Pinecone RAG (Act 1):** Regulation texts are chunked, embedded (Qwen3-Embedding-8B on Nebius, 4096 dimensions), and stored in Pinecone namespace `regulations`. Sub-agents retrieve raw text chunks via semantic search with metadata filtering by regulation name. Multiple retrieval calls per regulation, per SOP.
 
-**Nexus KnowQL (Act 2):** The same regulation corpus is pre-loaded into a Pinecone Nexus context (`sentinel-regs-test`, 50 source documents). Sub-agents query the Nexus `/knowql` endpoint with natural-language questions and receive grounded, cited answers in one shot. Nexus handles retrieval, synthesis, and citation internally — no embedding or chunk management needed on our side. Auth is JWT-based (exchange `NEXUS_API_KEY` for a short-lived token, cached ~30 days). The Nexus corpus is a superset of the Pinecone index — it also includes NIST SP 800-series, OWASP, FDA/21 CFR, PCI DSS, and EU directives.
+**Nexus KnowQL (optional, via `AGENT2_RETRIEVAL=nexus` or `both`):** The same regulation corpus is pre-loaded into a Pinecone Nexus context (`sentinel-regs-test`, 50 source documents). Sub-agents query the Nexus `/knowql` endpoint with natural-language questions and receive grounded, cited answers in one shot. Nexus handles retrieval, synthesis, and citation internally — no embedding or chunk management needed on our side. Auth is JWT-based (exchange `NEXUS_API_KEY` for a short-lived token, cached ~30 days). The Nexus corpus is a superset of the Pinecone index — it also includes NIST SP 800-series, OWASP, FDA/21 CFR, PCI DSS, and EU directives.
 
 Key modules:
 - `sentinel/retrieval/nexus.py` — Nexus KnowQL client: JWT auth with thread-safe caching, `query_nexus()`, retry on 401/429/409, `format_nexus_response()`
@@ -51,7 +51,7 @@ Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Neb
 
 ### Dual-model, dual-retrieval support
 - **Act 1**: GPT-5.4-mini via OpenAI API (`https://api.openai.com/v1`) + Pinecone RAG
-- **Act 2 + deployment default**: DeepSeek on Nebius AI Studio (`https://api.studio.nebius.com/v1/`) + retrieval backend selected by `AGENT2_RETRIEVAL`
+- **Act 2 + deployment default**: DeepSeek on Nebius AI Studio (`https://api.studio.nebius.com/v1/`) + Pinecone RAG by default (configurable via `AGENT2_RETRIEVAL`)
 - Provider switching is handled by `set_provider()` in `llm.py` and `_build_model()` in `agent.py`
 - Retrieval backend is selected by the `retrieval` parameter (from `AGENT2_RETRIEVAL` env var) threaded through `build_tools()` → `_audit_single_sop_impl()` → `_build_subagent_tools()`. Values: `"rag"` (Pinecone RAG, default), `"nexus"` (Nexus KnowQL), `"both"` (both tools available to sub-agents)
 
@@ -80,7 +80,7 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 | `sentinel/models.py` | Pydantic models (`AuditFinding`, `SOPChunk`, `AuditMetrics`), enums (`ComplianceLevel`, `Severity`) |
 | `sentinel/config.py` | API keys, model names, paths, pricing, business unit list |
 | `sentinel/retrieval/local.py` | SOP loading: `list_all_sops()`, `load_sop_by_id()`, `load_sop_chunks()` |
-| `sentinel/retrieval/nexus.py` | Nexus KnowQL client (Act 2): `query_nexus()`, `format_nexus_response()`, JWT auth with thread-safe caching, 401/429/409 retry |
+| `sentinel/retrieval/nexus.py` | Nexus KnowQL client (optional, via `AGENT2_RETRIEVAL`): `query_nexus()`, `format_nexus_response()`, JWT auth with thread-safe caching, 401/429/409 retry |
 | `sentinel/retrieval/regulations.py` | Pinecone regulation text retrieval (Act 1): `retrieve_regulation_text()`, `retrieve_for_sop()`, `format_regulation_context()` |
 | `sentinel/retrieval/ingest_regulations.py` | Regulation text chunker + Pinecone ingestion (`REGULATION_MAP`, `EDITION_PATTERNS`, edition metadata) |
 | `sentinel/retrieval/ingest.py` | SOP markdown parser (`parse_sop()`), chunker, Pinecone ingestion |
