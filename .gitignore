@@ -8,3 +8,5 @@ output/
 *.egg-info/
 .DS_Store
 .idea/
+.mcp.json
+tmp.txt
