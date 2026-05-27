@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from langchain_openai import ChatOpenAI
 
-from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL, USE_NEXUS
+from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL, AGENT2_RETRIEVAL
 from sentinel.graph.tools import (
     build_tools,
     get_audit_results,
@@ -101,9 +101,9 @@ def _build_react_agent(model, tools):
 
 
 def build_agent():
-    """Build the Sentinel agent (Act 2: Nebius + Tavily, Nexus or Pinecone RAG via USE_NEXUS)."""
+    """Build the Sentinel agent (Act 2: Nebius + Tavily, retrieval via AGENT2_RETRIEVAL)."""
     model = _build_model()
-    tools = build_tools(provider="nebius", use_tavily=True, use_nexus=USE_NEXUS)
+    tools = build_tools(provider="nebius", use_tavily=True, retrieval=AGENT2_RETRIEVAL)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -154,17 +154,17 @@ def run_audit(
     provider: str = "nebius",
     run_name: str | None = None,
     tags: list[str] | None = None,
-    use_nexus: bool | None = None,
+    retrieval: str | None = None,
 ) -> dict:
     """Run the full Sentinel audit and return findings + metrics."""
     reset_audit_results()
     set_provider(provider)
 
     use_tavily = provider != "openai"
-    if use_nexus is None:
-        use_nexus = USE_NEXUS and provider != "openai"
+    if retrieval is None:
+        retrieval = "rag" if provider == "openai" else AGENT2_RETRIEVAL
     model = _build_model(provider)
-    tools = build_tools(provider=provider, use_tavily=use_tavily, use_nexus=use_nexus)
+    tools = build_tools(provider=provider, use_tavily=use_tavily, retrieval=retrieval)
     try:
         agent = _build_deep_agent(model, tools)
     except ImportError:
