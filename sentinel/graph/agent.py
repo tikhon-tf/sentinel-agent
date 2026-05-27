@@ -172,6 +172,7 @@ def run_audit(
 
     active_model = OPENAI_MODEL if provider == "openai" else MODEL
     config = {
+        "recursion_limit": 25,
         "metadata": {
             "model": active_model,
             "provider": provider,
