@@ -41,10 +41,18 @@ const CompareScreen = () => {
   const [runToken, setRunToken] = React.useState(0);
   const ctrlRef = React.useRef(null);
 
-  // Pick the first question as soon as the dataset is loaded.
+  // Pick a question once the dataset is loaded; re-pick if the dataset arrives
+  // after we already fell back to the static raceQuestion.
+  const usedFallback = React.useRef(false);
   React.useEffect(() => {
-    if (!question && (dataset.length > 0 || fallbackQ)) {
-      setQuestion(pickQuestion(dataset) || fallbackQ);
+    if (dataset.length > 0) {
+      if (!question || usedFallback.current) {
+        usedFallback.current = false;
+        setQuestion(pickQuestion(dataset));
+      }
+    } else if (!question && fallbackQ) {
+      usedFallback.current = true;
+      setQuestion(fallbackQ);
     }
   }, [dataset.length]);
 
@@ -62,9 +70,10 @@ const CompareScreen = () => {
       openai: { ...blankAgentState("openai"), status: "running", startedAt: now },
     });
 
+    const qText = question.question || question.text || "";
     const message = question.sop_id
-      ? `For ${question.sop_id}: ${question.question}`
-      : question.question;
+      ? `For ${question.sop_id}: ${qText}`
+      : qText;
     window.ForgeAPI.streamRace(message, question.id, {
       signal: ctrl.signal,
       onEvent: (ev) => {
@@ -101,7 +110,14 @@ const CompareScreen = () => {
           return prev;
         });
       },
-      onError: (err) => console.warn("[forge] race stream error:", err),
+      onError: (err) => {
+        console.warn("[forge] race stream error:", err);
+        setAgents(prev => Object.fromEntries(
+          Object.entries(prev).map(([k, a]) => [k, a.status === "running"
+            ? { ...a, status: "error", error: String(err), endedAt: Date.now() }
+            : a]),
+        ));
+      },
     });
 
     return () => ctrl.abort();

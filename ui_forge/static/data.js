@@ -92,11 +92,11 @@ window.SENTINEL_DATA = {
     id: "q-042",
     category: "negation_gap",
     difficulty: "hard",
-    sop: "SOP-ISEC-008",
+    sop_id: "SOP-ISEC-008",
     sopTitle: "Cryptographic Controls and Key Management",
-    regulations: ["HIPAA Security Rule", "SOC 2 CC6.1"],
-    expected: "non_compliant",
-    text: "Review SOP-ISEC-008 (Cryptographic Controls and Key Management). Does it satisfy 45 CFR 164.312(a)(2)(iv) — encryption and decryption of ePHI — and SOC 2 CC6.1 logical access controls? Identify any specific safeguards that are missing or vague.",
+    regulations_involved: ["HIPAA Security Rule", "SOC 2 CC6.1"],
+    expected_compliance_level: "non_compliant",
+    question: "Review SOP-ISEC-008 (Cryptographic Controls and Key Management). Does it satisfy 45 CFR 164.312(a)(2)(iv) — encryption and decryption of ePHI — and SOC 2 CC6.1 logical access controls? Identify any specific safeguards that are missing or vague.",
   },
 
   // Findings table for the audit screen
