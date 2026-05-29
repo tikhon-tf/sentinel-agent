@@ -20,6 +20,6 @@ dependencies = [
 include = ["sentinel*"]
 
 [project.optional-dependencies]
-deep = ["deepagents>=0.6.0", "snowglobe>=0.8.0"]
+deep = ["deepagents>=0.6.0"]
 demo = ["rich>=13.0.0"]
 dev = ["pytest", "ruff", "langgraph-cli>=0.2.0"]

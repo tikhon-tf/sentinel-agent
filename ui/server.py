@@ -48,7 +48,7 @@ from sentinel.config import (
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 EVAL_RESULTS_DIR = PROJECT_ROOT / "data" / "eval" / "results"
 EVAL_AGENTS = {
-    "production":  EVAL_RESULTS_DIR / "agentic_20260526_155049.json",
+    "production":  EVAL_RESULTS_DIR / "agentic_20260520_101310.json",
     "prototype":   EVAL_RESULTS_DIR / "agentic_openai_20260529_142141.json",
     "nemotron":    EVAL_RESULTS_DIR / "agentic_20260529_150542.json",
     "kimi-k2":     EVAL_RESULTS_DIR / "agentic_20260529_172926.json",

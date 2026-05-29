@@ -1,6 +1,6 @@
 PYTHON = .venv/bin/python
 
-.PHONY: install ingest act1 act2 act3 act4 demo all dev up build deploy ui ui-local test eval eval-naive eval-agentic eval-agentic-openai eval-agentic-openai-tavily eval-all eval-smoke
+.PHONY: install ingest act1 act2 demo all dev up build deploy ui ui-local test eval eval-naive eval-agentic eval-agentic-openai eval-agentic-openai-tavily eval-all eval-smoke
 
 install:
 	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag]"
@@ -17,17 +17,11 @@ act1:
 act2:
 	$(PYTHON) -m demo.act2_production --mode nexus
 
-act3:
-	$(PYTHON) -m demo.act3_simulation
-
-act4:
-	$(PYTHON) -m demo.act4_actuation
-
 # Full demo sequence
-demo: act1 act2 act3 act4
+demo: act1 act2
 
-# Full pipeline: ingest SOPs, then run all four acts
-all: ingest act1 act2 act3 act4
+# Full pipeline: ingest SOPs, then run both acts
+all: ingest act1 act2
 
 # LangGraph deployment
 dev:

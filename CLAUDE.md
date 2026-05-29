@@ -12,9 +12,7 @@ make ingest               # Ingest SOPs into Pinecone
 make ingest-regulations   # Ingest regulation texts into Pinecone (namespace: regulations)
 make act1                 # Act 1: GPT-5.5 + Pinecone agentic RAG
 make act2                 # Act 2: DeepSeek-V4-Pro + Pinecone RAG (default; set AGENT2_RETRIEVAL=nexus|both to change)
-make act3                 # Act 3: Snowglobe adversarial simulation
-make act4                 # Act 4: actuation — file Jira tickets for compliance gaps
-make demo                 # All four acts sequentially
+make demo                 # Both acts sequentially
 make test                 # Run regression tests (95 tests, no API keys needed)
 make dev                  # LangGraph dev server on port 2024
 make ui                   # UI (FastAPI + React) on port 8080
@@ -65,10 +63,8 @@ Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Neb
 ### deepagents optional dependency
 `deepagents` is an optional dep (`[deep]` extra). It's lazy-imported in `agent.py` inside `_build_deep_agent()`. If the import fails, we fall back to `langchain.agents.create_agent`. This is required because deepagents pulls heavy transitive deps (grpcio, google-genai) that conflict with LangGraph Cloud's constraint file.
 
-### Jira actuation (Act 4)
+### Jira actuation
 When an audit finding is a gap or partial at medium+ severity, the `create_jira_ticket` tool files a ticket on the team's Kanban board. The tool is available to the outer Sentinel agent alongside the audit tools. The Jira client (`sentinel/actuation/jira_client.py`) uses the REST API v3 with basic auth (email + API token). Ticket description is rendered in Atlassian Document Format (ADF). Labels include `sentinel`, `compliance-finding`, severity, regulation slug, and SOP slug. Configuration via `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`, and optionally `JIRA_DEFAULT_ISSUE_TYPE` (default: Task).
-
-`demo/act4_actuation.py` runs two hardcoded audit cases (HIPAA access control, GDPR breach notification) — calls the model directly (not through the agent graph), parses the JSON finding, and invokes `create_jira_ticket` for ticketable findings.
 
 ### Lazy imports for cloud compatibility
 `tavily` (in sub-agent tools in `tools.py`), `pinecone` (in `retrieval/ingest.py`, `retrieval/regulations.py`, `tools.py`), `openai` (in `retrieval/ingest.py`), and `httpx` (in `actuation/jira_client.py`, `retrieval/nexus.py`) are imported lazily inside functions, not at module level. This prevents import failures in the LangGraph Cloud container where these packages may not be installed or configured. Do not move these to top-level imports.
@@ -87,8 +83,7 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 | `sentinel/retrieval/regulations.py` | Pinecone regulation text retrieval (Act 1): `retrieve_regulation_text()`, `retrieve_for_sop()`, `format_regulation_context()` |
 | `sentinel/retrieval/ingest_regulations.py` | Regulation text chunker + Pinecone ingestion (`REGULATION_MAP`, `EDITION_PATTERNS`, edition metadata) |
 | `sentinel/retrieval/ingest.py` | SOP markdown parser (`parse_sop()`), chunker, Pinecone ingestion |
-| `sentinel/simulation/snowglobe.py` | Adversarial red-team scenarios (Act 3) |
-| `sentinel/actuation/jira_client.py` | Sync Jira Cloud REST client used by the `create_jira_ticket` tool (Act 4) |
+| `sentinel/actuation/jira_client.py` | Sync Jira Cloud REST client used by the `create_jira_ticket` tool |
 | `sentinel/output/heatmap.py` | Rich console heatmap rendering |
 | `sentinel/output/register.py` | CSV/JSON/metrics output |
 | `ui/server.py` | FastAPI backend: serves static UI, SSE audit streaming, eval results, Jira findings, KB stats |
@@ -98,7 +93,7 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 | `scripts/validate_run.py` | Audit quality evaluation: compares LangSmith run output against compliance matrix |
 | `scripts/run_qa_eval.py` | Q&A eval runner: naive, agentic, agentic-openai, agentic-openai-tavily modes |
 | `scripts/inspect_tool_calls.py` | LangSmith tool call inspector: shows all tool calls with args, timing, and output token counts for a run (`--show-output`, `--json`) |
-| `demo/act{1,2,3,4}_*.py` | Four-act demo scripts |
+| `demo/act{1,2}_*.py` | Demo scripts (prototype + production) |
 
 ## LangGraph Cloud deployment
 
@@ -139,12 +134,12 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 ### LangSmith MCP
 Remote MCP server configured in `.mcp.json` (`https://api.smith.langchain.com/mcp`). Uses OAuth — authenticate via browser on first use. Provides access to LangSmith traces, runs, datasets, experiments, and prompt hub from Claude Code and Codex. Key tools: `fetch_runs` (inspect audit traces), `list_projects`, `list_datasets`, `run_experiment`, `get_billing_usage`.
 
-### Jira Cloud (Act 4)
+### Jira Cloud
 The `create_jira_ticket` tool files compliance findings as tickets via the Jira Cloud REST API v3. Client: `sentinel/actuation/jira_client.py` (sync, basic auth). Ticket descriptions use Atlassian Document Format (ADF). Labels: `sentinel`, `compliance-finding`, severity, regulation slug, SOP slug. Priority mapped from severity (critical→Highest, high→High, medium→Medium, low→Low). Config: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`.
 
 ## Environment variables
 
-Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Act 1), `PINECONE_API_KEY` (Pinecone RAG), `NEXUS_API_KEY` (Nexus KnowQL), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `SNOWGLOBE_API_KEY` (Act 3), `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` / `JIRA_PROJECT_KEY` (Act 4). `NEXUS_BASE_URL` and `NEXUS_CONTEXT_SLUG` can be overridden but default to the production Nexus endpoint. `AGENT2_RETRIEVAL` controls the Act 2 retrieval backend (`"rag"`, `"nexus"`, or `"both"`; default: `"rag"`). `LANGGRAPH_DEFAULT_RECURSION_LIMIT` sets the outer agent recursion limit for cloud deployment (default: 25). See `.env.example`.
+Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Act 1), `PINECONE_API_KEY` (Pinecone RAG), `NEXUS_API_KEY` (Nexus KnowQL), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` / `JIRA_PROJECT_KEY` (Jira actuation). `NEXUS_BASE_URL` and `NEXUS_CONTEXT_SLUG` can be overridden but default to the production Nexus endpoint. `AGENT2_RETRIEVAL` controls the Act 2 retrieval backend (`"rag"`, `"nexus"`, or `"both"`; default: `"rag"`). `LANGGRAPH_DEFAULT_RECURSION_LIMIT` sets the outer agent recursion limit for cloud deployment (default: 25). See `.env.example`.
 
 ## Patterns to follow
 

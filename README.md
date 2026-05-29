@@ -30,7 +30,7 @@ User Query
     |         v
     |    Structured JSON Findings
     |
-    +---> create_jira_ticket (Act 4)
+    +---> create_jira_ticket
               |
               v
          Jira Cloud REST API → ticket on Kanban board
@@ -41,17 +41,15 @@ User Query
 **Retrieval:** Pinecone vector search (Qwen3-Embedding-8B, 4096 dims) by default for both acts · Optionally Pinecone Nexus KnowQL (50-doc corpus, grounded + cited) via `AGENT2_RETRIEVAL=nexus|both`
 **Grounding:** Tavily live regulation search
 **Observability:** LangSmith tracing with cost tracking + [LangSmith MCP](https://docs.langchain.com/langsmith/langsmith-remote-mcp) integration
-**Actuation:** Jira Cloud REST API for filing compliance gap tickets (Act 4)
+**Actuation:** Jira Cloud REST API for filing compliance gap tickets
 **Deployment:** LangGraph Cloud + UI (FastAPI + React)
 
-## Four-Act Demo
+## Demo
 
 | Act | Description | Model | Command |
 |-----|-------------|-------|---------|
-| **Act 1** | Agentic RAG prototype — Pinecone vector search, shows baseline | GPT-5.4-mini | `make act1` |
+| **Act 1** | Agentic RAG prototype — Pinecone vector search, shows baseline | GPT-5.5 | `make act1` |
 | **Act 2** | Production stack — Pinecone RAG (default), optionally Nexus KnowQL | DeepSeek-V4-Pro | `make act2` |
-| **Act 3** | Snowglobe adversarial simulation — red-teams the auditor | DeepSeek-V4-Pro | `make act3` |
-| **Act 4** | Actuation — files a Jira ticket when a compliance gap is confirmed | DeepSeek-V4-Pro | `make act4` |
 
 ## Quickstart
 
@@ -86,12 +84,8 @@ make ingest-regulations   # Regulation texts into Pinecone (namespace: regulatio
 ```bash
 make act1    # GPT-5.5 + Pinecone RAG
 make act2    # DeepSeek-V4-Pro + Pinecone RAG (set AGENT2_RETRIEVAL=nexus|both to change)
-make act3    # Adversarial simulation
-make act4    # Actuation — file Jira tickets for compliance gaps
-make demo    # All four acts sequentially
+make demo    # Both acts sequentially
 ```
-
-Act 4 requires a Jira sandbox to file tickets into. Create an Atlassian API token at id.atlassian.com, then set `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, and `JIRA_PROJECT_KEY` in `.env`. See the Environment Variables table below.
 
 ### Test
 
@@ -130,7 +124,7 @@ Key tools:
 - `list_sops` — search and discover SOPs by title, ID, or business unit
 - `list_regulations` — list all regulations in the knowledge base
 - `retrieve_regulation_text_tool` — look up specific regulation requirements
-- `create_jira_ticket` — file a Jira ticket for a compliance gap or partial finding (Act 4)
+- `create_jira_ticket` — file a Jira ticket for a compliance gap or partial finding
 
 ## Project Structure
 
@@ -149,18 +143,15 @@ sentinel_agent/
 │   │   ├── regulations.py     # Pinecone regulation text retrieval (Act 1)
 │   │   ├── ingest.py          # SOP -> Pinecone ingestion
 │   │   └── ingest_regulations.py  # Regulation text -> Pinecone ingestion
-│   ├── simulation/
-│   │   └── snowglobe.py       # Adversarial scenarios (Act 3)
 │   ├── actuation/
-│   │   └── jira_client.py     # Jira Cloud REST client (Act 4)
+│   │   └── jira_client.py     # Jira Cloud REST client
 │   └── output/
 │       ├── heatmap.py         # Rich console heatmap + summary
 │       └── register.py        # CSV/JSON/metrics output
 ├── demo/
 │   ├── act1_prototype.py      # Act 1: GPT-5.5 + Pinecone RAG
 │   ├── act2_production.py     # Act 2: DeepSeek-V4-Pro + Pinecone RAG
-│   ├── act3_simulation.py     # Act 3: Adversarial
-│   └── act4_actuation.py      # Act 4: Jira ticket creation
+│   └── ...
 ├── scripts/
 │   ├── validate_run.py        # Audit quality evaluation against compliance matrix
 │   ├── inspect_tool_calls.py  # LangSmith tool call inspector (args, timing, tokens)
@@ -261,11 +252,10 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 | `NEXUS_CONTEXT_SLUG` | Optional | Override Nexus context (default: `sentinel-regs-test`) |
 | `TAVILY_API_KEY` | Optional | Live regulation grounding |
 | `LANGSMITH_API_KEY` | Optional | LangSmith tracing + cloud auth |
-| `SNOWGLOBE_API_KEY` | Optional | Adversarial simulation (Act 3) |
-| `JIRA_BASE_URL` | For Act 4 | Atlassian site URL (e.g. `https://your-org.atlassian.net`) |
-| `JIRA_EMAIL` | For Act 4 | Atlassian account email tied to the API token |
-| `JIRA_API_TOKEN` | For Act 4 | API token from id.atlassian.com |
-| `JIRA_PROJECT_KEY` | For Act 4 | Target Jira project key (e.g. `SENT`) |
+| `JIRA_BASE_URL` | For Jira | Atlassian site URL (e.g. `https://your-org.atlassian.net`) |
+| `JIRA_EMAIL` | For Jira | Atlassian account email tied to the API token |
+| `JIRA_API_TOKEN` | For Jira | API token from id.atlassian.com |
+| `JIRA_PROJECT_KEY` | For Jira | Target Jira project key (e.g. `SENT`) |
 | `LANGGRAPH_URL` | Optional | Override UI backend URL |
 
 ## Cost
@@ -274,8 +264,6 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 |-----------|-----------------------------------------------------|--------|--------|---------|
 | Full audit (Act 2) | Nebius DeepSeek-V4-Pro (\$1.75/\$3.50 per M tokens) | ~47M | ~$85   | ~4h     |
 | Full audit (Act 1) | GPT-5.4-mini (\$0.40/\$1.60 per M tokens)            | ~14M | ~$7    | ~5m     |
-| Act 3 simulation | DeepSeek-V4-Pro                                     | <1M | ~$0.01 | <1m     |
-| Act 4 actuation (2 cases) | DeepSeek-V4-Pro + Jira REST API                     | <5K | ~$0.01 | <10s    |
 | SOP ingestion | Qwen3-Embedding-8B                                  | ~2M | ~$0.02 | ~5m     |
 
 Each SOP audit fans out a dedicated sub-agent with multiple tool calls (regulation retrieval, web search), so token counts are dominated by sub-agent usage across 200 SOPs. Token usage and cost are displayed live in the UI. Use `scripts/validate_run.py` to get exact cost/token/latency breakdowns for any LangSmith run.
@@ -298,7 +286,7 @@ Available MCP tools:
 
 Use these tools to inspect audit run traces, compare run metrics, or debug sub-agent behavior without leaving the editor.
 
-### Jira Cloud (Act 4)
+### Jira Cloud
 
 The `create_jira_ticket` tool files compliance findings as tickets on a Jira Kanban board via the [Jira Cloud REST API v3](https://developer.atlassian.com/cloud/jira/platform/rest/v3/). Tickets are created for gap or partial findings at medium+ severity.
 

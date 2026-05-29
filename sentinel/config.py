@@ -36,8 +36,6 @@ AGENT2_RETRIEVAL = os.environ.get("AGENT2_RETRIEVAL", "rag").lower()  # "rag", "
 
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
-SNOWGLOBE_API_KEY = os.environ.get("SNOWGLOBE_API_KEY", "")
-
 JIRA_BASE_URL = os.environ.get("JIRA_BASE_URL", "")
 JIRA_EMAIL = os.environ.get("JIRA_EMAIL", "")
 JIRA_API_TOKEN = os.environ.get("JIRA_API_TOKEN", "")
