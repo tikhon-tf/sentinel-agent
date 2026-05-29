@@ -1,6 +1,6 @@
 # Sentinel — Regulatory Compliance Auditor Agent
 
-Sentinel is an AI-powered compliance auditor that assesses 200 enterprise SOPs against 9 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853). Regulation text is stored in a Pinecone knowledge base and retrieved dynamically during auditing. Built for the [Nebius Blueprint for Agents](https://nebius.com/) demo (Nebius Inflection, June 9, 2026).
+Sentinel is an AI-powered compliance auditor that assesses 200 enterprise SOPs against 36 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853, BSA, ECOA, FCRA, PCI DSS, OWASP, FDA, NIST SP 800-series, EU AMLD4/ePrivacy/MDR/SCCs). Regulation text is stored in a Pinecone knowledge base and retrieved dynamically during auditing. Built for the [Nebius Blueprint for Agents](https://nebius.com/) demo (Nebius Inflection, June 9, 2026).
 
 ## Architecture
 
@@ -174,7 +174,7 @@ sentinel_agent/
 │   └── sop_taxonomy.py        # SOP definitions + metadata
 ├── data/
 │   ├── sops/                  # 200 generated SOPs (10 business units)
-│   ├── regulations/           # 9 regulation frameworks (txt, md, pdf, xml)
+│   ├── regulations/           # 36 regulation frameworks (txt, md, pdf, xml)
 │   ├── company_profile.md     # Meridian Health Technologies background
 │   ├── compliance_matrix.json # Ground truth
 │   └── compliance_matrix_revised.json # Revised ground truth (16 SOC 2 corrections)

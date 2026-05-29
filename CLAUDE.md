@@ -2,7 +2,7 @@
 
 ## What this project is
 
-Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs for a fictional healthcare fintech (Meridian Health Technologies) against 9 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853). Regulation text is stored in a Pinecone knowledge base and retrieved dynamically during auditing. Built for the Nebius Blueprint for Agents demo (Nebius Inflection, June 9, 2026).
+Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs for a fictional healthcare fintech (Meridian Health Technologies) against 36 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853, BSA, ECOA, FCRA, PCI DSS, OWASP, FDA, NIST SP 800-series, EU AMLD4/ePrivacy/MDR/SCCs). Regulation text is stored in a Pinecone knowledge base and retrieved dynamically during auditing. Built for the Nebius Blueprint for Agents demo (Nebius Inflection, June 9, 2026).
 
 ## Quick reference
 
@@ -104,7 +104,7 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 - SOP generation scripts in `scripts/` (one-time use, not part of the agent)
 
 ### Regulations
-- 9 regulation frameworks in `data/regulations/` as .txt, .md, .pdf, and .xml files
+- 36 regulation frameworks in `data/regulations/` as .txt, .md, .pdf, and .xml files
 - 2,386 chunks ingested into Pinecone namespace `regulations` (from 22 .txt/.md source files)
 - Historical editions: HIPAA (2017, 2020, 2024, current), NIST AI RMF (2022 drafts, final), EU AI Act (2021 proposal, final), SR 11-7 (2011 original, 2026 revised)
 - Each chunk carries `regulation`, `edition`, `section`, and `source` metadata for filtered retrieval
