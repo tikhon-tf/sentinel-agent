@@ -47,10 +47,12 @@ function useForgeData() {
 }
 
 const EVAL_AGENT_META = {
-  prototype:  { label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone + Tavily" },
+  prototype:  { label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone" },
+  "prototype+": { label: "Prototype+ agent", sublabel: "GPT-5.5 + Pinecone + Tavily" },
   production: { label: "DeepSeek agent",    sublabel: "DeepSeek-V4-Pro + Pinecone + Tavily" },
   nemotron:   { label: "Nemotron agent",    sublabel: "Nemotron-3-Super-120B + Pinecone + Tavily" },
   "kimi-k2":  { label: "Kimi K2.6 agent",  sublabel: "Kimi-K2.6 + Pinecone + Tavily" },
+  "glm-5":    { label: "GLM-5.1 agent",   sublabel: "GLM-5.1 + Pinecone + Tavily" },
 };
 
 function mapEvalResults(api) {

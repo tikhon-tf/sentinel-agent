@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import re
 
-from sentinel.config import MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
+from sentinel.config import NEBIUS_API_KEY, NEBIUS_BASE_URL, NEBIUS_MODELS
 
 JUDGE_PROMPT = """You are a strict regulatory-compliance answer grader. Score the candidate answer against the reference on two axes:
 
@@ -33,17 +33,20 @@ Respond with ONLY a JSON object in this exact form (no markdown, no commentary):
 {{"correctness": 0|1|2, "citations": 0|1|2, "rationale": "one-sentence justification"}}"""
 
 
+JUDGE_MODEL = NEBIUS_MODELS["deepseek-v4-pro"]
+
+
 def _build_judge_model():
     from langchain_openai import ChatOpenAI
 
     return ChatOpenAI(
-        model=MODEL,
+        model=JUDGE_MODEL,
         api_key=NEBIUS_API_KEY,
         base_url=NEBIUS_BASE_URL,
         temperature=0.0,
         max_tokens=400,
         stream_usage=True,
-        metadata={"ls_provider": "nebius", "ls_model_name": MODEL, "eval_mode": "judge"},
+        metadata={"ls_provider": "nebius", "ls_model_name": JUDGE_MODEL, "eval_mode": "judge"},
     )
 
 

@@ -140,7 +140,7 @@ const EvalScreen = () => {
                 <Th>Model</Th>
                 <Th align="right">Cost</Th>
                 <Th align="right">Tokens</Th>
-                <Th align="right">Avg / Q</Th>
+                <Th align="right">Avg latency</Th>
                 <Th align="right">Wall time</Th>
               </tr>
             </thead>
@@ -209,8 +209,9 @@ const CategoryTable = ({ agents }) => {
       </thead>
       <tbody>
         {cats.map(c => {
-          const scores = agents.map(a => a.perCategory[c.key]?.correctness ?? 0);
-          const best = Math.max(...scores);
+          const scores = agents.map(a => a.perCategory[c.key]?.correctness);
+          const validScores = scores.filter(v => v != null);
+          const best = validScores.length ? Math.max(...validScores) : 0;
           return (
             <tr key={c.key} style={{ borderTop: "1px solid rgba(7,26,48,0.08)" }}>
               <Td>
@@ -218,7 +219,7 @@ const CategoryTable = ({ agents }) => {
                 <div style={{ font: "400 11.5px/15px var(--forge-font)", color: "var(--forge-on-light-mute)" }}>{c.expl}</div>
               </Td>
               <Td align="center" muted><span style={{ font: "500 12px/1 var(--forge-mono)" }}>{agents[0].perCategory[c.key]?.n ?? "—"}</span></Td>
-              {agents.map((a, i) => <ScoreCell key={a.key} value={scores[i]} highlight={scores[i] >= best && best > 0}/>)}
+              {agents.map((a, i) => <ScoreCell key={a.key} value={scores[i]} highlight={scores[i] != null && scores[i] >= best && best > 0}/>)}
             </tr>
           );
         })}
@@ -228,6 +229,9 @@ const CategoryTable = ({ agents }) => {
 };
 
 const ScoreCell = ({ value, highlight }) => {
+  if (value == null) {
+    return <td style={{ padding: "14px 18px", textAlign: "center", font: "500 13px/1 var(--forge-mono)", color: "var(--forge-on-light-mute)" }}>—</td>;
+  }
   const tone = value >= 1.7 ? "rgb(60,140,40)" : value >= 1.0 ? "rgb(170,115,0)" : "rgb(180,0,40)";
   return (
     <td style={{ padding: "14px 18px", textAlign: "center" }}>
@@ -238,7 +242,7 @@ const ScoreCell = ({ value, highlight }) => {
         border: highlight ? "1px solid rgba(120,160,0,0.45)" : "1px solid transparent",
       }}>
         <span style={{ width: 6, height: 6, borderRadius: 999, background: tone }}/>
-        <span style={{ font: "700 13px/1 var(--forge-mono)" }}>{value != null ? value.toFixed(2) : "—"}</span>
+        <span style={{ font: "700 13px/1 var(--forge-mono)" }}>{value.toFixed(2)}</span>
       </span>
     </td>
   );
@@ -261,6 +265,7 @@ const ConfusionSlab = ({ mode }) => {
           color: perfect ? "var(--forge-mint-warm)" : "var(--forge-on-dark)",
           border: perfect ? "1px solid var(--forge-mint-warm)" : "1px solid rgba(255,255,255,0.20)",
           font: "700 11px/1 var(--forge-mono)",
+          whiteSpace: "nowrap",
         }}>recall {b.recallNonCompliant.toFixed(2)}</span>
       </div>
 
