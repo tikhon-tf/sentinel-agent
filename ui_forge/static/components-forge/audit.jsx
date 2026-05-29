@@ -229,6 +229,7 @@ const AuditScreen = ({ loadStatus }) => {
               <span>elapsed <span style={{ color: "var(--forge-on-dark)" }}>{elapsedSec.toFixed(1)}s</span></span>
               <span>tokens <span style={{ color: "var(--forge-on-dark)" }}>{(audit.inputTokens + audit.outputTokens).toLocaleString()}</span> ({audit.inputTokens.toLocaleString()} in / {audit.outputTokens.toLocaleString()} out)</span>
               <span>tools <span style={{ color: "var(--forge-on-dark)" }}>{audit.toolCalls.length}</span></span>
+              <span>jira tickets <span style={{ color: "var(--forge-on-dark)" }}>{audit.toolCalls.filter(tc => tc.name === "create_jira_ticket" && tc.result && !tc.result.startsWith("Jira ticket creation failed")).length}</span></span>
               {(() => {
                 const ag = AUDIT_AGENTS.find(a => a.key === selectedAgent);
                 if (!ag || !ag.pricing) return null;
