@@ -1,4 +1,4 @@
-// Thin client for the Forge UI's FastAPI backend.
+// Thin client for the UI's FastAPI backend.
 // Exposes window.ForgeAPI with fetch helpers + an SSE consumer.
 
 (function () {

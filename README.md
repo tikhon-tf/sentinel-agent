@@ -42,7 +42,7 @@ User Query
 **Grounding:** Tavily live regulation search
 **Observability:** LangSmith tracing with cost tracking + [LangSmith MCP](https://docs.langchain.com/langsmith/langsmith-remote-mcp) integration
 **Actuation:** Jira Cloud REST API for filing compliance gap tickets (Act 4)
-**Deployment:** LangGraph Cloud + Forge UI (FastAPI + React)
+**Deployment:** LangGraph Cloud + UI (FastAPI + React)
 
 ## Four-Act Demo
 
@@ -106,7 +106,7 @@ Tests cover models, adversarial detection, JSON parsing/repair, SOP loading, met
 ```bash
 # Local development
 make dev          # LangGraph dev server on port 2024
-make forge-ui     # Forge UI on port 8080
+make ui           # UI on port 8080
 
 # Cloud deployment
 make deploy       # Deploy to LangGraph Cloud
@@ -278,7 +278,7 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 | Act 4 actuation (2 cases) | DeepSeek-V4-Pro + Jira REST API                     | <5K | ~$0.01 | <10s    |
 | SOP ingestion | Qwen3-Embedding-8B                                  | ~2M | ~$0.02 | ~5m     |
 
-Each SOP audit fans out a dedicated sub-agent with multiple tool calls (regulation retrieval, web search), so token counts are dominated by sub-agent usage across 200 SOPs. Token usage and cost are displayed live in the Forge UI. Use `scripts/validate_run.py` to get exact cost/token/latency breakdowns for any LangSmith run.
+Each SOP audit fans out a dedicated sub-agent with multiple tool calls (regulation retrieval, web search), so token counts are dominated by sub-agent usage across 200 SOPs. Token usage and cost are displayed live in the UI. Use `scripts/validate_run.py` to get exact cost/token/latency breakdowns for any LangSmith run.
 
 ## Integrations
 

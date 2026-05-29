@@ -1,6 +1,6 @@
-"""FastAPI backend for the Forge UI prototype.
+"""FastAPI backend for the UI.
 
-Serves the static HTML/CSS/JSX from ui_forge/static/ and exposes a small JSON+SSE
+Serves the static HTML/CSS/JSX from ui/static/ and exposes a small JSON+SSE
 API that the React app uses to:
 - read 120-question eval results (Eval screen)
 - list dataset questions for the random-draw (Compare screen)
@@ -95,7 +95,7 @@ PARALLEL_AGENTS = [
      "graph_id": "sentinel_act1_alt", "model": OPENAI_MODEL},
 ]
 
-app = FastAPI(title="Sentinel Forge UI", version="0.1.0")
+app = FastAPI(title="Sentinel UI", version="0.1.0")
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
