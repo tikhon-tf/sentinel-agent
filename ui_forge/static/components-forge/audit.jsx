@@ -1,10 +1,10 @@
 // Forge-styled Audit screen — composer + Jira-sourced findings register
 
 const AUDIT_AGENTS = [
-  { key: "sentinel_prototype",  graph_id: "sentinel_act1",     label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone" },
-  { key: "sentinel_prototype_plus", graph_id: "sentinel_act1_alt", label: "Prototype+ agent", sublabel: "GPT-5.5 + Pinecone + Tavily" },
-  { key: "sentinel_production", graph_id: "sentinel",         label: "Production agent",  sublabel: "DeepSeek-V4-Pro + Pinecone + Tavily" },
-  { key: "sentinel_nemotron",   graph_id: "sentinel_nemotron", label: "Nemotron agent",   sublabel: "Nemotron-3-Super-120B + Pinecone + Tavily" },
+  { key: "sentinel_prototype",      graph_id: "sentinel_act1",     label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone",                      pricing: { input: 5.00, output: 30.00 } },
+  { key: "sentinel_prototype_plus", graph_id: "sentinel_act1_alt", label: "Prototype+ agent",  sublabel: "GPT-5.5 + Pinecone + Tavily",              pricing: { input: 5.00, output: 30.00 } },
+  { key: "sentinel_production",     graph_id: "sentinel",          label: "Production agent",  sublabel: "DeepSeek-V4-Pro + Pinecone + Tavily",      pricing: { input: 1.75, output: 3.50 } },
+  { key: "sentinel_nemotron",       graph_id: "sentinel_nemotron", label: "Nemotron agent",    sublabel: "Nemotron-3-Super-120B + Pinecone + Tavily", pricing: { input: 0.30, output: 0.90 } },
 ];
 
 
@@ -229,6 +229,12 @@ const AuditScreen = ({ loadStatus }) => {
               <span>elapsed <span style={{ color: "var(--forge-on-dark)" }}>{elapsedSec.toFixed(1)}s</span></span>
               <span>tokens <span style={{ color: "var(--forge-on-dark)" }}>{(audit.inputTokens + audit.outputTokens).toLocaleString()}</span> ({audit.inputTokens.toLocaleString()} in / {audit.outputTokens.toLocaleString()} out)</span>
               <span>tools <span style={{ color: "var(--forge-on-dark)" }}>{audit.toolCalls.length}</span></span>
+              {(() => {
+                const ag = AUDIT_AGENTS.find(a => a.key === selectedAgent);
+                if (!ag || !ag.pricing) return null;
+                const cost = (audit.inputTokens * ag.pricing.input + audit.outputTokens * ag.pricing.output) / 1_000_000;
+                return <span>cost <span style={{ color: "var(--forge-on-dark)" }}>${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}</span></span>;
+              })()}
               <div style={{ flex: 1 }}/>
               {audit.traceUrl && (
                 <a href={audit.traceUrl} target="_blank" rel="noopener noreferrer"
