@@ -7,7 +7,7 @@ Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs
 ## Quick reference
 
 ```bash
-make install              # Install into .venv (includes dev, deep, demo, rag, ui extras)
+make install              # Install into .venv (includes dev, deep, demo, rag extras)
 make ingest               # Ingest SOPs into Pinecone
 make ingest-regulations   # Ingest regulation texts into Pinecone (namespace: regulations)
 make act1                 # Act 1: GPT-5.5 + Pinecone agentic RAG
@@ -17,7 +17,6 @@ make act4                 # Act 4: actuation — file Jira tickets for complianc
 make demo                 # All four acts sequentially
 make test                 # Run regression tests (111 tests, no API keys needed)
 make dev                  # LangGraph dev server on port 2024
-make ui                   # Streamlit UI on port 8501
 make deploy               # Deploy to LangGraph Cloud (remote Docker build)
 ```
 
@@ -88,7 +87,6 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 | `sentinel/actuation/jira_client.py` | Sync Jira Cloud REST client used by the `create_jira_ticket` tool (Act 4) |
 | `sentinel/output/heatmap.py` | Rich console heatmap rendering |
 | `sentinel/output/register.py` | CSV/JSON/metrics output |
-| `ui/app.py` | Streamlit chat UI with streaming, per-response and session token/cost tracking |
 | `scripts/validate_run.py` | Audit quality evaluation: compares LangSmith run output against compliance matrix |
 | `scripts/inspect_tool_calls.py` | LangSmith tool call inspector: shows all tool calls with args, timing, and output token counts for a run (`--show-output`, `--json`) |
 | `demo/act{1,2,3,4}_*.py` | Four-act demo scripts |

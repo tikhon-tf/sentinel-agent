@@ -42,7 +42,7 @@ User Query
 **Grounding:** Tavily live regulation search
 **Observability:** LangSmith tracing with cost tracking + [LangSmith MCP](https://docs.langchain.com/langsmith/langsmith-remote-mcp) integration
 **Actuation:** Jira Cloud REST API for filing compliance gap tickets (Act 4)
-**Deployment:** LangGraph Cloud + Streamlit UI
+**Deployment:** LangGraph Cloud + Forge UI (FastAPI + React)
 
 ## Four-Act Demo
 
@@ -105,17 +105,11 @@ Tests cover models, adversarial detection, JSON parsing/repair, SOP loading, met
 
 ```bash
 # Local development
-make dev     # LangGraph dev server on port 2024
-make ui      # Streamlit UI on port 8501
+make dev          # LangGraph dev server on port 2024
+make forge-ui     # Forge UI on port 8080
 
 # Cloud deployment
-make deploy  # Deploy to LangGraph Cloud
-```
-
-The cloud deployment URL is configurable in the Streamlit UI sidebar, or via:
-
-```bash
-LANGGRAPH_URL=http://localhost:2024 make ui-local
+make deploy       # Deploy to LangGraph Cloud
 ```
 
 ## Audit Approach
@@ -167,8 +161,6 @@ sentinel_agent/
 │   ├── act2_production.py     # Act 2: DeepSeek-V4-Pro + Pinecone RAG
 │   ├── act3_simulation.py     # Act 3: Adversarial
 │   └── act4_actuation.py      # Act 4: Jira ticket creation
-├── ui/
-│   └── app.py                 # Streamlit chat UI with streaming + cost tracking
 ├── scripts/
 │   ├── validate_run.py        # Audit quality evaluation against compliance matrix
 │   ├── inspect_tool_calls.py  # LangSmith tool call inspector (args, timing, tokens)
@@ -286,7 +278,7 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 | Act 4 actuation (2 cases) | DeepSeek-V4-Pro + Jira REST API                     | <5K | ~$0.01 | <10s    |
 | SOP ingestion | Qwen3-Embedding-8B                                  | ~2M | ~$0.02 | ~5m     |
 
-Each SOP audit fans out a dedicated sub-agent with multiple tool calls (regulation retrieval, web search), so token counts are dominated by sub-agent usage across 200 SOPs. Token usage and cost are displayed per-response and per-session in the Streamlit UI. Use `scripts/validate_run.py` to get exact cost/token/latency breakdowns for any LangSmith run.
+Each SOP audit fans out a dedicated sub-agent with multiple tool calls (regulation retrieval, web search), so token counts are dominated by sub-agent usage across 200 SOPs. Token usage and cost are displayed live in the Forge UI. Use `scripts/validate_run.py` to get exact cost/token/latency breakdowns for any LangSmith run.
 
 ## Integrations
 

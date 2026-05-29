@@ -1,9 +1,9 @@
 PYTHON = .venv/bin/python
 
-.PHONY: install ingest act1 act2 act3 act4 demo all dev up build deploy ui forge-ui forge-ui-local test eval eval-naive eval-agentic eval-agentic-openai eval-all eval-smoke
+.PHONY: install ingest act1 act2 act3 act4 demo all dev up build deploy forge-ui forge-ui-local test eval eval-naive eval-agentic eval-agentic-openai eval-all eval-smoke
 
 install:
-	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag,ui]"
+	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag]"
 
 ingest:
 	$(PYTHON) -m sentinel.retrieval.ingest
@@ -41,12 +41,6 @@ build:
 
 deploy:
 	langgraph deploy
-
-ui:
-	$(PYTHON) -m streamlit run ui/app.py --server.port 8501
-
-ui-local:
-	LANGGRAPH_URL=http://localhost:2024 $(PYTHON) -m streamlit run ui/app.py --server.port 8501
 
 # Forge UI (FastAPI + static prototype). Talks to LangGraph at $LANGGRAPH_URL (default localhost:2024).
 forge-ui:
