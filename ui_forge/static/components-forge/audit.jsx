@@ -252,22 +252,21 @@ const AuditScreen = ({ loadStatus }) => {
             background: "var(--forge-ink-2)",
             overflow: "hidden",
           }}>
-            {/* Metrics line — outside the scroll pane so it stays visible */}
+            {/* Meter row — matches Compare section style */}
             <div style={{
-              padding: "14px 20px",
-              borderBottom: "1px solid var(--forge-border-dark)",
-              display: "flex", gap: 24, alignItems: "center",
-              font: "500 11px/1 var(--forge-mono)", color: "var(--forge-on-dark-mute)",
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "16px 24px", borderBottom: "1px solid var(--forge-border-dark)",
+              background: "rgba(255,255,255,0.02)",
             }}>
-              <span>elapsed <span style={{ color: "var(--forge-on-dark)" }}>{elapsedSec.toFixed(1)}s</span></span>
-              <span>tokens <span style={{ color: "var(--forge-on-dark)" }}>{(totalIn + totalOut).toLocaleString()}</span> ({totalIn.toLocaleString()} in / {totalOut.toLocaleString()} out)</span>
-              <span>tools <span style={{ color: "var(--forge-on-dark)" }}>{audit.toolCalls.length}</span></span>
-              <span>jira tickets <span style={{ color: "var(--forge-on-dark)" }}>{audit.toolCalls.filter(tc => tc.name === "create_jira_ticket" && tc.result && !tc.result.startsWith("Jira ticket creation failed")).length}</span></span>
+              <div style={{ flex: 1 }}><Meter label="elapsed" value={`${elapsedSec.toFixed(1)}s`} live={audit.status === "running"}/></div>
+              <div style={{ flex: 1 }}><Meter label="tokens" value={`${((totalIn + totalOut) / 1000).toFixed(1)}k`}/></div>
+              <div style={{ flex: 1 }}><Meter label="tools" value={audit.toolCalls.length}/></div>
+              <div style={{ flex: 1 }}><Meter label="jira tickets" value={audit.toolCalls.filter(tc => tc.name === "create_jira_ticket" && tc.result && !tc.result.startsWith("Jira ticket creation failed")).length}/></div>
               {(() => {
                 const ag = AUDIT_AGENTS.find(a => a.key === selectedAgent);
                 if (!ag || !ag.pricing) return null;
                 const cost = (totalIn * ag.pricing.input + totalOut * ag.pricing.output) / 1_000_000;
-                return <span>cost <span style={{ color: "var(--forge-on-dark)" }}>${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}</span></span>;
+                return <div style={{ flex: 1 }}><Meter label="cost" value={`$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}`} accent/></div>;
               })()}
               <div style={{ flex: 1 }}/>
               {audit.traceUrl && (

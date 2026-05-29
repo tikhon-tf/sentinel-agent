@@ -518,20 +518,6 @@ const MetaPanel = ({ kicker, value, sub, valueColor }) => (
   </div>
 );
 
-const Meter = ({ label, value, accent, live }) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-    <span style={{ font: "600 10px/1 var(--forge-font)", letterSpacing: "0.10em", textTransform: "uppercase", color: "var(--forge-on-dark-mute)" }}>{label}</span>
-    <span style={{
-      font: "700 16px/1 var(--forge-mono)",
-      color: accent ? "var(--forge-lime)" : "var(--forge-on-dark-strong)",
-      display: "flex", alignItems: "center", gap: 6,
-    }}>
-      {live && <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--forge-lime)", boxShadow: "0 0 0 3px rgba(212,250,80,0.25)" }}/>}
-      {value}
-    </span>
-  </div>
-);
-
 const LevelDarkChip = ({ level }) => {
   const styles = {
     compliant: { color: "var(--forge-mint-warm)", bg: "rgba(120,220,140,0.10)", border: "rgba(120,220,140,0.40)", label: "Compliant" },
