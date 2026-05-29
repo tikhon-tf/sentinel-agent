@@ -113,7 +113,7 @@ def build_agent():
 def build_agent_act1():
     """Build the Sentinel agent (Act 1: OpenAI, no Tavily)."""
     model = _build_model("openai")
-    tools = build_tools(provider="openai", use_tavily=False)
+    tools = build_tools(provider="openai", use_tavily=False, retrieval="rag")
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -130,7 +130,7 @@ def build_agent_act1_alt():
     varying the LLM.
     """
     model = _build_model("openai")
-    tools = build_tools(provider="openai", use_tavily=True)
+    tools = build_tools(provider="openai", use_tavily=True, retrieval="rag")
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -148,7 +148,7 @@ def build_agent_nemotron():
         stream_usage=True,
         metadata={"ls_provider": "nebius", "ls_model_name": nemotron},
     )
-    tools = build_tools(provider="nebius", use_tavily=True, model_name=nemotron)
+    tools = build_tools(provider="nebius", use_tavily=True, retrieval="rag", model_name=nemotron)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:

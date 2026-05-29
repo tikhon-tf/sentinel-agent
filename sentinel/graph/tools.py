@@ -170,7 +170,7 @@ def search_web(query: str = "") -> str:
         return f"Web search failed: {e}"
 
 
-def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily: bool = True, retrieval: str = "nexus"):
+def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily: bool = True, retrieval: str = "rag"):
     """Build the tool set for the audit sub-agent."""
 
     @tool
@@ -427,7 +427,7 @@ def _build_subagent_model(provider: str = "nebius", model_name: str | None = Non
     return ChatOpenAI(**kwargs)
 
 
-def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True, retrieval: str = "nexus", model_name: str | None = None) -> str:
+def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True, retrieval: str = "rag", model_name: str | None = None) -> str:
     """Core implementation for auditing a single SOP."""
     from langchain.agents import create_agent
     from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
@@ -830,7 +830,7 @@ def create_jira_ticket(
         return f"Jira ticket creation failed: {e}"
 
 
-def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: str = "nexus", model_name: str | None = None) -> list:
+def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: str = "rag", model_name: str | None = None) -> list:
     """Build the complete tool list for the agent, parameterized by provider, Tavily, retrieval backend ("rag", "nexus", or "both"), and optional model_name override."""
 
     @tool
