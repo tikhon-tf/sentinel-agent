@@ -166,9 +166,9 @@ const EvalScreen = () => {
                 <Th>Configuration</Th>
                 <Th>Model</Th>
                 <Th align="right">Cost</Th>
-                <Th align="right">Tokens</Th>
+                <Th align="right">Tokens in</Th>
+                <Th align="right">Tokens out</Th>
                 <Th align="right">Avg latency</Th>
-                <Th align="right">Wall time</Th>
               </tr>
             </thead>
             <tbody>
@@ -185,13 +185,13 @@ const EvalScreen = () => {
                       <span style={{ font: "700 16px/1 var(--forge-mono)", color: cheapest ? "rgb(60,140,40)" : "var(--forge-on-light)" }}>${a.totalCost.toFixed(2)}</span>
                     </Td>
                     <Td align="right">
-                      <span style={{ font: "600 14px/1 var(--forge-mono)" }}>{((a.inputTokens + a.outputTokens) / 1e6).toFixed(2)}M</span>
+                      <span style={{ font: "600 14px/1 var(--forge-mono)" }}>{(a.inputTokens / 1e6).toFixed(2)}M</span>
+                    </Td>
+                    <Td align="right">
+                      <span style={{ font: "600 14px/1 var(--forge-mono)" }}>{(a.outputTokens / 1e6).toFixed(2)}M</span>
                     </Td>
                     <Td align="right">
                       <span style={{ font: "600 14px/1 var(--forge-mono)" }}>{a.latencyAvg.toFixed(1)}s</span>
-                    </Td>
-                    <Td align="right">
-                      <span style={{ font: "600 14px/1 var(--forge-mono)" }}>{(a.latencyTotal / 60).toFixed(1)} min</span>
                     </Td>
                   </tr>
                 );
