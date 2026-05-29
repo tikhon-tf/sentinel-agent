@@ -259,7 +259,8 @@ const AuditScreen = ({ loadStatus }) => {
               background: "rgba(255,255,255,0.02)",
             }}>
               <div style={{ flex: 1 }}><Meter label="elapsed" value={`${elapsedSec.toFixed(1)}s`} live={audit.status === "running"}/></div>
-              <div style={{ flex: 1 }}><Meter label="tokens" value={`${((totalIn + totalOut) / 1000).toFixed(1)}k`}/></div>
+              <div style={{ flex: 1 }}><Meter label="tokens in" value={`${(totalIn / 1000).toFixed(1)}k`}/></div>
+              <div style={{ flex: 1 }}><Meter label="tokens out" value={`${(totalOut / 1000).toFixed(1)}k`}/></div>
               <div style={{ flex: 1 }}><Meter label="tools" value={audit.toolCalls.length}/></div>
               <div style={{ flex: 1 }}><Meter label="jira tickets" value={audit.toolCalls.filter(tc => tc.name === "create_jira_ticket" && tc.result && !tc.result.startsWith("Jira ticket creation failed")).length}/></div>
               {(() => {
