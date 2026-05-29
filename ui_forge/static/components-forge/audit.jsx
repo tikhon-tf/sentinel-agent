@@ -11,9 +11,10 @@ const AUDIT_AGENTS = [
 const AuditScreen = ({ loadStatus }) => {
   const _ls = loadStatus || {};
   const kbLoading       = _ls.kb       === "loading";
-  const findingsLoading = _ls.findings === "loading";
   const data = window.SENTINEL_DATA || {};
   const kb = data.kbStats || { sop_count: 200, regulation_count: 36, regulations: [] };
+  const [findingsVersion, setFindingsVersion] = React.useState(0);
+  const findingsLoading = _ls.findings === "loading" && findingsVersion === 0;
   const findingsResp = data.findings || { issues: [], jira_configured: false };
   const findings = findingsResp.issues || [];
 
@@ -81,6 +82,19 @@ const AuditScreen = ({ loadStatus }) => {
       onError: (err) => setAudit(prev => ({ ...prev, error: err.message, status: "error", endedAt: Date.now() })),
     });
   };
+
+  // Re-fetch Jira findings when an audit run completes with ticket creations
+  React.useEffect(() => {
+    if (audit.status !== "done") return;
+    const hasTickets = audit.toolCalls.some(tc => tc.name === "create_jira_ticket" && tc.result && !tc.result.startsWith("Jira ticket creation failed"));
+    if (!hasTickets) return;
+    const API = window.ForgeAPI;
+    if (!API) return;
+    API.getFindings().then(d => {
+      window.SENTINEL_DATA.findings = d;
+      setFindingsVersion(v => v + 1);
+    }).catch(() => {});
+  }, [audit.status]);
 
   // Keep the elapsed counter ticking even when no SSE event has arrived
   // (slow tool call, model warm-up). Cleared as soon as status leaves "running".
