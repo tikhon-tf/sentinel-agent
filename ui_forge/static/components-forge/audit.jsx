@@ -96,6 +96,23 @@ const AuditScreen = ({ loadStatus }) => {
     : 0;
   const responseText = audit.tokens.join("");
 
+  const subagentTokens = React.useMemo(() => {
+    let inTok = 0, outTok = 0;
+    const re = /Sub-agent tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*\/\s*([\d,]+)\s*out\)/g;
+    for (const tc of audit.toolCalls) {
+      if (!tc.result) continue;
+      let m;
+      while ((m = re.exec(tc.result)) !== null) {
+        inTok += parseInt(m[1].replace(/,/g, ""), 10);
+        outTok += parseInt(m[2].replace(/,/g, ""), 10);
+      }
+      re.lastIndex = 0;
+    }
+    return { input: inTok, output: outTok };
+  }, [audit.toolCalls]);
+  const totalIn = audit.inputTokens + subagentTokens.input;
+  const totalOut = audit.outputTokens + subagentTokens.output;
+
   return (
     <div style={{ padding: "28px 32px", display: "flex", flexDirection: "column", gap: 28 }}>
 
@@ -227,13 +244,13 @@ const AuditScreen = ({ loadStatus }) => {
               font: "500 11px/1 var(--forge-mono)", color: "var(--forge-on-dark-mute)",
             }}>
               <span>elapsed <span style={{ color: "var(--forge-on-dark)" }}>{elapsedSec.toFixed(1)}s</span></span>
-              <span>tokens <span style={{ color: "var(--forge-on-dark)" }}>{(audit.inputTokens + audit.outputTokens).toLocaleString()}</span> ({audit.inputTokens.toLocaleString()} in / {audit.outputTokens.toLocaleString()} out)</span>
+              <span>tokens <span style={{ color: "var(--forge-on-dark)" }}>{(totalIn + totalOut).toLocaleString()}</span> ({totalIn.toLocaleString()} in / {totalOut.toLocaleString()} out)</span>
               <span>tools <span style={{ color: "var(--forge-on-dark)" }}>{audit.toolCalls.length}</span></span>
               <span>jira tickets <span style={{ color: "var(--forge-on-dark)" }}>{audit.toolCalls.filter(tc => tc.name === "create_jira_ticket" && tc.result && !tc.result.startsWith("Jira ticket creation failed")).length}</span></span>
               {(() => {
                 const ag = AUDIT_AGENTS.find(a => a.key === selectedAgent);
                 if (!ag || !ag.pricing) return null;
-                const cost = (audit.inputTokens * ag.pricing.input + audit.outputTokens * ag.pricing.output) / 1_000_000;
+                const cost = (totalIn * ag.pricing.input + totalOut * ag.pricing.output) / 1_000_000;
                 return <span>cost <span style={{ color: "var(--forge-on-dark)" }}>${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}</span></span>;
               })()}
               <div style={{ flex: 1 }}/>
