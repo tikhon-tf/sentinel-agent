@@ -276,8 +276,25 @@ const StreamPane = ({ children, status, maxHeight = 480, padding = "20px 24px" }
   );
 };
 
+// ── MARKDOWN — renders a markdown string as sanitised HTML via `marked`.
+const _markedOpts = (() => {
+  if (typeof marked === "undefined") return null;
+  marked.setOptions({ breaks: true, gfm: true });
+  return true;
+})();
+
+const Markdown = ({ text, style }) => {
+  const html = React.useMemo(() => {
+    if (!text) return "";
+    if (typeof marked === "undefined") return text.replace(/</g, "&lt;");
+    return marked.parse(text);
+  }, [text]);
+  return <div className="forge-md" style={style} dangerouslySetInnerHTML={{ __html: html }} />;
+};
+
 Object.assign(window, {
   Icons, Icon, Slab, Panel, PaperCard,
   StatCard, OutlinePill, LimePill, StatusChip,
   Btn, LinkArrow, SectionTitle, M, Spinner, SpinnerStyle, StreamPane,
+  Markdown,
 });

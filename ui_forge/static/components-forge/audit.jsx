@@ -255,8 +255,9 @@ const AuditScreen = ({ loadStatus }) => {
                   border: audit.status === "done"
                     ? "1px solid rgba(212,250,80,0.18)"
                     : "1px solid var(--forge-border-dark)",
-                  font: "400 13.5px/21px var(--forge-font)", color: "var(--forge-on-dark)", whiteSpace: "pre-wrap"
-                }}>{responseText}</div>
+                }}>
+                  <Markdown text={responseText} />
+                </div>
               )}
 
               {audit.error && (
