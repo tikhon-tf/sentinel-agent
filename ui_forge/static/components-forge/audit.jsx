@@ -1,8 +1,9 @@
 // Forge-styled Audit screen — composer + Jira-sourced findings register
 
 const AUDIT_AGENTS = [
-  { key: "sentinel_act1",     label: "Prototype agent",   sublabel: "GPT-5.5 · no web" },
-  { key: "sentinel",          label: "Production agent",  sublabel: "DeepSeek-V4-Pro · web" },
+  { key: "sentinel_prototype",  graph_id: "sentinel_act1",    label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone" },
+  { key: "sentinel_production", graph_id: "sentinel",         label: "Production agent",  sublabel: "DeepSeek-V4-Pro + Pinecone + Tavily" },
+  { key: "sentinel_nemotron",   graph_id: "sentinel_nemotron", label: "Nemotron agent",   sublabel: "Nemotron-3-Super-120B + Pinecone + Tavily" },
 ];
 
 
@@ -17,7 +18,7 @@ const AuditScreen = ({ loadStatus }) => {
 
   // composer state
   const [draft, setDraft] = React.useState("");
-  const [selectedAgent, setSelectedAgent] = React.useState("sentinel");
+  const [selectedAgent, setSelectedAgent] = React.useState("sentinel_production");
   const [audit, setAudit] = React.useState({
     status: "idle",        // idle | running | done | error
     tokens: [],            // streamed text chunks
@@ -45,7 +46,8 @@ const AuditScreen = ({ loadStatus }) => {
       startedAt: Date.now(), endedAt: null,
       traceUrl: null,
     });
-    window.ForgeAPI.streamAudit(text, selectedAgent, {
+    const graphId = (AUDIT_AGENTS.find(a => a.key === selectedAgent) || {}).graph_id || selectedAgent;
+    window.ForgeAPI.streamAudit(text, graphId, {
       signal: ctrl.signal,
       onEvent: (ev) => {
         setAudit(prev => {
@@ -201,6 +203,7 @@ const AuditScreen = ({ loadStatus }) => {
                 selected={selectedAgent === a.key}
                 onClick={() => audit.status !== "running" && setSelectedAgent(a.key)}>
                 {a.label}
+                <span style={{ fontWeight: 400, opacity: 0.7 }}>{a.sublabel}</span>
               </TemplateChip>
             ))}
           </div>
