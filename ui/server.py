@@ -46,7 +46,13 @@ from sentinel.config import (
 )
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-EVAL_RESULTS_PATH = PROJECT_ROOT / "data" / "eval" / "results" / "comparison_3way_20260521.json"
+EVAL_RESULTS_DIR = PROJECT_ROOT / "data" / "eval" / "results"
+EVAL_AGENTS = {
+    "production":  EVAL_RESULTS_DIR / "agentic_20260526_155049.json",
+    "prototype":   EVAL_RESULTS_DIR / "agentic_openai_20260529_142141.json",
+    "nemotron":    EVAL_RESULTS_DIR / "agentic_20260529_150542.json",
+    "kimi-k2":     EVAL_RESULTS_DIR / "agentic_20260529_172926.json",
+}
 DATASET_PATH = PROJECT_ROOT / "data" / "eval" / "qa_dataset.jsonl"
 SOPS_DIR = PROJECT_ROOT / "data" / "sops"
 REGULATIONS_DIR = PROJECT_ROOT / "data" / "regulations"
@@ -211,9 +217,13 @@ def health():
 
 @app.get("/api/eval-results")
 def eval_results():
-    if not EVAL_RESULTS_PATH.exists():
-        raise HTTPException(status_code=404, detail="comparison_3way_*.json not found")
-    return json.loads(EVAL_RESULTS_PATH.read_text())
+    out = {}
+    for key, path in EVAL_AGENTS.items():
+        if path.exists():
+            out[key] = json.loads(path.read_text())
+    if not out:
+        raise HTTPException(status_code=404, detail="No eval result files found")
+    return out
 
 
 @app.get("/api/dataset")

@@ -46,52 +46,53 @@ function useForgeData() {
   return { version, status };
 }
 
-// Backend returns API JSON with snake_case + flat structure (matches eval JSON).
-// Convert to the shape eval.jsx expects.
+const EVAL_AGENT_META = {
+  prototype:  { label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone + Tavily" },
+  production: { label: "DeepSeek agent",    sublabel: "DeepSeek-V4-Pro + Pinecone + Tavily" },
+  nemotron:   { label: "Nemotron agent",    sublabel: "Nemotron-3-Super-120B + Pinecone + Tavily" },
+  "kimi-k2":  { label: "Kimi K2.6 agent",  sublabel: "Kimi-K2.6 + Pinecone + Tavily" },
+};
+
 function mapEvalResults(api) {
-  const mapMode = (m) => m && {
-    label: m.label || (m.mode || "").replace(/-/g, " "),
-    sublabel: m.sublabel || "",
-    tagline: m.tagline || "",
-    model: m.model,
-    total: m.total,
-    totalCost: m.total_cost_usd,
-    latencyAvg: m.latency_avg_s,
-    latencyTotal: m.latency_total_s,
-    inputTokens: m.input_tokens,
-    outputTokens: m.output_tokens,
-    binary: {
-      accuracy: m.compliance_binary?.accuracy ?? 0,
-      recallNonCompliant: m.compliance_binary?.recall_non_compliant ?? 0,
-      precisionNonCompliant: m.compliance_binary?.precision_non_compliant ?? 0,
-      f1NonCompliant: m.compliance_binary?.f1_non_compliant ?? 0,
-      macroF1: m.compliance_binary?.macro_f1 ?? 0,
-      tp: m.compliance_binary?.tp_non_compliant ?? 0,
-      fp: m.compliance_binary?.fp_non_compliant ?? 0,
-      tn: m.compliance_binary?.tn_compliant ?? 0,
-      fn: m.compliance_binary?.fn_non_compliant ?? 0,
-    },
-    perCategory: Object.fromEntries(Object.entries(m.per_category || {}).map(([k, v]) => [k, {
-      n: v.n,
-      correctness: v.judge_correctness_avg,
-      citations:   v.judge_citations_avg,
-      binaryAcc:   v.binary_accuracy,
-    }])),
+  const mapMode = (m, key) => {
+    if (!m) return null;
+    const meta = EVAL_AGENT_META[key] || {};
+    return {
+      key,
+      label: meta.label || key,
+      sublabel: meta.sublabel || "",
+      model: m.model,
+      total: m.total,
+      totalCost: m.total_cost_usd,
+      latencyAvg: m.latency_avg_s,
+      latencyTotal: m.latency_total_s,
+      inputTokens: m.input_tokens,
+      outputTokens: m.output_tokens,
+      binary: {
+        accuracy: m.compliance_binary?.accuracy ?? 0,
+        recallNonCompliant: m.compliance_binary?.recall_non_compliant ?? 0,
+        precisionNonCompliant: m.compliance_binary?.precision_non_compliant ?? 0,
+        f1NonCompliant: m.compliance_binary?.f1_non_compliant ?? 0,
+        macroF1: m.compliance_binary?.macro_f1 ?? 0,
+        tp: m.compliance_binary?.tp_non_compliant ?? 0,
+        fp: m.compliance_binary?.fp_non_compliant ?? 0,
+        tn: m.compliance_binary?.tn_compliant ?? 0,
+        fn: m.compliance_binary?.fn_non_compliant ?? 0,
+      },
+      perCategory: Object.fromEntries(Object.entries(m.per_category || {}).map(([k, v]) => [k, {
+        n: v.n,
+        correctness: v.judge_correctness_avg,
+        citations:   v.judge_citations_avg,
+        binaryAcc:   v.binary_accuracy,
+      }])),
+    };
   };
-  const naive  = mapMode(api.naive)         || {};
-  const nebius = mapMode(api.agentic)       || {};
-  const openai = mapMode(api["agentic-openai"]) || {};
-  // Restore labels (the API uses mode keys, not the friendly labels).
-  if (!naive.label  || naive.label  === "naive")          naive.label  = "Naive RAG";
-  if (!nebius.label || nebius.label === "agentic")        nebius.label = "Agentic (Nebius)";
-  if (!openai.label || openai.label === "agentic openai") openai.label = "Agentic (OpenAI)";
-  if (!naive.sublabel)  naive.sublabel  = "DeepSeek-V4-Pro";
-  if (!nebius.sublabel) nebius.sublabel = "DeepSeek-V4-Pro + Pinecone + Tavily";
-  if (!openai.sublabel) openai.sublabel = "GPT-5.5 + Pinecone + Tavily";
-  if (!naive.tagline)   naive.tagline   = "1 retrieval + 1 LLM call · no tools";
-  if (!nebius.tagline)  nebius.tagline  = "ReAct · Pinecone + web · sub-agent fan-out";
-  if (!openai.tagline)  openai.tagline  = "ReAct · Pinecone + web · sub-agent fan-out";
-  return { naive, agentic: nebius, openai };
+  const agents = {};
+  for (const key of Object.keys(EVAL_AGENT_META)) {
+    const mapped = mapMode(api[key], key);
+    if (mapped) agents[key] = mapped;
+  }
+  return agents;
 }
 
 

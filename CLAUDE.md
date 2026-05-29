@@ -15,8 +15,9 @@ make act2                 # Act 2: DeepSeek-V4-Pro + Pinecone RAG (default; set 
 make act3                 # Act 3: Snowglobe adversarial simulation
 make act4                 # Act 4: actuation — file Jira tickets for compliance gaps
 make demo                 # All four acts sequentially
-make test                 # Run regression tests (111 tests, no API keys needed)
+make test                 # Run regression tests (95 tests, no API keys needed)
 make dev                  # LangGraph dev server on port 2024
+make ui                   # UI (FastAPI + React) on port 8080
 make deploy               # Deploy to LangGraph Cloud (remote Docker build)
 ```
 
@@ -48,9 +49,12 @@ The sub-agent system prompt is selected based on `retrieval`: `_AUDIT_SUBAGENT_P
 
 Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Nebius 504 timeouts) return a `"FAILED: ..."` string so the retry loop in `_audit_single_sop` can re-attempt.
 
-### Dual-model, dual-retrieval support
-- **Act 1**: GPT-5.4-mini via OpenAI API (`https://api.openai.com/v1`) + Pinecone RAG
-- **Act 2 + deployment default**: DeepSeek on Nebius AI Studio (`https://api.studio.nebius.com/v1/`) + Pinecone RAG by default (configurable via `AGENT2_RETRIEVAL`)
+### Multi-model support
+- **Act 1 (Prototype)**: GPT-5.5 via OpenAI API (`https://api.openai.com/v1`) + Pinecone RAG
+- **Act 2 (Production)**: DeepSeek-V4-Pro on Nebius AI Studio (`https://api.studio.nebius.com/v1/`) + Pinecone RAG by default (configurable via `AGENT2_RETRIEVAL`)
+- **Alternate Nebius models**: Nemotron-3-Super-120B, Kimi-K2.6, GLM-5.1 — each has its own LangGraph graph (`sentinel_nemotron`, `sentinel_kimi`, `sentinel_glm`) and agent builder via `_build_agent_nebius_model()`. Select in the UI or via `NEBIUS_MODEL` env var.
+- `model_name` is threaded through `build_tools()` → `_audit_single_sop_impl()` → `_build_subagent_model()` so sub-agents use the same model as the outer agent
+- Only DeepSeek models set `max_tokens` on sub-agents — other Nebius models reject `max_completion_tokens`
 - Provider switching is handled by `set_provider()` in `llm.py` and `_build_model()` in `agent.py`
 - Retrieval backend is selected by the `retrieval` parameter (from `AGENT2_RETRIEVAL` env var) threaded through `build_tools()` → `_audit_single_sop_impl()` → `_build_subagent_tools()`. Values: `"rag"` (Pinecone RAG, default), `"nexus"` (Nexus KnowQL), `"both"` (both tools available to sub-agents)
 
@@ -87,7 +91,12 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 | `sentinel/actuation/jira_client.py` | Sync Jira Cloud REST client used by the `create_jira_ticket` tool (Act 4) |
 | `sentinel/output/heatmap.py` | Rich console heatmap rendering |
 | `sentinel/output/register.py` | CSV/JSON/metrics output |
+| `ui/server.py` | FastAPI backend: serves static UI, SSE audit streaming, eval results, Jira findings, KB stats |
+| `ui/static/components-forge/audit.jsx` | Audit screen: composer, agent picker, live stream with Meter metrics, Jira findings register |
+| `ui/static/components-forge/eval.jsx` | Evaluation screen: multi-agent benchmark dashboard (recall, cost, confusion matrices, per-category table) |
+| `ui/static/components-forge/compare.jsx` | Compare screen: side-by-side agent race with parallel SSE streams |
 | `scripts/validate_run.py` | Audit quality evaluation: compares LangSmith run output against compliance matrix |
+| `scripts/run_qa_eval.py` | Q&A eval runner: naive, agentic, agentic-openai, agentic-openai-tavily modes |
 | `scripts/inspect_tool_calls.py` | LangSmith tool call inspector: shows all tool calls with args, timing, and output token counts for a run (`--show-output`, `--json`) |
 | `demo/act{1,2,3,4}_*.py` | Four-act demo scripts |
 
@@ -150,6 +159,7 @@ Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Act 1), `PINECONE_API_KE
 - Nexus JWT is cached in a module-level `_token` with `threading.Lock` for thread safety across concurrent sub-agents; re-login on 401, backoff on 429 (honors `retry_after_seconds`) and 409 (exponential backoff)
 - JSON parsing from sub-agent responses scans messages in reverse, strips markdown code fences, repairs truncated arrays, and maps unexpected enum values (`_COMPLIANCE_LEVEL_MAP`, `_SEVERITY_MAP`)
 - All `ChatOpenAI` instances must set `stream_usage=True` — without it, custom `base_url` providers (Nebius, OpenAI) don't send `stream_options: {include_usage: true}` and `usage_metadata` is always `None` in thread state
-- Token pricing is centralized in `PRICING` dict in `config.py` — the UI reads it for cost display
-- Sub-agent token usage is tracked in `_audit_results` and included in tool result strings as `Sub-agent tokens: X (X in / X out)` — the UI parses this to include sub-agent costs in the displayed totals
+- Token pricing is centralized in `PRICING` dict in `config.py`; the UI also embeds per-agent pricing in `AUDIT_AGENTS` for live cost display
+- Sub-agent token usage is tracked in `_audit_results` and included in tool result strings as `Sub-agent tokens: X (X in / X out)` — the UI parses this regex from tool results to include sub-agent costs in the displayed totals
+- Available Nebius models are in `NEBIUS_MODELS` dict in `config.py` — select via `NEBIUS_MODEL` env var (keys: `deepseek-v4-pro`, `nemotron`, `kimi-k2`, `glm-5`)
 - The LangGraph SDK (via `messages-tuple` stream mode) serializes messages with short-form types: `"ai"` / `"AIMessageChunk"` for AI messages, `"tool"` for ToolMessages, `"human"` for user messages. Do not use substring matching (e.g. `"ToolMessage" in msg_type`) — use explicit set membership (`msg_type in ("tool", "ToolMessage", "ToolMessageChunk")`)
