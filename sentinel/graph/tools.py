@@ -219,33 +219,37 @@ Your FINAL message MUST contain a JSON array (and nothing else) where each eleme
 Do NOT include any text before or after the JSON array in your final message. Just the raw JSON array."""
 
 
-def _build_subagent_model(provider: str = "nebius"):
+def _build_subagent_model(provider: str = "nebius", model_name: str | None = None):
     """Build the ChatOpenAI model for audit sub-agents."""
     from langchain_openai import ChatOpenAI
     from sentinel.config import MODEL_MAX_TOKENS
     if provider == "openai":
         from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL
+        name = model_name or OPENAI_MODEL
         return ChatOpenAI(
-            model=OPENAI_MODEL,
+            model=name,
             api_key=OPENAI_API_KEY,
             temperature=0.1,
             max_tokens=MODEL_MAX_TOKENS,
             stream_usage=True,
-            metadata={"ls_provider": "openai", "ls_model_name": OPENAI_MODEL},
+            metadata={"ls_provider": "openai", "ls_model_name": name},
         )
     from sentinel.config import MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
-    return ChatOpenAI(
-        model=MODEL,
+    name = model_name or MODEL
+    kwargs = dict(
+        model=name,
         api_key=NEBIUS_API_KEY,
         base_url=NEBIUS_BASE_URL,
         temperature=0.1,
-        max_tokens=MODEL_MAX_TOKENS,
         stream_usage=True,
-        metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
+        metadata={"ls_provider": "nebius", "ls_model_name": name},
     )
+    if "nemotron" not in name:
+        kwargs["max_tokens"] = MODEL_MAX_TOKENS
+    return ChatOpenAI(**kwargs)
 
 
-def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True) -> str:
+def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True, model_name: str | None = None) -> str:
     """Core implementation for auditing a single SOP."""
     from langchain.agents import create_agent
     from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
@@ -265,7 +269,7 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
     sop_text = "\n\n---\n\n".join(f"[{c.section}]\n{c.chunk_text}" for c in chunks)
 
     subagent_tools = _build_subagent_tools(sop_text, actual_id, title, use_tavily=use_tavily)
-    model = _build_subagent_model(provider)
+    model = _build_subagent_model(provider, model_name=model_name)
 
     subagent = create_agent(
         model=model,
@@ -634,19 +638,19 @@ def create_jira_ticket(
         return f"Jira ticket creation failed: {e}"
 
 
-def build_tools(provider: str = "nebius", use_tavily: bool = True) -> list:
+def build_tools(provider: str = "nebius", use_tavily: bool = True, model_name: str | None = None) -> list:
     """Build the complete tool list for the agent, parameterized by provider and Tavily usage."""
 
     @tool
     def _audit_single_sop(sop_id: str) -> str:
         """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base (Pinecone). Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
-        result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily)
+        result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, model_name=model_name)
         for attempt in range(1, MAX_RETRIES + 1):
             if not _is_retryable(result):
                 break
             logger.info("Retry attempt %d/%d for %s", attempt, MAX_RETRIES, sop_id)
             time.sleep(RETRY_BACKOFF * attempt)
-            result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily)
+            result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, model_name=model_name)
         return result
 
     @tool

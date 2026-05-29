@@ -136,7 +136,7 @@ def build_agent_nemotron():
         stream_usage=True,
         metadata={"ls_provider": "nebius", "ls_model_name": nemotron},
     )
-    tools = build_tools(provider="nebius", use_tavily=True)
+    tools = build_tools(provider="nebius", use_tavily=True, model_name=nemotron)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
