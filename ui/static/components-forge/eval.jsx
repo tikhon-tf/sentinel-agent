@@ -62,8 +62,8 @@ const EvalScreen = () => {
         </div>
       </Slab>
 
-      {/* ─── RECALL + COST BARS ─── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      {/* ─── RECALL + PRECISION + COST BARS ─── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
         <Slab padding={28}>
           <div className="f-kicker" style={{ color: "var(--forge-mint-warm)", marginBottom: 14 }}>Audit safety</div>
           <div style={{ font: "700 22px/1.25 var(--forge-font)", letterSpacing: "-0.01em", color: "var(--forge-on-dark-strong)", marginBottom: 20 }}>
@@ -85,6 +85,33 @@ const EvalScreen = () => {
             );
           })}
         </Slab>
+
+        {(() => {
+          const bestPrec = Math.max(...agents.map(a => a.binary.precisionNonCompliant));
+          return (
+            <Slab padding={28}>
+              <div className="f-kicker" style={{ color: "var(--forge-amber)", marginBottom: 14 }}>False alarm rate</div>
+              <div style={{ font: "700 22px/1.25 var(--forge-font)", letterSpacing: "-0.01em", color: "var(--forge-on-dark-strong)", marginBottom: 20 }}>
+                Non-compliant precision
+              </div>
+              {agents.map(a => {
+                const v = a.binary.precisionNonCompliant;
+                const best = v >= bestPrec;
+                return (
+                  <div key={a.key} style={{ marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ font: "500 12px/1 var(--forge-font)", color: "var(--forge-on-dark-mute)" }}>{a.label}</span>
+                      <span style={{ font: "700 12px/1 var(--forge-mono)", color: best ? "var(--forge-amber)" : "var(--forge-on-dark)" }}>{v.toFixed(2)}</span>
+                    </div>
+                    <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: (v * 100) + "%", background: best ? "var(--forge-amber)" : "rgba(255,255,255,0.20)", borderRadius: 999 }}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </Slab>
+          );
+        })()}
 
         <Slab padding={28}>
           <div className="f-kicker" style={{ color: "var(--forge-lime)", marginBottom: 14 }}>Cost · quality</div>
