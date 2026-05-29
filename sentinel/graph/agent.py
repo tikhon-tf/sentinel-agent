@@ -137,22 +137,34 @@ def build_agent_act1_alt():
         return _build_react_agent(model, tools)
 
 
-def build_agent_nemotron():
-    """Build the Sentinel agent with Nemotron on Nebius + Tavily."""
-    nemotron = NEBIUS_MODELS["nemotron"]
+def _build_agent_nebius_model(model_key: str):
+    """Build a Sentinel agent with an alternate Nebius model + Tavily."""
+    model_id = NEBIUS_MODELS[model_key]
     model = ChatOpenAI(
-        model=nemotron,
+        model=model_id,
         api_key=NEBIUS_API_KEY,
         base_url=NEBIUS_BASE_URL,
         temperature=0.1,
         stream_usage=True,
-        metadata={"ls_provider": "nebius", "ls_model_name": nemotron},
+        metadata={"ls_provider": "nebius", "ls_model_name": model_id},
     )
-    tools = build_tools(provider="nebius", use_tavily=True, retrieval="rag", model_name=nemotron)
+    tools = build_tools(provider="nebius", use_tavily=True, retrieval="rag", model_name=model_id)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
         return _build_react_agent(model, tools)
+
+
+def build_agent_nemotron():
+    return _build_agent_nebius_model("nemotron")
+
+
+def build_agent_kimi():
+    return _build_agent_nebius_model("kimi-k2")
+
+
+def build_agent_glm():
+    return _build_agent_nebius_model("glm-5")
 
 
 def agent():
@@ -169,6 +181,14 @@ def agent_act1_alt():
 
 def agent_nemotron():
     return build_agent_nemotron()
+
+
+def agent_kimi():
+    return build_agent_kimi()
+
+
+def agent_glm():
+    return build_agent_glm()
 
 
 def run_audit(

@@ -422,7 +422,7 @@ def _build_subagent_model(provider: str = "nebius", model_name: str | None = Non
         metadata={"ls_provider": "nebius", "ls_model_name": name},
         **extra_kwargs,
     )
-    if "nemotron" not in name:
+    if "DeepSeek" in name:
         kwargs["max_tokens"] = MODEL_MAX_TOKENS
     return ChatOpenAI(**kwargs)
 

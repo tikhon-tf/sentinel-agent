@@ -4,7 +4,9 @@ const AUDIT_AGENTS = [
   { key: "sentinel_prototype",      graph_id: "sentinel_act1",     label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone",                      pricing: { input: 5.00, output: 30.00 } },
   { key: "sentinel_prototype_plus", graph_id: "sentinel_act1_alt", label: "Prototype+ agent",  sublabel: "GPT-5.5 + Pinecone + Tavily",              pricing: { input: 5.00, output: 30.00 } },
   { key: "sentinel_production",     graph_id: "sentinel",          label: "Production agent",  sublabel: "DeepSeek-V4-Pro + Pinecone + Tavily",      pricing: { input: 1.75, output: 3.50 } },
-  { key: "sentinel_nemotron",       graph_id: "sentinel_nemotron", label: "Nemotron agent",    sublabel: "Nemotron-3-Super-120B + Pinecone + Tavily", pricing: { input: 0.30, output: 0.90 } },
+  { key: "sentinel_nemotron",       graph_id: "sentinel_nemotron", label: "Nemotron agent",    pricing: { input: 0.30, output: 0.90 } },
+  { key: "sentinel_kimi",           graph_id: "sentinel_kimi",     label: "Kimi K2.6 agent",  pricing: { input: 0.95, output: 4.00 } },
+  { key: "sentinel_glm",            graph_id: "sentinel_glm",      label: "GLM-5.1 agent",    pricing: { input: 1.40, output: 4.40 } },
 ];
 
 
@@ -235,7 +237,7 @@ const AuditScreen = ({ loadStatus }) => {
                 selected={selectedAgent === a.key}
                 onClick={() => audit.status !== "running" && setSelectedAgent(a.key)}>
                 {a.label}
-                <span style={{ fontWeight: 400, opacity: 0.7 }}>{a.sublabel}</span>
+                {a.sublabel && <span style={{ fontWeight: 400, opacity: 0.7 }}>{a.sublabel}</span>}
               </TemplateChip>
             ))}
           </div>
