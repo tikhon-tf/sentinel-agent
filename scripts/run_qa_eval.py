@@ -5,7 +5,8 @@ Usage:
     python scripts/run_qa_eval.py --mode both                    # naive + agentic (Nebius)
     python scripts/run_qa_eval.py --mode all                     # naive + agentic + agentic-openai
     python scripts/run_qa_eval.py --mode naive --limit 5         # 5 questions, naive only
-    python scripts/run_qa_eval.py --mode agentic-openai          # agentic stack on OpenAI model
+    python scripts/run_qa_eval.py --mode agentic-openai          # agentic stack on OpenAI model (no web)
+    python scripts/run_qa_eval.py --mode agentic-openai-tavily   # agentic stack on OpenAI model + Tavily
     python scripts/run_qa_eval.py --mode agentic --category sop_compliance
     python scripts/run_qa_eval.py --mode both --no-judge         # skip LLM-as-judge
 """
@@ -82,7 +83,10 @@ def run_single(mode: str, question: dict) -> dict:
         return agentic_qa_answer(question["question"], sop_id=sop_id, provider="nebius")
     if mode == "agentic-openai":
         from sentinel.eval.agentic_qa import agentic_qa_answer
-        return agentic_qa_answer(question["question"], sop_id=sop_id, provider="openai")
+        return agentic_qa_answer(question["question"], sop_id=sop_id, provider="openai", use_tavily=False)
+    if mode == "agentic-openai-tavily":
+        from sentinel.eval.agentic_qa import agentic_qa_answer
+        return agentic_qa_answer(question["question"], sop_id=sop_id, provider="openai", use_tavily=True)
     raise ValueError(f"unknown mode: {mode}")
 
 
@@ -320,6 +324,7 @@ _MODE_LABEL = {
     "naive": "naive",
     "agentic": "ag-neb",
     "agentic-openai": "ag-oai",
+    "agentic-openai-tavily": "ag-oai+t",
 }
 _COL = 13  # column width in the comparison table
 
@@ -377,9 +382,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--mode",
-        choices=["naive", "agentic", "agentic-openai", "both", "all"],
+        choices=["naive", "agentic", "agentic-openai", "agentic-openai-tavily", "both", "all"],
         default="both",
-        help="Single mode, or 'both' (naive+agentic) / 'all' (naive+agentic+agentic-openai).",
+        help="Single mode, or 'both' (naive+agentic) / 'all' (all four modes).",
     )
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--category", default=None)
@@ -402,7 +407,7 @@ def main():
     if args.mode == "both":
         modes = ["naive", "agentic"]
     elif args.mode == "all":
-        modes = ["naive", "agentic", "agentic-openai"]
+        modes = ["naive", "agentic", "agentic-openai", "agentic-openai-tavily"]
     else:
         modes = [args.mode]
 
