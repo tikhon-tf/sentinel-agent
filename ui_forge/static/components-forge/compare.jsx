@@ -437,8 +437,7 @@ const AgentSlab = ({ agent: a }) => {
                   {!isFinal && <Spinner size={8} color="var(--forge-lime)"/>}
                   {isFinal ? "Final answer" : "Streaming response"}
                 </div>
-                <div style={{ font: "400 13.5px/21px var(--forge-font)", color: "var(--forge-on-dark)", whiteSpace: "pre-wrap" }}
-                     dangerouslySetInnerHTML={{ __html: item.text.replace(/\*\*(.*?)\*\*/g, '<strong style="color: var(--forge-on-dark-strong)">$1</strong>') }}/>
+                <Markdown text={item.text} />
               </div>
             );
           }

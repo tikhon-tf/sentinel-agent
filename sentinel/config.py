@@ -15,6 +15,7 @@ NEBIUS_BASE_URL = "https://api.studio.nebius.com/v1/"
 NEBIUS_MODELS = {
     "v3": "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd",
     "v4": "deepseek-ai/DeepSeek-V4-Pro",
+    "nemotron": "nvidia/nemotron-3-super-120b-a12b",
 }
 MODEL = NEBIUS_MODELS.get(os.environ.get("NEBIUS_MODEL", "v4"), NEBIUS_MODELS["v4"])
 MODEL_MAX_TOKENS = 16_000
@@ -54,6 +55,7 @@ EMBEDDING_DIMENSION = 4096
 PRICING = {
     "deepseek-ai/DeepSeek-V4-Pro": {"input": 1.75, "output": 3.50},
     "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd": {"input": 2.00, "output": 6.00},
+    "nvidia/nemotron-3-super-120b-a12b": {"input": 0.30, "output": 0.90},
     "gpt-5.4-mini": {"input": 0.40, "output": 1.60},
     "gpt-5.5": {"input": 5.00, "output": 30.00},
 }

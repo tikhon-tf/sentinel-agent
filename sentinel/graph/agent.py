@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from langchain_openai import ChatOpenAI
 
-from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL, AGENT2_RETRIEVAL
+from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL, AGENT2_RETRIEVAL, NEBIUS_MODELS
 from sentinel.graph.tools import (
     build_tools,
     get_audit_results,
@@ -137,6 +137,24 @@ def build_agent_act1_alt():
         return _build_react_agent(model, tools)
 
 
+def build_agent_nemotron():
+    """Build the Sentinel agent with Nemotron on Nebius + Tavily."""
+    nemotron = NEBIUS_MODELS["nemotron"]
+    model = ChatOpenAI(
+        model=nemotron,
+        api_key=NEBIUS_API_KEY,
+        base_url=NEBIUS_BASE_URL,
+        temperature=0.1,
+        stream_usage=True,
+        metadata={"ls_provider": "nebius", "ls_model_name": nemotron},
+    )
+    tools = build_tools(provider="nebius", use_tavily=True, model_name=nemotron)
+    try:
+        return _build_deep_agent(model, tools)
+    except ImportError:
+        return _build_react_agent(model, tools)
+
+
 def agent():
     return build_agent()
 
@@ -147,6 +165,10 @@ def agent_act1():
 
 def agent_act1_alt():
     return build_agent_act1_alt()
+
+
+def agent_nemotron():
+    return build_agent_nemotron()
 
 
 def run_audit(

@@ -1,34 +1,24 @@
 // Forge-styled Audit screen — composer + Jira-sourced findings register
 
 const AUDIT_AGENTS = [
-  { key: "sentinel_act0",     label: "Naive RAG",         sublabel: "DeepSeek-V4-Pro" },
-  { key: "sentinel_act1",     label: "OpenAI agent",      sublabel: "GPT-5.5 · no web" },
-  { key: "sentinel_act1_alt", label: "OpenAI + Tavily",   sublabel: "GPT-5.5 · web" },
-  { key: "sentinel",          label: "Nebius + Nexus + Tavily",   sublabel: "DeepSeek-V4-Pro · web" },
+  { key: "sentinel_prototype",  graph_id: "sentinel_act1",    label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone" },
+  { key: "sentinel_production", graph_id: "sentinel",         label: "Production agent",  sublabel: "DeepSeek-V4-Pro + Pinecone + Tavily" },
+  { key: "sentinel_nemotron",   graph_id: "sentinel_nemotron", label: "Nemotron agent",   sublabel: "Nemotron-3-Super-120B + Pinecone + Tavily" },
 ];
 
-const AUDIT_TEMPLATES = [
-  "Audit Meridian Health Technologies against HIPAA Security Rule and SOC 2 Trust Services Criteria. For each finding, report compliance level, the exact criterion violated, an evidence quote, recommended remediation, and severity.",
-  "Audit SOP-ISEC-008 against HIPAA §164.312 — focus on encryption mechanism, key lifecycle, and HSM use.",
-  "List all regulations available in the knowledge base.",
-  "Audit all SOPs tagged with GDPR. For every gap finding at medium+ severity, create a Jira ticket.",
-  "Show GDPR gaps only across SOP-DGP-*, with evidence quotes from each SOP.",
-  "Has the HHS Office for Civil Rights issued any HIPAA enforcement actions in the past 12 months that specifically address AI systems processing protected health information? Cite the case name(s) and approximate resolution date(s).",
-];
 
 const AuditScreen = ({ loadStatus }) => {
   const _ls = loadStatus || {};
   const kbLoading       = _ls.kb       === "loading";
   const findingsLoading = _ls.findings === "loading";
   const data = window.SENTINEL_DATA || {};
-  const kb = data.kbStats || { sop_count: 200, regulation_count: 9, regulations: [] };
+  const kb = data.kbStats || { sop_count: 200, regulation_count: 36, regulations: [] };
   const findingsResp = data.findings || { issues: [], jira_configured: false };
   const findings = findingsResp.issues || [];
 
   // composer state
   const [draft, setDraft] = React.useState("");
-  const [activeTemplate, setActiveTemplate] = React.useState(null);
-  const [selectedAgent, setSelectedAgent] = React.useState("sentinel");
+  const [selectedAgent, setSelectedAgent] = React.useState("sentinel_production");
   const [audit, setAudit] = React.useState({
     status: "idle",        // idle | running | done | error
     tokens: [],            // streamed text chunks
@@ -43,8 +33,8 @@ const AuditScreen = ({ loadStatus }) => {
   const streamRef = React.useRef(null);
 
   const sopCount = kb.sop_count ?? 200;
-  const regCount = kb.regulation_count ?? 33;
-  const regList  = (kb.regulations || []).join(", ") || "HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853, NIST SP 800-53, NIST CSF 2.0, FDA 21 CFR, OWASP, PCI DSS, BSA, FCRA, EU MDR, and more";
+  const regCount = kb.regulation_count ?? 36;
+  const regList  = (kb.regulations || []).join(", ") || "HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/942, AB 853, BSA, ECOA, FCRA, PCI DSS, OWASP, FDA, NIST SP 800-series, EU AMLD4/ePrivacy/MDR/SCCs";
 
   const sendAudit = (text) => {
     if (!text || audit.status === "running") return;
@@ -56,7 +46,8 @@ const AuditScreen = ({ loadStatus }) => {
       startedAt: Date.now(), endedAt: null,
       traceUrl: null,
     });
-    window.ForgeAPI.streamAudit(text, selectedAgent, {
+    const graphId = (AUDIT_AGENTS.find(a => a.key === selectedAgent) || {}).graph_id || selectedAgent;
+    window.ForgeAPI.streamAudit(text, graphId, {
       signal: ctrl.signal,
       onEvent: (ev) => {
         setAudit(prev => {
@@ -166,15 +157,15 @@ const AuditScreen = ({ loadStatus }) => {
           background: "var(--forge-ink-2)",
           overflow: "hidden"
         }}>
-          <div style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(212,250,80,0.12)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+          <div style={{ padding: "20px 22px", display: "flex", alignItems: "flex-start", gap: 14 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(212,250,80,0.12)", display: "grid", placeItems: "center", flexShrink: 0, marginTop: 2 }}>
               <Icon name="search" size={13} color="var(--forge-lime)" />
             </div>
-            <input
-              type="text"
+            <textarea
+              rows={3}
               value={draft}
-              onChange={(e) => { setDraft(e.target.value); setActiveTemplate(null); }}
-              onKeyDown={(e) => { if (e.key === "Enter" && draft.trim()) sendAudit(draft.trim()); }}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && draft.trim()) { e.preventDefault(); sendAudit(draft.trim()); } }}
               placeholder="Ask the auditor — e.g. ‘Audit SOP-ISEC-008 against HIPAA §164.312’"
               disabled={audit.status === "running"}
               style={{
@@ -184,13 +175,16 @@ const AuditScreen = ({ loadStatus }) => {
                 color: "var(--forge-on-dark)",
                 letterSpacing: "-0.005em",
                 opacity: audit.status === "running" ? 0.6 : 1,
+                resize: "vertical",
+                minHeight: 66,
               }} />
             <Btn
               variant="lime"
               size="m"
               onClick={() => sendAudit(draft.trim())}
               disabled={!draft.trim() || audit.status === "running"}
-              icon={<Icon name="send" size={12} color="var(--forge-ink)" stroke={2.5} />}>
+              icon={<Icon name="send" size={12} color="var(--forge-ink)" stroke={2.5} />}
+              style={{ marginTop: 2 }}>
               Send
             </Btn>
           </div>
@@ -209,30 +203,11 @@ const AuditScreen = ({ loadStatus }) => {
                 selected={selectedAgent === a.key}
                 onClick={() => audit.status !== "running" && setSelectedAgent(a.key)}>
                 {a.label}
+                <span style={{ fontWeight: 400, opacity: 0.7 }}>{a.sublabel}</span>
               </TemplateChip>
             ))}
           </div>
 
-          {/* Templates */}
-          <div style={{
-            padding: "14px 18px",
-            borderTop: "1px solid var(--forge-border-dark)",
-            background: "rgba(0,0,0,0.15)",
-            display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap"
-          }}>
-            <span className="f-kicker" style={{ color: "var(--forge-on-dark-faint)" }}>Quick prompts</span>
-            {AUDIT_TEMPLATES.map((tpl, i) => {
-              const labels = ["Full HIPAA + SOC 2 audit", "Audit SOP-ISEC-008", "List regulations", "Audit GDPR + file Jira tickets", "Show GDPR gaps only", "Recent OCR AI enforcement"];
-              return (
-                <TemplateChip
-                  key={i}
-                  selected={activeTemplate === i}
-                  onClick={() => { setActiveTemplate(i); setDraft(tpl); }}>
-                  {labels[i]}
-                </TemplateChip>
-              );
-            })}
-          </div>
         </div>
 
         {/* Live stream output */}
@@ -283,8 +258,9 @@ const AuditScreen = ({ loadStatus }) => {
                   border: audit.status === "done"
                     ? "1px solid rgba(212,250,80,0.18)"
                     : "1px solid var(--forge-border-dark)",
-                  font: "400 13.5px/21px var(--forge-font)", color: "var(--forge-on-dark)", whiteSpace: "pre-wrap"
-                }}>{responseText}</div>
+                }}>
+                  <Markdown text={responseText} />
+                </div>
               )}
 
               {audit.error && (
