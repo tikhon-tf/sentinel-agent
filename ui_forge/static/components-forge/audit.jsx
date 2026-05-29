@@ -1,7 +1,8 @@
 // Forge-styled Audit screen — composer + Jira-sourced findings register
 
 const AUDIT_AGENTS = [
-  { key: "sentinel_prototype",  graph_id: "sentinel_act1",    label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone" },
+  { key: "sentinel_prototype",  graph_id: "sentinel_act1",     label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone" },
+  { key: "sentinel_prototype_plus", graph_id: "sentinel_act1_alt", label: "Prototype+ agent", sublabel: "GPT-5.5 + Pinecone + Tavily" },
   { key: "sentinel_production", graph_id: "sentinel",         label: "Production agent",  sublabel: "DeepSeek-V4-Pro + Pinecone + Tavily" },
   { key: "sentinel_nemotron",   graph_id: "sentinel_nemotron", label: "Nemotron agent",   sublabel: "Nemotron-3-Super-120B + Pinecone + Tavily" },
 ];

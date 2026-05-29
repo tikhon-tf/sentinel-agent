@@ -13,14 +13,15 @@ REGULATIONS_DIR = DATA_DIR / "regulations"
 NEBIUS_API_KEY = os.environ.get("NEBIUS_API_KEY", "")
 NEBIUS_BASE_URL = "https://api.studio.nebius.com/v1/"
 NEBIUS_MODELS = {
-    "v3": "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd",
-    "v4": "deepseek-ai/DeepSeek-V4-Pro",
+    "deepseek-v4-pro": "deepseek-ai/DeepSeek-V4-Pro",
     "nemotron": "nvidia/nemotron-3-super-120b-a12b",
+    "kimi-k2": "moonshotai/Kimi-K2.6",
+    "glm-5": "zai-org/GLM-5.1",
 }
-MODEL = NEBIUS_MODELS.get(os.environ.get("NEBIUS_MODEL", "v4"), NEBIUS_MODELS["v4"])
+MODEL = NEBIUS_MODELS.get(os.environ.get("NEBIUS_MODEL", "deepseek-v4-pro"), NEBIUS_MODELS["deepseek-v4-pro"])
 MODEL_MAX_TOKENS = 16_000
 REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "off")  # off, high, max
-MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "200"))
+MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "30"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = "gpt-5.5"
@@ -54,8 +55,9 @@ EMBEDDING_DIMENSION = 4096
 
 PRICING = {
     "deepseek-ai/DeepSeek-V4-Pro": {"input": 1.75, "output": 3.50},
-    "dedicated/deepseek-ai/DeepSeek-V3-0324-V7H70dy0RIqd": {"input": 2.00, "output": 6.00},
     "nvidia/nemotron-3-super-120b-a12b": {"input": 0.30, "output": 0.90},
+    "moonshotai/Kimi-K2.6": {"input": 0.95, "output": 4.00},
+    "zai-org/GLM-5.1": {"input": 1.40, "output": 4.40},
     "gpt-5.4-mini": {"input": 0.40, "output": 1.60},
     "gpt-5.5": {"input": 5.00, "output": 30.00},
 }
