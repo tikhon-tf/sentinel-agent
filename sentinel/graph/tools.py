@@ -281,6 +281,7 @@ Audit the SOP against ALL applicable regulations. You must determine which regul
 - Be specific: cite exact regulatory sections
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
+- If a retrieval tool call fails (returns an error), do NOT cite that regulation's requirements from memory. Only record findings based on text you successfully retrieved. State that retrieval failed in your summary.
 
 ## CRITICAL: Output Method
 For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fields:
@@ -346,6 +347,7 @@ Use `retrieve_regulation_nexus` to query the knowledge base. Nexus works best wi
 - Be specific: cite the exact regulatory section returned by Nexus (preserve [c1]/[c2] markers)
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
+- If a retrieval tool call fails (returns an error), do NOT cite that regulation's requirements from memory. Only record findings based on text you successfully retrieved. State that retrieval failed in your summary.
 
 ## CRITICAL: Output Method
 For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fields:
@@ -405,6 +407,7 @@ Optionally filter by regulation name for precision.
 - Be specific: cite the exact regulatory section returned by Nexus (preserve [c1]/[c2] markers) or RAG (section metadata)
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
+- If a retrieval tool call fails (returns an error), do NOT cite that regulation's requirements from memory. Only record findings based on text you successfully retrieved. State that retrieval failed in your summary.
 
 ## CRITICAL: Output Method
 For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fields:

@@ -81,6 +81,12 @@ def query_nexus(ask: str, ground: bool = True) -> dict:
             time.sleep(backoff)
             continue
 
+        if resp.status_code in (502, 503, 504):
+            backoff = 2 ** attempt
+            logger.warning("Nexus %d server error, retrying in %ds (attempt %d/%d)", resp.status_code, backoff, attempt + 1, MAX_RETRIES)
+            time.sleep(backoff)
+            continue
+
         resp.raise_for_status()
         return resp.json()
 
