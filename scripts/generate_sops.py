@@ -30,7 +30,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 SOPS_DIR = DATA_DIR / "sops"
 
-NEBIUS_BASE_URL = "https://api.studio.nebius.com/v1/"
+NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
 MODEL = "deepseek-ai/DeepSeek-V4-Pro"
 MAX_TOKENS = 16000
 

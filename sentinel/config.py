@@ -11,7 +11,7 @@ SOPS_DIR = DATA_DIR / "sops"
 REGULATIONS_DIR = DATA_DIR / "regulations"
 
 NEBIUS_API_KEY = os.environ.get("NEBIUS_API_KEY", "")
-NEBIUS_BASE_URL = "https://api.studio.nebius.com/v1/"
+NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
 NEBIUS_MODELS = {
     "deepseek-v4-pro": "deepseek-ai/DeepSeek-V4-Pro",
     "nemotron": "nvidia/nemotron-3-super-120b-a12b",
@@ -21,7 +21,7 @@ NEBIUS_MODELS = {
 MODEL = NEBIUS_MODELS.get(os.environ.get("NEBIUS_MODEL", "deepseek-v4-pro"), NEBIUS_MODELS["deepseek-v4-pro"])
 MODEL_MAX_TOKENS = 16_000
 REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "off")  # off, high, max
-MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "30"))
+MAX_AUDIT_WORKERS = int(os.environ.get("MAX_AUDIT_WORKERS", "10"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = "gpt-5.5"

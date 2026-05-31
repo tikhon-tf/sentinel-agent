@@ -39,7 +39,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 
 ### Dual-model support
 - **Act 1**: GPT-5.5 via OpenAI API (`https://api.openai.com/v1`)
-- **Act 2 + deployment default**: DeepSeek-V4-Pro on Nebius AI Studio (`https://api.studio.nebius.com/v1/`)
+- **Act 2 + deployment default**: DeepSeek-V4-Pro on Nebius AI Studio (`https://api.tokenfactory.nebius.com/v1/`)
 - Provider switching is handled by `set_provider()` in `llm.py` and `_build_model()` in `agent.py`
 - The agent graph (`sentinel/graph/agent.py:agent`) always uses Nebius (DeepSeek) — that's the deployed default
 

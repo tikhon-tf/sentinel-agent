@@ -49,7 +49,7 @@ Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Neb
 
 ### Multi-model support
 - **Act 1 (Prototype)**: GPT-5.5 via OpenAI API (`https://api.openai.com/v1`) + Pinecone RAG
-- **Act 2 (Production)**: DeepSeek-V4-Pro on Nebius AI Studio (`https://api.studio.nebius.com/v1/`) + Pinecone RAG by default (configurable via `AGENT2_RETRIEVAL`)
+- **Act 2 (Production)**: DeepSeek-V4-Pro on Nebius AI Studio (`https://api.tokenfactory.nebius.com/v1/`) + Pinecone RAG by default (configurable via `AGENT2_RETRIEVAL`)
 - **Alternate Nebius models**: Nemotron-3-Super-120B, Kimi-K2.6, GLM-5.1 — each has its own LangGraph graph (`sentinel_nemotron`, `sentinel_kimi`, `sentinel_glm`) and agent builder via `_build_agent_nebius_model()`. Select in the UI or via `NEBIUS_MODEL` env var.
 - `model_name` is threaded through `build_tools()` → `_audit_single_sop_impl()` → `_build_subagent_model()` so sub-agents use the same model as the outer agent
 - Only DeepSeek models set `max_tokens` on sub-agents — other Nebius models reject `max_completion_tokens`
