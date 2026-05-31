@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 4
 RETRY_BACKOFF = 5
+RATE_LIMIT_BACKOFF = 30
 
 from sentinel.config import NEXUS_API_KEY, PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
@@ -682,8 +683,9 @@ def audit_single_sop(sop_id: str) -> str:
     for attempt in range(1, MAX_RETRIES + 1):
         if not _is_retryable(result):
             break
-        logger.info("Retry attempt %d/%d for %s", attempt, MAX_RETRIES, sop_id)
-        time.sleep(RETRY_BACKOFF * attempt)
+        delay = _retry_delay(attempt, result)
+        logger.info("Retry attempt %d/%d for %s (waiting %.0fs)", attempt, MAX_RETRIES, sop_id, delay)
+        time.sleep(delay)
         result = _audit_single_sop_impl(sop_id, provider="nebius", use_tavily=True)
     return result
 
@@ -695,6 +697,18 @@ def _is_retryable(result: str) -> bool:
         or "sub-agent did not produce structured findings" in result
         or "failed to parse sub-agent findings" in result
     )
+
+
+def _is_rate_limited(result: str) -> bool:
+    return "429" in result or "exceeded" in result.lower() or "quota" in result.lower() or "rate" in result.lower()
+
+
+def _retry_delay(attempt: int, result: str) -> float:
+    """Compute retry delay with jitter. Longer for rate limits."""
+    import random
+    base = RATE_LIMIT_BACKOFF if _is_rate_limited(result) else RETRY_BACKOFF
+    delay = base * attempt
+    return delay + random.uniform(0, delay * 0.5)
 
 
 def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str:
@@ -725,8 +739,10 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
         to_retry = [sid for sid, r in results_by_id.items() if _is_retryable(r)]
         if not to_retry:
             break
-        logger.info("Retry attempt %d/%d for %d SOPs: %s", attempt, MAX_RETRIES, len(to_retry), ", ".join(to_retry))
-        time.sleep(RETRY_BACKOFF * attempt)
+        any_rate_limited = any(_is_rate_limited(results_by_id[sid]) for sid in to_retry)
+        delay = _retry_delay(attempt, "429" if any_rate_limited else "FAILED")
+        logger.info("Retry attempt %d/%d for %d SOPs (waiting %.0fs): %s", attempt, MAX_RETRIES, len(to_retry), delay, ", ".join(to_retry))
+        time.sleep(delay)
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(workers, len(to_retry))) as executor:
             futures = {executor.submit(_audit_one, sop_by_id[sid]): sid for sid in to_retry}
             for future in concurrent.futures.as_completed(futures):
@@ -905,8 +921,9 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: st
         for attempt in range(1, MAX_RETRIES + 1):
             if not _is_retryable(result):
                 break
-            logger.info("Retry attempt %d/%d for %s", attempt, MAX_RETRIES, sop_id)
-            time.sleep(RETRY_BACKOFF * attempt)
+            delay = _retry_delay(attempt, result)
+            logger.info("Retry attempt %d/%d for %s (waiting %.0fs)", attempt, MAX_RETRIES, sop_id, delay)
+            time.sleep(delay)
             result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, retrieval=retrieval, model_name=model_name)
         return result
 
