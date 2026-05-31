@@ -35,17 +35,20 @@ Key modules:
 - `scripts/extract_pdf_text.py` — extracts text from regulation PDFs (pymupdf) for ingestion
 
 ### Sub-agent architecture (not single-shot LLM calls)
-Each SOP is audited by a dedicated ReAct sub-agent (`audit_single_sop` in `tools.py`) built with `langchain.agents.create_agent`. The sub-agent has its own tool loop with access to a regulation knowledge base, Tavily (web search), and the SOP text. It determines which regulations apply based on the SOP's content and business unit, queries the knowledge base for each applicable regulation, then outputs structured JSON findings. `audit_all_sops` fans out 200 sub-agents through a `ThreadPoolExecutor` (configurable via `MAX_AUDIT_WORKERS`, default 200). Do not revert to single-shot LLM calls.
+Each SOP is audited by a dedicated ReAct sub-agent (`audit_single_sop` in `tools.py`) built with `langchain.agents.create_agent`. The sub-agent has its own tool loop with access to a regulation knowledge base, Tavily (web search), the SOP text, and a `record_finding` tool. It determines which regulations apply based on the SOP's content and business unit, queries the knowledge base for each applicable regulation, and calls `record_finding` for each assessed requirement. `audit_all_sops` fans out 200 sub-agents through a `ThreadPoolExecutor` (configurable via `MAX_AUDIT_WORKERS`). Do not revert to single-shot LLM calls.
 
 Sub-agent tools (built per-invocation in `_build_subagent_tools(retrieval=...)`):
+- `record_finding` — records a single audit finding into a closure-scoped list; called per requirement as the sub-agent assesses it, so partial progress survives truncation
 - `retrieve_regulation_rag` (when `retrieval` is `"rag"` or `"both"`) — semantic search on Pinecone `regulations` namespace with optional regulation filter
 - `retrieve_regulation_nexus` (when `retrieval` is `"nexus"` or `"both"`) — Nexus KnowQL natural-language query returning grounded, cited answers
 - `search_web` — Tavily advanced search for latest guidance/enforcement
 - `read_sop` — returns the full SOP text (closure over the loaded content)
 
+Finding extraction uses two phases: (1) tool-recorded findings from `record_finding` calls, (2) JSON parsing from the final message as a backwards-compatible fallback. Truncation is detected via `finish_reason=length` on the last AI message and surfaced explicitly. Cell metrics include `findings_source` ("tool"/"json"/"none") and `truncated` flag.
+
 The sub-agent system prompt is selected based on `retrieval`: `_AUDIT_SUBAGENT_PROMPT_RAG` (keyword-style queries, multiple retrieval calls), `_AUDIT_SUBAGENT_PROMPT_NEXUS` (natural-language questions, structural locators, cross-framework synthesis, awareness of the 50-doc Nexus corpus), or `_AUDIT_SUBAGENT_PROMPT_NEXUS_RAG` (both tools with guidance on when to use each).
 
-Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Nebius 504 timeouts) return a `"FAILED: ..."` string so the retry loop in `_audit_single_sop` can re-attempt.
+Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Nebius 504 timeouts) return a `"FAILED: ..."` string so the retry loop in `_audit_single_sop` can re-attempt. If findings were already recorded via `record_finding` before the error, those findings are preserved.
 
 ### Multi-model support
 - **Act 1 (Prototype)**: GPT-5.5 via OpenAI API (`https://api.openai.com/v1`) + Pinecone RAG

@@ -114,9 +114,9 @@ Sentinel fans out by SOP using a sub-agent architecture. Each SOP is audited by 
 2. Determines which regulations apply based on content and business unit
 3. Queries the regulation knowledge base — Pinecone vector search by default (multiple keyword queries per regulation); optionally Nexus KnowQL (natural-language questions, grounded cited answers) or both, controlled by `AGENT2_RETRIEVAL`
 4. Optionally searches the web for latest guidance
-5. Outputs structured JSON findings with compliance levels, severity, evidence, and remediation
+5. Calls `record_finding` for each assessed requirement — findings are captured incrementally so partial progress survives truncation or errors
 
-`audit_all_sops` fans out 200 sub-agents through a 10-wide `ThreadPoolExecutor`.
+`audit_all_sops` fans out sub-agents through a `ThreadPoolExecutor` (configurable via `MAX_AUDIT_WORKERS`).
 
 Key tools:
 - `audit_all_sops` — full audit across all 200 SOPs in parallel
