@@ -169,17 +169,17 @@ def parse_run_stats(content: str, run_data: dict) -> dict:
 
     The LangSmith trace only captures the outer Sentinel agent's LLM calls
     (sub-agents run in ThreadPoolExecutor and don't propagate trace context).
-    Sub-agent tokens are parsed from the "Sub-agent tokens:" line in the audit output.
+    Sub-agent tokens are parsed from the "Total tokens:" summary line in the audit output.
     Total cost = outer agent + sub-agent, both at the same model pricing.
     """
     # Outer agent tokens from LangSmith trace LLM runs
     outer_in = run_data.get("trace_input_tokens", 0)
     outer_out = run_data.get("trace_output_tokens", 0)
 
-    # Sub-agent tokens from audit output text
+    # Sub-agent tokens from audit output summary line (old: "Sub-agent tokens:", new: "Total tokens:")
     sub_in = sub_out = 0
     match = re.search(
-        r"Sub-agent tokens:\s*([\d,]+)\s*\(([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)",
+        r"(?:Total tokens|Sub-agent tokens):\s*([\d,]+)\s*\(([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)",
         content,
     )
     if match:

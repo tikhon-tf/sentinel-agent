@@ -688,7 +688,7 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
         f"  Compliant: {compliant} ({100*compliant//max(total,1)}%)\n"
         f"  Partial:   {partial} ({100*partial//max(total,1)}%)\n"
         f"  Gap:       {gap} ({100*gap//max(total,1)}%)\n"
-        f"  Sub-agent tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n"
+        f"  Total tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n"
         f"  Failed after retries: {still_failed}\n\n"
         "Per-SOP breakdown:\n" + "\n".join(sorted(results))
     )
