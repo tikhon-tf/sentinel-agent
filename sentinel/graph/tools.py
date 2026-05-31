@@ -908,11 +908,50 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: st
         return result
 
     @tool
+    def _audit_sops(sop_ids: list[str]) -> str:
+        """Audit a specific list of SOPs in parallel using sub-agents. Accepts a list of SOP IDs (e.g. ['SOP-AIML-009', 'SOP-ISEC-008']) or titles. Use this when the user asks to audit a subset of SOPs — by business unit, regulation, or explicit list. For ALL SOPs, use audit_all_sops instead."""
+        import concurrent.futures
+        from sentinel.config import MAX_AUDIT_WORKERS
+
+        if not sop_ids:
+            return "No SOP IDs provided."
+
+        workers = min(len(sop_ids), MAX_AUDIT_WORKERS)
+        results_by_id: dict[str, str] = {}
+
+        def _audit_one(sid: str) -> str:
+            try:
+                return _audit_single_sop.invoke(sid)
+            except Exception as e:
+                return f"{sid}: FAILED — {e}"
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {executor.submit(_audit_one, sid): sid for sid in sop_ids}
+            for future in concurrent.futures.as_completed(futures):
+                sid = futures[future]
+                results_by_id[sid] = future.result()
+
+        results = list(results_by_id.values())
+        still_failed = sum(1 for r in results if _is_retryable(r))
+
+        tok_in = _audit_results["total_input_tokens"]
+        tok_out = _audit_results["total_output_tokens"]
+
+        summary = (
+            f"Audit complete: {len(sop_ids)} SOPs\n"
+            f"  Failed: {still_failed}\n"
+            f"  Total tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n\n"
+            "Per-SOP breakdown:\n" + "\n".join(sorted(results))
+        )
+        return summary
+
+    @tool
     def _audit_all_sops() -> str:
-        """Run the full audit across ALL SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base. Fans out with configurable parallelism (MAX_AUDIT_WORKERS)."""
+        """Run the full audit across ALL 200 SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base. Fans out with configurable parallelism (MAX_AUDIT_WORKERS)."""
         return _audit_all_sops_impl(_audit_single_sop)
 
     _audit_single_sop.name = "audit_single_sop"
+    _audit_sops.name = "audit_sops"
     _audit_all_sops.name = "audit_all_sops"
 
     if retrieval in ("nexus", "both"):
@@ -993,6 +1032,7 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: st
             _list_regulations,
             _retrieve_regulation_text,
             _audit_single_sop,
+            _audit_sops,
             _audit_all_sops,
             create_jira_ticket,
         ]
@@ -1002,6 +1042,7 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: st
             list_regulations,
             retrieve_regulation_text_tool,
             _audit_single_sop,
+            _audit_sops,
             _audit_all_sops,
             create_jira_ticket,
         ]
