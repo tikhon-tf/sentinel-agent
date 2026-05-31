@@ -112,22 +112,8 @@ const AuditScreen = ({ loadStatus }) => {
     : 0;
   const responseText = audit.tokens.join("");
 
-  const subagentTokens = React.useMemo(() => {
-    let inTok = 0, outTok = 0;
-    const re = /Sub-agent tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*\/\s*([\d,]+)\s*out\)/g;
-    for (const tc of audit.toolCalls) {
-      if (!tc.result) continue;
-      let m;
-      while ((m = re.exec(tc.result)) !== null) {
-        inTok += parseInt(m[1].replace(/,/g, ""), 10);
-        outTok += parseInt(m[2].replace(/,/g, ""), 10);
-      }
-      re.lastIndex = 0;
-    }
-    return { input: inTok, output: outTok };
-  }, [audit.toolCalls]);
-  const totalIn = audit.inputTokens + subagentTokens.input;
-  const totalOut = audit.outputTokens + subagentTokens.output;
+  const totalIn = audit.inputTokens;
+  const totalOut = audit.outputTokens;
 
   return (
     <div style={{ padding: "28px 32px", display: "flex", flexDirection: "column", gap: 28 }}>

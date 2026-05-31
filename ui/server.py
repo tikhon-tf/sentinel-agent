@@ -128,6 +128,10 @@ def _jira_client():
     )
 
 
+# Parse sub-agent token counts from tool result strings.
+_SUB_TOKENS_RE = re.compile(r"Sub-agent tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)")
+_TOTAL_TOKENS_RE = re.compile(r"Total tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)")
+
 # Parse the `[SEV] CLAUSE: Title (SOP-XYZ-NNN)` summary that create_jira_ticket emits.
 _SUMMARY_RE = re.compile(r"^\[(\w+)\]\s+([^:]+):\s+(.+?)\s+\((SOP-[A-Z]+-\d+)\)\s*$")
 # Map BU directory prefix to human-readable name.
@@ -497,15 +501,30 @@ def _normalize_event(event, agent: str = "") -> str | None:
 
     elif event.event == "values" and isinstance(event.data, dict):
         usage: list[dict[str, int]] = []
+        sub_in = sub_out = 0
         for msg in event.data.get("messages", []):
             if not isinstance(msg, dict):
                 continue
             u = msg.get("usage_metadata")
             if u and (u.get("input_tokens") or u.get("output_tokens")):
                 usage.append(u)
-        if usage:
-            in_tok = sum(u.get("input_tokens", 0) for u in usage)
-            out_tok = sum(u.get("output_tokens", 0) for u in usage)
+            content = msg.get("content", "")
+            if not isinstance(content, str):
+                continue
+            # New format: "Total tokens:" summary line (definitive total)
+            m = _TOTAL_TOKENS_RE.search(content)
+            if m:
+                sub_in = int(m.group(1).replace(",", ""))
+                sub_out = int(m.group(2).replace(",", ""))
+            # Old format: first "Sub-agent tokens:" match is the summary total
+            elif "Sub-agent tokens:" in content:
+                m = _SUB_TOKENS_RE.search(content)
+                if m:
+                    sub_in = int(m.group(1).replace(",", ""))
+                    sub_out = int(m.group(2).replace(",", ""))
+        if usage or sub_in or sub_out:
+            in_tok = sum(u.get("input_tokens", 0) for u in usage) + sub_in
+            out_tok = sum(u.get("output_tokens", 0) for u in usage) + sub_out
             return json.dumps({
                 "type": "usage", "agent": agent,
                 "input_tokens": in_tok, "output_tokens": out_tok,
