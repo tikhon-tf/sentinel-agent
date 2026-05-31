@@ -67,6 +67,21 @@ def _extract_output_text(outputs) -> str:
     return str(outputs)
 
 
+def _duration_seconds(start, end) -> Optional[float]:
+    if not start or not end:
+        return None
+    delta = _parse_time(end) - _parse_time(start)
+    return delta.total_seconds()
+
+
+def _format_seconds(secs: float) -> str:
+    if secs < 1:
+        return f"{secs*1000:.0f}ms"
+    if secs < 60:
+        return f"{secs:.1f}s"
+    return f"{secs/60:.1f}m"
+
+
 def fetch_tool_calls(run_id: str, project_name: str = "sentinel-agent", log=None):
     if log is None:
         log = sys.stderr
@@ -81,6 +96,15 @@ def fetch_tool_calls(run_id: str, project_name: str = "sentinel-agent", log=None
         project_name=project_name,
         trace_id=run_id,
     ))
+
+    # Wall time: use root end_time, or fall back to the latest timestamp across all runs
+    end_time = root.end_time
+    if not end_time:
+        for r in all_runs:
+            for t in (r.end_time, r.start_time):
+                if t and (not end_time or _parse_time(t) > _parse_time(end_time)):
+                    end_time = t
+    wall_seconds = _duration_seconds(root.start_time, end_time)
 
     # Index runs by ID for parent lookup
     runs_by_id = {str(r.id): r for r in all_runs}
@@ -171,6 +195,9 @@ def fetch_tool_calls(run_id: str, project_name: str = "sentinel-agent", log=None
                 entry["tool_duration"] = _format_duration(
                     matched_tool_run.start_time, matched_tool_run.end_time
                 )
+                entry["tool_duration_secs"] = _duration_seconds(
+                    matched_tool_run.start_time, matched_tool_run.end_time
+                )
                 entry["tool_status"] = matched_tool_run.status
                 entry["tool_error"] = matched_tool_run.error
                 output_text = _extract_output_text(matched_tool_run.outputs)
@@ -180,10 +207,10 @@ def fetch_tool_calls(run_id: str, project_name: str = "sentinel-agent", log=None
 
             entries.append(entry)
 
-    return entries
+    return entries, wall_seconds
 
 
-def print_entries(entries, show_output: bool = False):
+def print_entries(entries, show_output: bool = False, wall_seconds: Optional[float] = None):
     if not entries:
         print("No tool calls found in this run.")
         return
@@ -232,14 +259,19 @@ def print_entries(entries, show_output: bool = False):
     for e in entries:
         name = e["tool_name"]
         if name not in tool_stats:
-            tool_stats[name] = {"count": 0, "tokens": 0}
+            tool_stats[name] = {"count": 0, "tokens": 0, "time": 0.0}
         tool_stats[name]["count"] += 1
         tool_stats[name]["tokens"] += e.get("output_tokens", 0)
+        tool_stats[name]["time"] += e.get("tool_duration_secs") or 0.0
     total_tokens = sum(s["tokens"] for s in tool_stats.values())
+    total_time = sum(s["time"] for s in tool_stats.values())
     print(f"{'─' * 80}")
-    print(f"Summary ({total_tokens:,} output tokens total):")
+    print(f"Summary ({total_tokens:,} output tokens total, {_format_seconds(total_time)} cumulative tool time):")
     for name, s in sorted(tool_stats.items(), key=lambda x: -x[1]["count"]):
-        print(f"  {name}: {s['count']} calls, {s['tokens']:,} tok")
+        time_str = _format_seconds(s["time"]) if s["time"] > 0 else "?"
+        print(f"  {name}: {s['count']} calls, {s['tokens']:,} tok, {time_str}")
+    if wall_seconds is not None:
+        print(f"\nWall time: {_format_seconds(wall_seconds)}")
 
 
 def main():
@@ -253,12 +285,12 @@ def main():
     as_json = "--json" in args
 
     log = sys.stderr if as_json else sys.stdout
-    entries = fetch_tool_calls(run_id, log=log)
+    entries, wall_seconds = fetch_tool_calls(run_id, log=log)
 
     if as_json:
-        print(json.dumps(entries, indent=2, default=str))
+        print(json.dumps({"tool_calls": entries, "wall_seconds": wall_seconds}, indent=2, default=str))
     else:
-        print_entries(entries, show_output=show_output)
+        print_entries(entries, show_output=show_output, wall_seconds=wall_seconds)
 
 
 if __name__ == "__main__":
