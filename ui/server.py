@@ -48,12 +48,12 @@ from sentinel.config import (
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 EVAL_RESULTS_DIR = PROJECT_ROOT / "data" / "eval" / "results"
 EVAL_AGENTS = {
-    "production":  EVAL_RESULTS_DIR / "agentic_20260529_173423.json",
+    "production":  EVAL_RESULTS_DIR / "agentic_20260529_223702.json",
     "prototype":   EVAL_RESULTS_DIR / "agentic_openai_20260529_142141.json",
     "prototype+":  EVAL_RESULTS_DIR / "agentic_openai_tavily_20260529_171528.json",
-    "nemotron":    EVAL_RESULTS_DIR / "agentic_20260529_150542.json",
-    "kimi-k2":     EVAL_RESULTS_DIR / "agentic_20260529_172926.json",
-    "glm-5":       EVAL_RESULTS_DIR / "agentic_20260529_180915.json",
+    "nemotron":    EVAL_RESULTS_DIR / "agentic_20260529_223532.json",
+    "kimi-k2":     EVAL_RESULTS_DIR / "agentic_20260529_223420.json",
+    "glm-5":       EVAL_RESULTS_DIR / "agentic_20260529_223626.json",
 }
 DATASET_PATH = PROJECT_ROOT / "data" / "eval" / "qa_dataset.jsonl"
 SOPS_DIR = PROJECT_ROOT / "data" / "sops"
