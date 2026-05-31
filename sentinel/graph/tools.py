@@ -171,7 +171,46 @@ def search_web(query: str = "") -> str:
 
 
 def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily: bool = True, retrieval: str = "rag"):
-    """Build the tool set for the audit sub-agent."""
+    """Build the tool set for the audit sub-agent.
+
+    Returns (tools, recorded_findings) where recorded_findings is a mutable
+    list populated by the record_finding tool during execution.
+    """
+    recorded_findings: list[dict] = []
+
+    @tool
+    def record_finding(
+        requirement_id: str,
+        requirement_title: str,
+        regulation: str,
+        compliance_level: str,
+        severity: str,
+        reasoning: str,
+        evidence_quote: str = "",
+        gap_description: str = "",
+        remediation: str = "",
+    ) -> str:
+        """Record a single audit finding. Call this IMMEDIATELY after assessing each requirement — do NOT wait until the end. Each call saves one finding."""
+        valid_levels = {"compliant", "partial", "gap"}
+        valid_sevs = {"critical", "high", "medium", "low", "info"}
+        cl = compliance_level.lower().strip()
+        sev = severity.lower().strip()
+        if cl not in valid_levels:
+            return f"Invalid compliance_level '{compliance_level}'. Must be one of: {', '.join(sorted(valid_levels))}"
+        if sev not in valid_sevs:
+            return f"Invalid severity '{severity}'. Must be one of: {', '.join(sorted(valid_sevs))}"
+        recorded_findings.append({
+            "requirement_id": requirement_id,
+            "requirement_title": requirement_title,
+            "regulation": regulation,
+            "compliance_level": cl,
+            "severity": sev,
+            "evidence_quote": evidence_quote or "",
+            "gap_description": gap_description or "",
+            "remediation": remediation or "",
+            "reasoning": reasoning,
+        })
+        return f"Recorded finding #{len(recorded_findings)}: {requirement_id} ({regulation}) — {cl}/{sev}"
 
     @tool
     def retrieve_regulation_rag(query: str = "", regulation: str = "") -> str:
@@ -213,14 +252,14 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
         """Read the full SOP text being audited. Call this to review the SOP content before or during your assessment."""
         return f"SOP: {sop_id} — {sop_title}\n\n{sop_text}"
 
-    tools = [read_sop]
+    tools = [read_sop, record_finding]
     if retrieval in ("nexus", "both") and NEXUS_API_KEY:
         tools.insert(0, retrieve_regulation_nexus)
     if retrieval in ("rag", "both") and PINECONE_API_KEY:
         tools.insert(0, retrieve_regulation_rag)
     if use_tavily:
         tools.append(search_web)
-    return tools
+    return tools, recorded_findings
 
 
 _AUDIT_SUBAGENT_PROMPT_RAG = """You are an expert regulatory compliance auditor assessing a single SOP for Meridian Health Technologies, an AI-powered healthcare fintech company.
@@ -233,8 +272,8 @@ Audit the SOP against ALL applicable regulations. You must determine which regul
 2. Based on the SOP's subject matter, search the regulation knowledge base with targeted queries for each potentially applicable regulation (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California AI laws)
 3. For each regulation that applies, retrieve the specific sections/requirements relevant to this SOP
 4. If you need clarification on a regulation's current interpretation or recent enforcement, use `search_web`
-5. Assess the SOP against each applicable requirement
-6. Output your complete findings as a JSON array in your FINAL message
+5. Assess the SOP against each applicable requirement. After completing each assessment, IMMEDIATELY call `record_finding` with the result — do not wait until the end.
+6. After all requirements are assessed, output a brief summary of your findings (counts, key gaps).
 
 ## Rules
 - Every `retrieve_regulation_rag` and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args — if you have nothing specific to search for, don't call the tool. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
@@ -243,8 +282,8 @@ Audit the SOP against ALL applicable regulations. You must determine which regul
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
 
-## CRITICAL: Output Format
-Your FINAL message MUST contain a JSON array (and nothing else) where each element has these exact fields:
+## CRITICAL: Output Method
+For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fields:
 - requirement_id: short identifier (e.g. "HIPAA-164.312(a)", "CC6.1", "GDPR-Art.32")
 - requirement_title: brief title
 - regulation: which regulation (e.g. "HIPAA", "SOC 2", "GDPR")
@@ -255,7 +294,7 @@ Your FINAL message MUST contain a JSON array (and nothing else) where each eleme
 - remediation: specific recommendation (empty string if compliant)
 - reasoning: 2-3 sentences citing the specific regulation section
 
-Do NOT include any text before or after the JSON array in your final message. Just the raw JSON array."""
+Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output. Your final text message should be a brief summary (e.g. "Assessed 15 requirements: 8 compliant, 4 partial, 3 gaps")."""
 
 _AUDIT_SUBAGENT_PROMPT_NEXUS = """You are an expert regulatory compliance auditor assessing a single SOP for Meridian Health Technologies, an AI-powered healthcare fintech company.
 
@@ -298,8 +337,8 @@ Use `retrieve_regulation_nexus` to query the knowledge base. Nexus works best wi
 2. Determine which regulations apply based on the SOP's subject matter and business unit
 3. Query Nexus with specific, natural-language questions for each applicable regulation's requirements — cite structural locators when you know them. You may combine related regulations into a single cross-framework query.
 4. If you need the latest enforcement actions or guidance beyond the static corpus, use `search_web`
-5. Assess the SOP against each applicable requirement, preserving inline citations ([c1], [c2]) from Nexus in your reasoning
-6. Output your complete findings as a JSON array in your FINAL message
+5. Assess the SOP against each applicable requirement, preserving inline citations ([c1], [c2]) from Nexus in your reasoning. After completing each assessment, IMMEDIATELY call `record_finding` with the result — do not wait until the end.
+6. After all requirements are assessed, output a brief summary of your findings (counts, key gaps).
 
 ## Rules
 - Every `retrieve_regulation_nexus` and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
@@ -308,8 +347,8 @@ Use `retrieve_regulation_nexus` to query the knowledge base. Nexus works best wi
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
 
-## CRITICAL: Output Format
-Your FINAL message MUST contain a JSON array (and nothing else) where each element has these exact fields:
+## CRITICAL: Output Method
+For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fields:
 - requirement_id: short identifier (e.g. "HIPAA-164.312(a)", "CC6.1", "GDPR-Art.32")
 - requirement_title: brief title
 - regulation: which regulation (e.g. "HIPAA", "SOC 2", "GDPR")
@@ -320,7 +359,7 @@ Your FINAL message MUST contain a JSON array (and nothing else) where each eleme
 - remediation: specific recommendation (empty string if compliant)
 - reasoning: 2-3 sentences citing the specific regulation section
 
-Do NOT include any text before or after the JSON array in your final message. Just the raw JSON array."""
+Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output. Your final text message should be a brief summary (e.g. "Assessed 15 requirements: 8 compliant, 4 partial, 3 gaps")."""
 
 
 _AUDIT_SUBAGENT_PROMPT_NEXUS_RAG = """You are an expert regulatory compliance auditor assessing a single SOP for Meridian Health Technologies, an AI-powered healthcare fintech company.
@@ -357,8 +396,8 @@ Optionally filter by regulation name for precision.
 2. Determine which regulations apply based on the SOP's subject matter and business unit
 3. Query for each applicable regulation's requirements using `retrieve_regulation_nexus` and/or `retrieve_regulation_rag`
 4. If you need the latest enforcement actions or guidance beyond the static corpus, use `search_web`
-5. Assess the SOP against each applicable requirement, preserving inline citations ([c1], [c2]) from Nexus in your reasoning
-6. Output your complete findings as a JSON array in your FINAL message
+5. Assess the SOP against each applicable requirement, preserving inline citations ([c1], [c2]) from Nexus in your reasoning. After completing each assessment, IMMEDIATELY call `record_finding` with the result — do not wait until the end.
+6. After all requirements are assessed, output a brief summary of your findings (counts, key gaps).
 
 ## Rules
 - Every `retrieve_regulation_nexus`, `retrieve_regulation_rag`, and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
@@ -367,8 +406,8 @@ Optionally filter by regulation name for precision.
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
 
-## CRITICAL: Output Format
-Your FINAL message MUST contain a JSON array (and nothing else) where each element has these exact fields:
+## CRITICAL: Output Method
+For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fields:
 - requirement_id: short identifier (e.g. "HIPAA-164.312(a)", "CC6.1", "GDPR-Art.32")
 - requirement_title: brief title
 - regulation: which regulation (e.g. "HIPAA", "SOC 2", "GDPR")
@@ -379,7 +418,7 @@ Your FINAL message MUST contain a JSON array (and nothing else) where each eleme
 - remediation: specific recommendation (empty string if compliant)
 - reasoning: 2-3 sentences citing the specific regulation section
 
-Do NOT include any text before or after the JSON array in your final message. Just the raw JSON array."""
+Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output. Your final text message should be a brief summary (e.g. "Assessed 15 requirements: 8 compliant, 4 partial, 3 gaps")."""
 
 
 def _build_subagent_model(provider: str = "nebius", model_name: str | None = None):
@@ -427,67 +466,8 @@ def _build_subagent_model(provider: str = "nebius", model_name: str | None = Non
     return ChatOpenAI(**kwargs)
 
 
-def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True, retrieval: str = "rag", model_name: str | None = None) -> str:
-    """Core implementation for auditing a single SOP."""
-    from langchain.agents import create_agent
-    from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
-
-    sop = load_sop_by_id(sop_id)
-    if sop is None:
-        return f"SOP not found: {sop_id}"
-
-    fm = sop["frontmatter"]
-    chunks = load_sop_chunks(sop)
-    if not chunks:
-        return f"SOP {sop_id} has no content"
-
-    actual_id = fm.get("sop_id", sop_id)
-    title = fm.get("title", "")
-    business_unit = fm.get("business_unit", "")
-    sop_text = "\n\n---\n\n".join(f"[{c.section}]\n{c.chunk_text}" for c in chunks)
-
-    subagent_tools = _build_subagent_tools(sop_text, actual_id, title, use_tavily=use_tavily, retrieval=retrieval)
-    model = _build_subagent_model(provider, model_name=model_name)
-
-    if retrieval == "both":
-        prompt = _AUDIT_SUBAGENT_PROMPT_NEXUS_RAG
-    elif retrieval == "nexus":
-        prompt = _AUDIT_SUBAGENT_PROMPT_NEXUS
-    else:
-        prompt = _AUDIT_SUBAGENT_PROMPT_RAG
-    subagent = create_agent(
-        model=model,
-        tools=subagent_tools,
-        system_prompt=prompt,
-        name="sop_auditor",
-    )
-
-    start = time.time()
-    try:
-        result = subagent.invoke(
-            {
-                "messages": [{
-                    "role": "user",
-                    "content": f"Audit SOP {actual_id}: {title} (Business Unit: {business_unit})",
-                }],
-            },
-            config={"recursion_limit": 80},
-        )
-    except Exception as e:
-        elapsed = time.time() - start
-        logger.error("Sub-agent for %s failed after %.1fs: %s", actual_id, elapsed, e)
-        return f"FAILED: {actual_id} — sub-agent error: {e}"
-    elapsed = time.time() - start
-
-    messages = result.get("messages", [])
-    for msg in messages:
-        usage = getattr(msg, "usage_metadata", None)
-        if usage:
-            _audit_results["total_input_tokens"] += usage.get("input_tokens", 0)
-            _audit_results["total_output_tokens"] += usage.get("output_tokens", 0)
-
-    findings_json = ""
-
+def _parse_findings_json(messages) -> str | None:
+    """Extract a JSON findings array from sub-agent messages (backwards compat fallback)."""
     for msg in reversed(messages):
         content = msg.content if hasattr(msg, "content") else str(msg)
         if not isinstance(content, str) or "[" not in content:
@@ -513,8 +493,7 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
         try:
             parsed = json.loads(candidate)
             if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
-                findings_json = candidate
-                break
+                return candidate
         except json.JSONDecodeError:
             repaired = candidate.rstrip().rstrip(",")
             if not repaired.endswith("}"):
@@ -525,29 +504,110 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
             try:
                 parsed = json.loads(repaired)
                 if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
-                    findings_json = repaired
-                    break
+                    return repaired
             except json.JSONDecodeError:
                 continue
+    return None
 
-    if not findings_json:
-        return f"SOP {actual_id}: sub-agent did not produce structured findings"
 
+def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True, retrieval: str = "rag", model_name: str | None = None) -> str:
+    """Core implementation for auditing a single SOP."""
+    from langchain.agents import create_agent
+    from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
+
+    sop = load_sop_by_id(sop_id)
+    if sop is None:
+        return f"SOP not found: {sop_id}"
+
+    fm = sop["frontmatter"]
+    chunks = load_sop_chunks(sop)
+    if not chunks:
+        return f"SOP {sop_id} has no content"
+
+    actual_id = fm.get("sop_id", sop_id)
+    title = fm.get("title", "")
+    business_unit = fm.get("business_unit", "")
+    sop_text = "\n\n---\n\n".join(f"[{c.section}]\n{c.chunk_text}" for c in chunks)
+
+    subagent_tools, recorded_findings = _build_subagent_tools(sop_text, actual_id, title, use_tavily=use_tavily, retrieval=retrieval)
+    model = _build_subagent_model(provider, model_name=model_name)
+
+    if retrieval == "both":
+        prompt = _AUDIT_SUBAGENT_PROMPT_NEXUS_RAG
+    elif retrieval == "nexus":
+        prompt = _AUDIT_SUBAGENT_PROMPT_NEXUS
+    else:
+        prompt = _AUDIT_SUBAGENT_PROMPT_RAG
+    subagent = create_agent(
+        model=model,
+        tools=subagent_tools,
+        system_prompt=prompt,
+        name="sop_auditor",
+    )
+
+    start = time.time()
+    result = None
     try:
-        items = json.loads(findings_json)
-    except json.JSONDecodeError:
-        start_idx = findings_json.find("[")
-        end_idx = findings_json.rfind("]") + 1
-        if start_idx >= 0 and end_idx > start_idx:
-            try:
-                items = json.loads(findings_json[start_idx:end_idx])
-            except json.JSONDecodeError:
-                return f"SOP {actual_id}: failed to parse sub-agent findings"
-        else:
-            return f"SOP {actual_id}: failed to parse sub-agent findings"
+        result = subagent.invoke(
+            {
+                "messages": [{
+                    "role": "user",
+                    "content": f"Audit SOP {actual_id}: {title} (Business Unit: {business_unit})",
+                }],
+            },
+            config={"recursion_limit": 80},
+        )
+    except Exception as e:
+        elapsed = time.time() - start
+        logger.error("Sub-agent for %s failed after %.1fs: %s", actual_id, elapsed, e)
+        if not recorded_findings:
+            return f"FAILED: {actual_id} — sub-agent error: {e}"
+        logger.info("%s: sub-agent errored but %d findings were recorded via tool", actual_id, len(recorded_findings))
+    elapsed = time.time() - start
 
-    if not isinstance(items, list):
-        items = [items]
+    messages = result.get("messages", []) if result else []
+    for msg in messages:
+        usage = getattr(msg, "usage_metadata", None)
+        if usage:
+            _audit_results["total_input_tokens"] += usage.get("input_tokens", 0)
+            _audit_results["total_output_tokens"] += usage.get("output_tokens", 0)
+
+    # Detect truncation from the last AI message
+    truncated = False
+    for msg in reversed(messages):
+        if getattr(msg, "type", "") == "ai":
+            rm = getattr(msg, "response_metadata", {})
+            if rm.get("finish_reason") == "length":
+                truncated = True
+                logger.warning("Sub-agent for %s was truncated (finish_reason=length)", actual_id)
+            break
+
+    # Phase 1: Use tool-recorded findings if available
+    items = []
+    findings_source = "none"
+
+    if recorded_findings:
+        items = list(recorded_findings)
+        findings_source = "tool"
+        logger.info("%s: %d findings recorded via record_finding tool", actual_id, len(items))
+
+    # Phase 2: Fall back to JSON parsing from messages (backwards compat)
+    if not items:
+        findings_json = _parse_findings_json(messages)
+        if findings_json:
+            try:
+                parsed = json.loads(findings_json)
+                if isinstance(parsed, list):
+                    items = parsed
+                else:
+                    items = [parsed]
+                findings_source = "json"
+            except json.JSONDecodeError:
+                pass
+
+    if not items:
+        suffix = " (response was truncated)" if truncated else ""
+        return f"SOP {actual_id}: sub-agent did not produce structured findings{suffix}"
 
     _COMPLIANCE_LEVEL_MAP = {
         "compliant": "compliant", "partial": "partial", "gap": "gap",
@@ -588,6 +648,8 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
         "sop_id": actual_id,
         "findings": len(findings),
         "latency": elapsed,
+        "findings_source": findings_source,
+        "truncated": truncated,
     })
 
     compliant = sum(1 for f in findings if f.compliance_level == ComplianceLevel.COMPLIANT)
