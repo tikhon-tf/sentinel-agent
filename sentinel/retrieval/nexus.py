@@ -7,7 +7,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
-MAX_RETRIES = 4
+MAX_RETRIES = 5
 
 _token: str | None = None
 _token_lock = threading.Lock()
@@ -78,6 +78,12 @@ def query_nexus(ask: str, ground: bool = True) -> dict:
         if resp.status_code == 409:
             backoff = 2 ** attempt
             logger.warning("Nexus 409 context unavailable, retrying in %ds (attempt %d/%d)", backoff, attempt + 1, MAX_RETRIES)
+            time.sleep(backoff)
+            continue
+
+        if resp.status_code in (500, 502, 503, 504):
+            backoff = min(2 ** attempt, 30)
+            logger.warning("Nexus %d gateway error, retrying in %ds (attempt %d/%d)", resp.status_code, backoff, attempt + 1, MAX_RETRIES)
             time.sleep(backoff)
             continue
 

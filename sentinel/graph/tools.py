@@ -197,16 +197,20 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
         if not isinstance(query, str) or not query.strip():
             return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
         if not NEXUS_API_KEY:
-            return "Nexus not configured — set NEXUS_API_KEY."
+            return "RETRIEVAL_ERROR: Nexus not configured — set NEXUS_API_KEY."
         try:
             from sentinel.retrieval.nexus import query_nexus, format_nexus_response
             ask = f"{regulation}: {query}" if regulation else query
             data = query_nexus(ask)
             if data.get("state") != "completed":
-                return f"Nexus query failed: {data.get('state', 'unknown')}"
+                return f"RETRIEVAL_ERROR: Nexus query failed: {data.get('state', 'unknown')}"
             return format_nexus_response(data)
         except Exception as e:
-            return f"Nexus retrieval failed: {e}"
+            return (
+                "RETRIEVAL_ERROR: regulation knowledge base unavailable. "
+                "No regulation text was returned. Do NOT cite any regulation "
+                f"sections from this call. Underlying error: {type(e).__name__}: {e}"
+            )
 
     @tool
     def read_sop() -> str:
@@ -242,6 +246,12 @@ Audit the SOP against ALL applicable regulations. You must determine which regul
 - Be specific: cite exact regulatory sections
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
+
+## Handling tool failures
+If a retrieval tool returns a string starting with `RETRIEVAL_ERROR:`, `Nexus retrieval failed`, `RAG retrieval failed`, `FAILED:`, or contains an HTTP status (429/502/503/504), treat the call as having returned NO content. You MUST NOT cite any regulation section, control code, or finding that did not come from a successful tool result. When the knowledge base is unavailable:
+  1. Try `search_web` once as a real structured tool call (never paste tool-call markup into your message body).
+  2. If web search also fails or grounding is still insufficient, reply: "I couldn't retrieve the regulation text needed to answer this — the compliance knowledge base returned an error. Please retry in a few minutes." Do not produce a compliance assessment.
+Fabricating regulation citations when retrieval failed is a critical violation.
 
 ## CRITICAL: Output Format
 Your FINAL message MUST contain a JSON array (and nothing else) where each element has these exact fields:
@@ -308,6 +318,12 @@ Use `retrieve_regulation_nexus` to query the knowledge base. Nexus works best wi
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
 
+## Handling tool failures
+If a retrieval tool returns a string starting with `RETRIEVAL_ERROR:`, `Nexus retrieval failed`, `RAG retrieval failed`, `FAILED:`, or contains an HTTP status (429/502/503/504), treat the call as having returned NO content. You MUST NOT cite any regulation section, control code, or finding that did not come from a successful tool result. When the knowledge base is unavailable:
+  1. Try `search_web` once as a real structured tool call (never paste tool-call markup into your message body).
+  2. If web search also fails or grounding is still insufficient, reply: "I couldn't retrieve the regulation text needed to answer this — the compliance knowledge base returned an error. Please retry in a few minutes." Do not produce a compliance assessment.
+Fabricating regulation citations when retrieval failed is a critical violation.
+
 ## CRITICAL: Output Format
 Your FINAL message MUST contain a JSON array (and nothing else) where each element has these exact fields:
 - requirement_id: short identifier (e.g. "HIPAA-164.312(a)", "CC6.1", "GDPR-Art.32")
@@ -366,6 +382,12 @@ Optionally filter by regulation name for precision.
 - Be specific: cite the exact regulatory section returned by Nexus (preserve [c1]/[c2] markers) or RAG (section metadata)
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
+
+## Handling tool failures
+If a retrieval tool returns a string starting with `RETRIEVAL_ERROR:`, `Nexus retrieval failed`, `RAG retrieval failed`, `FAILED:`, or contains an HTTP status (429/502/503/504), treat the call as having returned NO content. You MUST NOT cite any regulation section, control code, or finding that did not come from a successful tool result. When the knowledge base is unavailable:
+  1. Try `search_web` once as a real structured tool call (never paste tool-call markup into your message body).
+  2. If web search also fails or grounding is still insufficient, reply: "I couldn't retrieve the regulation text needed to answer this — the compliance knowledge base returned an error. Please retry in a few minutes." Do not produce a compliance assessment.
+Fabricating regulation citations when retrieval failed is a critical violation.
 
 ## CRITICAL: Output Format
 Your FINAL message MUST contain a JSON array (and nothing else) where each element has these exact fields:
@@ -914,16 +936,20 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: st
         def _retrieve_regulation_text(query: str, regulation: str = "") -> str:
             """Retrieve regulation text from the Nexus knowledge base for a given query. Optionally filter by regulation name (e.g. 'HIPAA', 'SOC 2', 'GDPR'). Returns a grounded answer with citations."""
             if not NEXUS_API_KEY:
-                return "Nexus not configured — set NEXUS_API_KEY."
+                return "RETRIEVAL_ERROR: Nexus not configured — set NEXUS_API_KEY."
             try:
                 from sentinel.retrieval.nexus import query_nexus, format_nexus_response
                 ask = f"{regulation}: {query}" if regulation else query
                 data = query_nexus(ask)
                 if data.get("state") != "completed":
-                    return f"Nexus query failed: {data.get('state', 'unknown')}"
+                    return f"RETRIEVAL_ERROR: Nexus query failed: {data.get('state', 'unknown')}"
                 return f"Nexus result:\n{format_nexus_response(data)}"
             except Exception as e:
-                return f"Nexus retrieval failed: {e}"
+                return (
+                    "RETRIEVAL_ERROR: regulation knowledge base unavailable. "
+                    "No regulation text was returned. Do NOT cite any regulation "
+                    f"sections from this call. Underlying error: {type(e).__name__}: {e}"
+                )
         _retrieve_regulation_text.name = "retrieve_regulation_text_tool"
 
         tools = [
