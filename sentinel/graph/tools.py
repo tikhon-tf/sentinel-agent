@@ -178,6 +178,7 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
     list populated by the record_finding tool during execution.
     """
     recorded_findings: list[dict] = []
+    _retrieval_calls = {"count": 0, "limit": 30}
 
     @tool
     def record_finding(
@@ -216,6 +217,9 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
     @tool
     def retrieve_regulation_rag(query: str = "", regulation: str = "") -> str:
         """Search the Pinecone vector store for regulation text chunks via semantic similarity. Use targeted queries like 'HIPAA access control requirements' or 'SOC 2 CC6 logical access'. Optionally filter by regulation name. The `query` argument is required and must be a non-empty search phrase."""
+        if _retrieval_calls["count"] >= _retrieval_calls["limit"]:
+            return f"Retrieval limit reached ({_retrieval_calls['limit']} calls). Record your findings now with record_finding and finish the audit."
+        _retrieval_calls["count"] += 1
         if not isinstance(query, str) or not query.strip():
             return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
         if not PINECONE_API_KEY:
@@ -234,6 +238,9 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
     @tool
     def retrieve_regulation_nexus(query: str = "", regulation: str = "") -> str:
         """Query Pinecone Nexus for regulation requirements using natural-language questions. Ask things like 'What does HIPAA require for access controls?' or 'What are the SOC 2 CC6.1 requirements for logical access?'. Optionally specify a regulation name to focus the query. The `query` argument is required and must be a non-empty search phrase."""
+        if _retrieval_calls["count"] >= _retrieval_calls["limit"]:
+            return f"Retrieval limit reached ({_retrieval_calls['limit']} calls). Record your findings now with record_finding and finish the audit."
+        _retrieval_calls["count"] += 1
         if not isinstance(query, str) or not query.strip():
             return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
         if not NEXUS_API_KEY:
@@ -253,13 +260,22 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
         """Read the full SOP text being audited. Call this to review the SOP content before or during your assessment."""
         return f"SOP: {sop_id} — {sop_title}\n\n{sop_text}"
 
+    @tool
+    def _search_web_capped(query: str = "") -> str:
+        """Search the web for current regulatory guidance, enforcement actions, or recent developments. Use when you need information beyond the static knowledge base."""
+        if _retrieval_calls["count"] >= _retrieval_calls["limit"]:
+            return f"Retrieval limit reached ({_retrieval_calls['limit']} calls). Record your findings now with record_finding and finish the audit."
+        _retrieval_calls["count"] += 1
+        return search_web.invoke({"query": query})
+    _search_web_capped.name = "search_web"
+
     tools = [read_sop, record_finding]
     if retrieval in ("nexus", "both") and NEXUS_API_KEY:
         tools.insert(0, retrieve_regulation_nexus)
     if retrieval in ("rag", "both") and PINECONE_API_KEY:
         tools.insert(0, retrieve_regulation_rag)
     if use_tavily:
-        tools.append(search_web)
+        tools.append(_search_web_capped)
     return tools, recorded_findings
 
 
@@ -280,6 +296,7 @@ Audit the SOP against ALL applicable regulations. You must determine which regul
 - Every `retrieve_regulation_rag` and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args — if you have nothing specific to search for, don't call the tool. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
 - Be thorough: check EVERY regulation that could apply
 - Be specific: cite exact regulatory sections
+- Be efficient: you have a budget of ~30 retrieval calls total. Use 2–4 targeted queries per regulation, not dozens. Once you have enough context for a regulation, record your findings and move on.
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
 - If a retrieval tool call fails (returns an error), do NOT cite that regulation's requirements from memory. Only record findings based on text you successfully retrieved. State that retrieval failed in your summary.
@@ -346,6 +363,7 @@ Use `retrieve_regulation_nexus` to query the knowledge base. Nexus works best wi
 - Every `retrieve_regulation_nexus` and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
 - Be thorough: check EVERY regulation that could apply — including supplementary frameworks (NIST SP 800-series, OWASP, PCI DSS, FDA/21 CFR) when the SOP's subject matter warrants it
 - Be specific: cite the exact regulatory section returned by Nexus (preserve [c1]/[c2] markers)
+- Be efficient: you have a budget of ~30 retrieval calls total. Use 1–3 targeted Nexus queries per regulation. Once you have enough context, record your findings and move on.
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
 - If a retrieval tool call fails (returns an error), do NOT cite that regulation's requirements from memory. Only record findings based on text you successfully retrieved. State that retrieval failed in your summary.
@@ -406,6 +424,7 @@ Optionally filter by regulation name for precision.
 - Every `retrieve_regulation_nexus`, `retrieve_regulation_rag`, and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
 - Be thorough: check EVERY regulation that could apply — including supplementary frameworks (NIST SP 800-series, OWASP, PCI DSS, FDA/21 CFR) when the SOP's subject matter warrants it
 - Be specific: cite the exact regulatory section returned by Nexus (preserve [c1]/[c2] markers) or RAG (section metadata)
+- Be efficient: you have a budget of ~30 retrieval calls total. Use 1–3 targeted queries per regulation. Once you have enough context, record your findings and move on.
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
 - If a retrieval tool call fails (returns an error), do NOT cite that regulation's requirements from memory. Only record findings based on text you successfully retrieved. State that retrieval failed in your summary.
