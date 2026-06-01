@@ -59,12 +59,16 @@ def agentic_qa_answer(
             chunks = load_sop_chunks(sop)
             sop_text = "\n\n---\n\n".join(f"[{c.section}]\n{c.chunk_text}" for c in chunks)
 
-    tools, _recorded = _build_subagent_tools(
+    audit_tools, _recorded_findings = _build_subagent_tools(
         sop_text=sop_text,
         sop_id=resolved_sop_id,
         sop_title=sop_title,
         use_tavily=use_tavily,
     )
+    # qa_agent is a Q&A baseline, not an audit agent — exclude record_finding,
+    # which persists into a list the QA path never returns.
+    qa_tool_names = {"retrieve_regulation_rag", "retrieve_regulation_nexus", "search_web", "read_sop"}
+    tools = [t for t in audit_tools if getattr(t, "name", "") in qa_tool_names]
     # Drop read_sop when no SOP is provided — it would return empty content.
     if not sop_text:
         tools = [t for t in tools if getattr(t, "name", "") != "read_sop"]
