@@ -4,7 +4,7 @@ const AUDIT_AGENTS = [
   { key: "sentinel_prototype",      graph_id: "sentinel_act1",     label: "Prototype agent",   sublabel: "GPT-5.5 + Pinecone",                      pricing: { input: 5.00, output: 30.00 } },
   { key: "sentinel_prototype_plus", graph_id: "sentinel_act1_alt", label: "Prototype+ agent",  sublabel: "GPT-5.5 + Pinecone + Tavily",              pricing: { input: 5.00, output: 30.00 } },
   { key: "sentinel_production",     graph_id: "sentinel",          label: "Production agent",  sublabel: "DeepSeek-V4-Pro + Pinecone + Tavily",      pricing: { input: 1.75, output: 3.50 } },
-  { key: "sentinel_nemotron",       graph_id: "sentinel_nemotron", label: "Nemotron agent",    pricing: { input: 0.30, output: 0.90 } },
+  { key: "sentinel_nemotron",       graph_id: "sentinel_nemotron", label: "Nemotron agent",    pricing: { input: 1.50, output: 3.00 }, disabled: true },
   { key: "sentinel_kimi",           graph_id: "sentinel_kimi",     label: "Kimi K2.6 agent",  pricing: { input: 0.95, output: 4.00 } },
   { key: "sentinel_glm",            graph_id: "sentinel_glm",      label: "GLM-5.1 agent",    pricing: { input: 1.40, output: 4.40 } },
 ];
@@ -221,7 +221,8 @@ const AuditScreen = ({ loadStatus }) => {
               <TemplateChip
                 key={a.key}
                 selected={selectedAgent === a.key}
-                onClick={() => audit.status !== "running" && setSelectedAgent(a.key)}>
+                disabled={a.disabled}
+                onClick={() => !a.disabled && audit.status !== "running" && setSelectedAgent(a.key)}>
                 {a.label}
                 {a.sublabel && <span style={{ fontWeight: 400, opacity: 0.7 }}>{a.sublabel}</span>}
               </TemplateChip>
@@ -422,16 +423,17 @@ const truncate = (s, n) => (s.length > n ? s.slice(0, n) + "…" : s);
 
 // ──── helpers ────
 
-const TemplateChip = ({ children, selected, onClick }) =>
-<button onClick={onClick} style={{
+const TemplateChip = ({ children, selected, disabled, onClick }) =>
+<button onClick={disabled ? undefined : onClick} style={{
   display: "inline-flex", alignItems: "center", gap: 6,
   padding: "6px 12px", borderRadius: 999,
   background: selected ? "var(--forge-lime)" : "transparent",
-  color: selected ? "var(--forge-ink)" : "var(--forge-cyan)",
-  border: `1px solid ${selected ? "var(--forge-lime)" : "var(--forge-cyan-deep)"}`,
+  color: disabled ? "var(--forge-on-dark-faint)" : selected ? "var(--forge-ink)" : "var(--forge-cyan)",
+  border: `1px solid ${disabled ? "rgba(255,255,255,0.10)" : selected ? "var(--forge-lime)" : "var(--forge-cyan-deep)"}`,
   font: "600 11px/1 var(--forge-font)",
   letterSpacing: "0.06em",
-  cursor: "pointer", whiteSpace: "nowrap"
+  cursor: disabled ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+  opacity: disabled ? 0.5 : 1,
 }}>{children}</button>;
 
 
