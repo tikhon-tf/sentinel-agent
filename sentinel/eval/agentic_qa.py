@@ -93,6 +93,12 @@ def agentic_qa_answer(
 
     final = messages[-1] if messages else None
     answer = final.content if final and hasattr(final, "content") else ""
+    finish_reason = ""
+    rm = getattr(final, "response_metadata", None) or {}
+    if isinstance(rm, dict):
+        finish_reason = rm.get("finish_reason", "") or rm.get("stop_reason", "")
+    answer_str = answer if isinstance(answer, str) else ""
+    incomplete = (not answer_str.strip()) or finish_reason == "length"
 
     return {
         "answer": answer,
@@ -102,4 +108,6 @@ def agentic_qa_answer(
         "latency_s": elapsed,
         "model": getattr(model, "model_name", ""),
         "mode": f"agentic-{provider}" if provider != "nebius" else "agentic",
+        "incomplete": incomplete,
+        "finish_reason": finish_reason,
     }
