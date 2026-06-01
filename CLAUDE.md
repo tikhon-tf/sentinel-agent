@@ -64,7 +64,7 @@ Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Neb
 `deepagents` is an optional dep (`[deep]` extra). It's lazy-imported in `agent.py` inside `_build_deep_agent()`. If the import fails, we fall back to `langchain.agents.create_agent`. This is required because deepagents pulls heavy transitive deps (grpcio, google-genai) that conflict with LangGraph Cloud's constraint file.
 
 ### Jira actuation
-When an audit finding is a gap or partial at medium+ severity, the `create_jira_ticket` tool files a ticket on the team's Kanban board. The tool is available to the outer Sentinel agent alongside the audit tools. The Jira client (`sentinel/actuation/jira_client.py`) uses the REST API v3 with basic auth (email + API token). Ticket description is rendered in Atlassian Document Format (ADF). Labels include `sentinel`, `compliance-finding`, severity, regulation slug, and SOP slug. Configuration via `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`, and optionally `JIRA_DEFAULT_ISSUE_TYPE` (default: Task).
+When an audit finding is a gap or partial at medium+ severity, the `create_jira_ticket` tool files a single ticket and `create_jira_tickets` files multiple tickets in batch (accepts a JSON array string). Both are available to the outer Sentinel agent. The Jira client (`sentinel/actuation/jira_client.py`) uses the REST API v3 with basic auth (email + API token). Ticket description is rendered in Atlassian Document Format (ADF). Labels include `sentinel`, `compliance-finding`, severity, regulation slug, and SOP slug. Configuration via `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`, and optionally `JIRA_DEFAULT_ISSUE_TYPE` (default: Task).
 
 ### Lazy imports for cloud compatibility
 `tavily` (in sub-agent tools in `tools.py`), `pinecone` (in `retrieval/ingest.py`, `retrieval/regulations.py`, `tools.py`), `openai` (in `retrieval/ingest.py`), and `httpx` (in `actuation/jira_client.py`, `retrieval/nexus.py`) are imported lazily inside functions, not at module level. This prevents import failures in the LangGraph Cloud container where these packages may not be installed or configured. Do not move these to top-level imports.
@@ -74,7 +74,7 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 | Module | Purpose |
 |--------|---------|
 | `sentinel/graph/agent.py` | ReAct agent definition, `build_agent()`, `run_audit()` entry point |
-| `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_single_sop` (sub-agent), `audit_all_sops`, `list_sops`, `list_regulations`, `retrieve_regulation_text_tool`, `create_jira_ticket`; sub-agent builder `_build_subagent_tools(retrieval=...)`; three prompts `_AUDIT_SUBAGENT_PROMPT_RAG` / `_AUDIT_SUBAGENT_PROMPT_NEXUS` / `_AUDIT_SUBAGENT_PROMPT_NEXUS_RAG` |
+| `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_single_sop` (sub-agent), `audit_sops`, `audit_all_sops`, `list_sops`, `list_regulations`, `retrieve_regulation_text_tool`, `create_jira_ticket`, `create_jira_tickets`; sub-agent builder `_build_subagent_tools(retrieval=...)` with `record_finding` tool; three prompts `_AUDIT_SUBAGENT_PROMPT_RAG` / `_AUDIT_SUBAGENT_PROMPT_NEXUS` / `_AUDIT_SUBAGENT_PROMPT_NEXUS_RAG` |
 | `sentinel/llm.py` | OpenAI client provider switching (`set_provider()`, `get_client()`, `get_model()`) |
 | `sentinel/models.py` | Pydantic models (`AuditFinding`, `SOPChunk`, `AuditMetrics`), enums (`ComplianceLevel`, `Severity`) |
 | `sentinel/config.py` | API keys, model names, paths, pricing, business unit list |
@@ -135,7 +135,7 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 Remote MCP server configured in `.mcp.json` (`https://api.smith.langchain.com/mcp`). Uses OAuth — authenticate via browser on first use. Provides access to LangSmith traces, runs, datasets, experiments, and prompt hub from Claude Code and Codex. Key tools: `fetch_runs` (inspect audit traces), `list_projects`, `list_datasets`, `run_experiment`, `get_billing_usage`.
 
 ### Jira Cloud
-The `create_jira_ticket` tool files compliance findings as tickets via the Jira Cloud REST API v3. Client: `sentinel/actuation/jira_client.py` (sync, basic auth). Ticket descriptions use Atlassian Document Format (ADF). Labels: `sentinel`, `compliance-finding`, severity, regulation slug, SOP slug. Priority mapped from severity (critical→Highest, high→High, medium→Medium, low→Low). Config: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`.
+The `create_jira_ticket` (single) and `create_jira_tickets` (batch, accepts JSON array string) tools file compliance findings as tickets via the Jira Cloud REST API v3. Client: `sentinel/actuation/jira_client.py` (sync, basic auth). Ticket descriptions use Atlassian Document Format (ADF). Labels: `sentinel`, `compliance-finding`, severity, regulation slug, SOP slug. Priority mapped from severity (critical→Highest, high→High, medium→Medium, low→Low). Config: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`.
 
 ## Environment variables
 
