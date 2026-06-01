@@ -459,6 +459,8 @@ def _stream_one(
             "trace_url": _trace_url(rid),
         }))
 
+    sub_tokens = {"input": 0, "output": 0}
+
     try:
         client = _langgraph_client()
         for event in client.runs.stream(
@@ -471,6 +473,22 @@ def _stream_one(
             payload = _normalize_event(event, prefix)
             if payload is not None:
                 out_q.put(payload)
+                parsed = json.loads(payload)
+                if parsed.get("type") == "tool_result":
+                    text = parsed.get("text", "")
+                    if isinstance(text, str):
+                        m = _TOTAL_TOKENS_RE.search(text) or _SUB_TOKENS_RE.search(text)
+                        if m:
+                            sub_tokens["input"] = int(m.group(1).replace(",", ""))
+                            sub_tokens["output"] = int(m.group(2).replace(",", ""))
+                elif parsed.get("type") == "usage":
+                    if sub_tokens["input"] or sub_tokens["output"]:
+                        updated = json.dumps({
+                            "type": "usage", "agent": prefix,
+                            "input_tokens": parsed["input_tokens"] + sub_tokens["input"],
+                            "output_tokens": parsed["output_tokens"] + sub_tokens["output"],
+                        })
+                        out_q.put(updated)
     except Exception as exc:
         out_q.put(json.dumps({"type": "error", "agent": prefix, "error": str(exc)}))
     finally:
@@ -501,30 +519,15 @@ def _normalize_event(event, agent: str = "") -> str | None:
 
     elif event.event == "values" and isinstance(event.data, dict):
         usage: list[dict[str, int]] = []
-        sub_in = sub_out = 0
         for msg in event.data.get("messages", []):
             if not isinstance(msg, dict):
                 continue
             u = msg.get("usage_metadata")
             if u and (u.get("input_tokens") or u.get("output_tokens")):
                 usage.append(u)
-            content = msg.get("content", "")
-            if not isinstance(content, str):
-                continue
-            # New format: "Total tokens:" summary line (definitive total)
-            m = _TOTAL_TOKENS_RE.search(content)
-            if m:
-                sub_in = int(m.group(1).replace(",", ""))
-                sub_out = int(m.group(2).replace(",", ""))
-            # Old format: first "Sub-agent tokens:" match is the summary total
-            elif "Sub-agent tokens:" in content:
-                m = _SUB_TOKENS_RE.search(content)
-                if m:
-                    sub_in = int(m.group(1).replace(",", ""))
-                    sub_out = int(m.group(2).replace(",", ""))
-        if usage or sub_in or sub_out:
-            in_tok = sum(u.get("input_tokens", 0) for u in usage) + sub_in
-            out_tok = sum(u.get("output_tokens", 0) for u in usage) + sub_out
+        if usage:
+            in_tok = sum(u.get("input_tokens", 0) for u in usage)
+            out_tok = sum(u.get("output_tokens", 0) for u in usage)
             return json.dumps({
                 "type": "usage", "agent": agent,
                 "input_tokens": in_tok, "output_tokens": out_tok,

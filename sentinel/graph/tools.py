@@ -931,6 +931,90 @@ def create_jira_ticket(
         return f"Jira ticket creation failed: {e}"
 
 
+@tool
+def create_jira_tickets(findings_json: str) -> str:
+    """Create multiple Jira tickets at once for confirmed compliance gaps.
+
+    Use this instead of calling create_jira_ticket repeatedly.
+    Pass a JSON array string where each object has: sop_id, clause_id, clause_title, regulation, severity, gap_description.
+    Optional fields: remediation, evidence_quote, reasoning.
+
+    Example: '[{"sop_id":"SOP-ISEC-008","clause_id":"HIPAA-164.312(a)","clause_title":"Access Control","regulation":"HIPAA","severity":"high","gap_description":"Missing MFA requirement"}]'
+
+    Returns a summary of created tickets and any failures.
+    """
+    try:
+        findings = json.loads(findings_json)
+    except (json.JSONDecodeError, TypeError):
+        return "Invalid JSON. Pass a JSON array string of finding objects."
+    if not isinstance(findings, list):
+        return "Expected a JSON array of findings."
+
+    from sentinel.actuation.jira_client import JiraClient, SEVERITY_TO_PRIORITY
+    from sentinel.config import (
+        JIRA_API_TOKEN, JIRA_BASE_URL, JIRA_DEFAULT_ISSUE_TYPE,
+        JIRA_EMAIL, JIRA_PROJECT_KEY,
+    )
+
+    missing = [
+        name for name, val in [
+            ("JIRA_BASE_URL", JIRA_BASE_URL), ("JIRA_EMAIL", JIRA_EMAIL),
+            ("JIRA_API_TOKEN", JIRA_API_TOKEN), ("JIRA_PROJECT_KEY", JIRA_PROJECT_KEY),
+        ] if not val
+    ]
+    if missing:
+        return f"Jira not configured — set {', '.join(missing)} in the environment"
+    if not findings:
+        return "No findings provided."
+
+    client = JiraClient(
+        base_url=JIRA_BASE_URL, email=JIRA_EMAIL, api_token=JIRA_API_TOKEN,
+        project_key=JIRA_PROJECT_KEY, issue_type=JIRA_DEFAULT_ISSUE_TYPE,
+    )
+    created = []
+    failed = []
+    try:
+        for f in findings:
+            sop_id = f.get("sop_id", "")
+            clause_id = f.get("clause_id", f.get("requirement_id", ""))
+            clause_title = f.get("clause_title", f.get("requirement_title", ""))
+            regulation = f.get("regulation", "")
+            sev = (f.get("severity", "medium") or "medium").strip().lower()
+            if sev not in SEVERITY_TO_PRIORITY:
+                sev = "medium"
+
+            summary = f"[{sev.upper()}] {clause_id}: {clause_title} ({sop_id})"
+            labels = sorted({
+                "sentinel", "compliance-finding",
+                f"sev-{sev}", _slug(regulation) or "regulation", _slug(sop_id) or "sop",
+            })
+            description = _render_ticket_description(
+                sop_id=sop_id, clause_id=clause_id, clause_title=clause_title,
+                regulation=regulation, severity=sev,
+                gap_description=f.get("gap_description", ""),
+                remediation=f.get("remediation", ""),
+                evidence_quote=f.get("evidence_quote", ""),
+                reasoning=f.get("reasoning", ""),
+            )
+            try:
+                issue = client.create_issue(
+                    summary=summary, description=description,
+                    labels=labels, priority=SEVERITY_TO_PRIORITY[sev],
+                )
+                created.append(f"{issue['key']} — {clause_id} ({sop_id})")
+            except Exception as e:
+                failed.append(f"{clause_id} ({sop_id}): {e}")
+    finally:
+        client.close()
+
+    lines = [f"Created {len(created)} Jira ticket(s), {len(failed)} failed."]
+    for t in created:
+        lines.append(f"  ✓ {t}")
+    for f in failed:
+        lines.append(f"  ✗ {f}")
+    return "\n".join(lines)
+
+
 def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: str = "rag", model_name: str | None = None) -> list:
     """Build the complete tool list for the agent, parameterized by provider, Tavily, retrieval backend ("rag", "nexus", or "both"), and optional model_name override."""
 
@@ -1075,6 +1159,7 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: st
             _audit_sops,
             _audit_all_sops,
             create_jira_ticket,
+            create_jira_tickets,
         ]
     else:
         tools = [
@@ -1085,6 +1170,7 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: st
             _audit_sops,
             _audit_all_sops,
             create_jira_ticket,
+            create_jira_tickets,
         ]
     if use_tavily:
         tools.insert(3, search_web)

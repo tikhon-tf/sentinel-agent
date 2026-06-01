@@ -88,7 +88,10 @@ const AuditScreen = ({ loadStatus }) => {
   // Re-fetch Jira findings when an audit run completes with ticket creations
   React.useEffect(() => {
     if (audit.status !== "done") return;
-    const hasTickets = audit.toolCalls.some(tc => tc.name === "create_jira_ticket" && tc.result && !tc.result.startsWith("Jira ticket creation failed"));
+    const hasTickets = audit.toolCalls.some(tc =>
+      (tc.name === "create_jira_ticket" && tc.result && !tc.result.startsWith("Jira ticket creation failed")) ||
+      (tc.name === "create_jira_tickets" && tc.result && tc.result.includes("Created"))
+    );
     if (!hasTickets) return;
     const API = window.ForgeAPI;
     if (!API) return;
@@ -249,7 +252,11 @@ const AuditScreen = ({ loadStatus }) => {
               <div style={{ flex: 1 }}><Meter label="tokens in" value={`${(totalIn / 1000).toFixed(1)}k`}/></div>
               <div style={{ flex: 1 }}><Meter label="tokens out" value={`${(totalOut / 1000).toFixed(1)}k`}/></div>
               <div style={{ flex: 1 }}><Meter label="tools" value={audit.toolCalls.length}/></div>
-              <div style={{ flex: 1 }}><Meter label="jira tickets" value={audit.toolCalls.filter(tc => tc.name === "create_jira_ticket" && tc.result && !tc.result.startsWith("Jira ticket creation failed")).length}/></div>
+              <div style={{ flex: 1 }}><Meter label="jira tickets" value={audit.toolCalls.reduce((n, tc) => {
+                if (tc.name === "create_jira_ticket" && tc.result && !tc.result.startsWith("Jira ticket creation failed")) return n + 1;
+                if (tc.name === "create_jira_tickets" && tc.result) { const m = tc.result.match(/Created (\d+)/); if (m) return n + parseInt(m[1], 10); }
+                return n;
+              }, 0)}/></div>
               {(() => {
                 const ag = AUDIT_AGENTS.find(a => a.key === selectedAgent);
                 if (!ag || !ag.pricing) return null;

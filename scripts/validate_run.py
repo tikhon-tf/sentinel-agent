@@ -24,6 +24,7 @@ PRICING = {
     "gpt-5.5": {"input": 5.00, "output": 30.00},
     "deepseek-ai/DeepSeek-V4-Pro": {"input": 1.75, "output": 3.50},
     "nvidia/nemotron-3-super-120b-a12b": {"input": 0.30, "output": 0.90},
+    "nvidia/Nemotron-3-Ultra-550b-a55b": {"input": 1.00, "output": 3.00},
     "moonshotai/Kimi-K2.6": {"input": 0.95, "output": 4.00},
     "zai-org/GLM-5.1": {"input": 1.40, "output": 4.40},
 }
