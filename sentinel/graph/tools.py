@@ -15,6 +15,10 @@ MAX_RETRIES = 4
 RETRY_BACKOFF = 5
 RATE_LIMIT_BACKOFF = 30
 
+# Detects autoregressive token-repetition collapse in LLM-emitted tool-call args
+# (e.g. Nemotron emitting "The" thousands of times into a query string).
+_RUNAWAY_REPETITION_RE = re.compile(r"(.{1,6}?)\1{50,}")
+
 from sentinel.config import NEXUS_API_KEY, PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
 
@@ -201,6 +205,14 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
             return f"Invalid compliance_level '{compliance_level}'. Must be one of: {', '.join(sorted(valid_levels))}"
         if sev not in valid_sevs:
             return f"Invalid severity '{severity}'. Must be one of: {', '.join(sorted(valid_sevs))}"
+        for _field_name, _field_value in (
+            ("evidence_quote", evidence_quote),
+            ("gap_description", gap_description),
+            ("remediation", remediation),
+            ("reasoning", reasoning),
+        ):
+            if isinstance(_field_value, str) and _RUNAWAY_REPETITION_RE.search(_field_value):
+                return f"Malformed '{_field_name}': detected runaway token repetition. Please re-issue record_finding with a clean, concise value."
         recorded_findings.append({
             "requirement_id": requirement_id,
             "requirement_title": requirement_title,
@@ -222,6 +234,8 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
         _retrieval_calls["count"] += 1
         if not isinstance(query, str) or not query.strip():
             return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
+        if _RUNAWAY_REPETITION_RE.search(query):
+            return "Malformed query: detected runaway token repetition. Please re-issue with a clean, concise search phrase."
         if not PINECONE_API_KEY:
             return "Pinecone not configured."
         try:
@@ -230,6 +244,9 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
             chunks = retrieve_regulation_text(query, regulations=regs, top_k=15)
             if not chunks:
                 return f"No regulation text found for: {query}"
+            non_empty = [c for c in chunks if (getattr(c, "chunk_text", "") or "").strip()]
+            if not non_empty:
+                return f"No usable regulation text found for: {query} (retrieved {len(chunks)} empty sections — try a different query)"
             context = format_regulation_context(chunks)
             return f"Retrieved {len(chunks)} sections:\n{context}"
         except Exception as e:
@@ -243,6 +260,8 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
         _retrieval_calls["count"] += 1
         if not isinstance(query, str) or not query.strip():
             return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
+        if _RUNAWAY_REPETITION_RE.search(query):
+            return "Malformed query: detected runaway token repetition. Please re-issue with a clean, concise search phrase."
         if not NEXUS_API_KEY:
             return "Nexus not configured — set NEXUS_API_KEY."
         try:
