@@ -51,7 +51,7 @@ EVAL_AGENTS = {
     "production":  EVAL_RESULTS_DIR / "agentic_20260529_223702.json",
     "prototype":   EVAL_RESULTS_DIR / "agentic_openai_20260529_142141.json",
     "prototype+":  EVAL_RESULTS_DIR / "agentic_openai_tavily_20260529_171528.json",
-    "nemotron":    EVAL_RESULTS_DIR / "agentic_20260529_223532.json",
+    "nemotron":    EVAL_RESULTS_DIR / "agentic_nemotron_20260601_111945.json",
     "kimi-k2":     EVAL_RESULTS_DIR / "agentic_20260529_223420.json",
     "glm-5":       EVAL_RESULTS_DIR / "agentic_20260529_223626.json",
 }
