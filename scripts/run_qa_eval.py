@@ -7,6 +7,7 @@ Usage:
     python scripts/run_qa_eval.py --mode naive --limit 5         # 5 questions, naive only
     python scripts/run_qa_eval.py --mode agentic-openai          # agentic stack on OpenAI model (no web)
     python scripts/run_qa_eval.py --mode agentic-openai-tavily   # agentic stack on OpenAI model + Tavily
+    python scripts/run_qa_eval.py --mode agentic-nemotron       # agentic stack on Nemotron Ultra
     python scripts/run_qa_eval.py --mode agentic --category sop_compliance
     python scripts/run_qa_eval.py --mode both --no-judge         # skip LLM-as-judge
 """
@@ -87,6 +88,10 @@ def run_single(mode: str, question: dict) -> dict:
     if mode == "agentic-openai-tavily":
         from sentinel.eval.agentic_qa import agentic_qa_answer
         return agentic_qa_answer(question["question"], sop_id=sop_id, provider="openai", use_tavily=True)
+    if mode == "agentic-nemotron":
+        from sentinel.eval.agentic_qa import agentic_qa_answer
+        from sentinel.config import NEBIUS_MODELS
+        return agentic_qa_answer(question["question"], sop_id=sop_id, provider="nebius", model_name=NEBIUS_MODELS["nemotron"])
     raise ValueError(f"unknown mode: {mode}")
 
 
@@ -325,6 +330,7 @@ _MODE_LABEL = {
     "agentic": "ag-neb",
     "agentic-openai": "ag-oai",
     "agentic-openai-tavily": "ag-oai+t",
+    "agentic-nemotron": "ag-nemo",
 }
 _COL = 13  # column width in the comparison table
 
@@ -382,7 +388,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--mode",
-        choices=["naive", "agentic", "agentic-openai", "agentic-openai-tavily", "both", "all"],
+        choices=["naive", "agentic", "agentic-openai", "agentic-openai-tavily", "agentic-nemotron", "both", "all"],
         default="both",
         help="Single mode, or 'both' (naive+agentic) / 'all' (all four modes).",
     )
@@ -407,7 +413,7 @@ def main():
     if args.mode == "both":
         modes = ["naive", "agentic"]
     elif args.mode == "all":
-        modes = ["naive", "agentic", "agentic-openai", "agentic-openai-tavily"]
+        modes = ["naive", "agentic", "agentic-openai", "agentic-openai-tavily", "agentic-nemotron"]
     else:
         modes = [args.mode]
 

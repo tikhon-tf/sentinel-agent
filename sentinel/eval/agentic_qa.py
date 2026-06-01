@@ -36,6 +36,7 @@ def agentic_qa_answer(
     use_tavily: bool = True,
     recursion_limit: int = 30,
     provider: str = "nebius",
+    model_name: str | None = None,
 ) -> dict:
     """Run the agentic Q&A path: ReAct agent with the demo's sub-agent toolset.
 
@@ -58,7 +59,7 @@ def agentic_qa_answer(
             chunks = load_sop_chunks(sop)
             sop_text = "\n\n---\n\n".join(f"[{c.section}]\n{c.chunk_text}" for c in chunks)
 
-    tools = _build_subagent_tools(
+    tools, _recorded = _build_subagent_tools(
         sop_text=sop_text,
         sop_id=resolved_sop_id,
         sop_title=sop_title,
@@ -68,7 +69,7 @@ def agentic_qa_answer(
     if not sop_text:
         tools = [t for t in tools if getattr(t, "name", "") != "read_sop"]
 
-    model = _build_subagent_model(provider=provider)
+    model = _build_subagent_model(provider=provider, model_name=model_name)
     agent = create_react_agent(model=model, tools=tools, prompt=QA_AGENT_PROMPT, name="qa_agent")
 
     start = time.time()

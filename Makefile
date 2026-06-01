@@ -1,6 +1,6 @@
 PYTHON = .venv/bin/python
 
-.PHONY: install ingest dev up build deploy ui ui-local test eval eval-naive eval-agentic eval-agentic-openai eval-agentic-openai-tavily eval-all eval-smoke
+.PHONY: install ingest dev up build deploy ui ui-local test eval eval-naive eval-agentic eval-agentic-openai eval-agentic-openai-tavily eval-agentic-nemotron eval-all eval-smoke
 
 install:
 	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag]"
@@ -50,7 +50,10 @@ eval-agentic-openai:
 eval-agentic-openai-tavily:
 	$(PYTHON) scripts/run_qa_eval.py --mode agentic-openai-tavily $(EVAL_ARGS)
 
-# Run all four baselines: naive + agentic (Nebius) + agentic-openai + agentic-openai-tavily.
+eval-agentic-nemotron:
+	$(PYTHON) scripts/run_qa_eval.py --mode agentic-nemotron $(EVAL_ARGS)
+
+# Run all baselines.
 eval-all:
 	$(PYTHON) scripts/run_qa_eval.py --mode all $(EVAL_ARGS)
 
