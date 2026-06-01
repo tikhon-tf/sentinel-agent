@@ -1,6 +1,6 @@
 # Sentinel — Regulatory Compliance Auditor Agent
 
-Sentinel is an AI-powered compliance auditor that assesses 200 enterprise SOPs against 36 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853, BSA, ECOA, FCRA, PCI DSS, OWASP, FDA, NIST SP 800-series, EU AMLD4/ePrivacy/MDR/SCCs). Both acts use Pinecone agentic RAG by default; Act 2 can optionally use Pinecone Nexus KnowQL or both backends (via `AGENT2_RETRIEVAL`). Built for the [Nebius Blueprint for Agents](https://nebius.com/) demo (Nebius Inflection, June 9, 2026).
+Sentinel is an AI-powered compliance auditor that assesses 200 enterprise SOPs against 36 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853, BSA, ECOA, FCRA, PCI DSS, OWASP, FDA, NIST SP 800-series, EU AMLD4/ePrivacy/MDR/SCCs). Regulation text is retrieved from Pinecone via agentic RAG, optionally supplemented by Pinecone Nexus KnowQL (via `AGENT2_RETRIEVAL`). Built for the [Nebius Blueprint for Agents](https://nebius.com/) demo (Nebius Inflection, June 9, 2026).
 
 ## Architecture
 
@@ -36,7 +36,7 @@ User Query
          Jira Cloud REST API → ticket on Kanban board
 ```
 
-**Model:** DeepSeek-V4-Pro on Nebius AI Studio (Act 2 + deployment), GPT-5.4-mini on OpenAI (Act 1)
+**Models:** DeepSeek-V4-Pro, Nemotron Ultra, Kimi K2.6, GLM-5.1 on Nebius · GPT-5.5 on OpenAI
 **Orchestration:** LangGraph ReAct agent with per-SOP sub-agents, optional deepagents upgrade
 **Retrieval:** Pinecone vector search (Qwen3-Embedding-8B, 4096 dims) by default for both acts · Optionally Pinecone Nexus KnowQL (50-doc corpus, grounded + cited) via `AGENT2_RETRIEVAL=nexus|both`
 **Grounding:** Tavily live regulation search
@@ -44,19 +44,12 @@ User Query
 **Actuation:** Jira Cloud REST API for filing compliance gap tickets
 **Deployment:** LangGraph Cloud + UI (FastAPI + React)
 
-## Demo
-
-| Act | Description | Model | Command |
-|-----|-------------|-------|---------|
-| **Act 1** | Agentic RAG prototype — Pinecone vector search, shows baseline | GPT-5.5 | `make act1` |
-| **Act 2** | Production stack — Pinecone RAG (default), optionally Nexus KnowQL | DeepSeek-V4-Pro | `make act2` |
-
 ## Quickstart
 
 ### Prerequisites
 
 - Python 3.11+
-- API keys: Nebius, OpenAI (Act 1), Pinecone, Nexus (optional, for `AGENT2_RETRIEVAL=nexus|both`), Tavily (optional), LangSmith (optional)
+- API keys: Nebius, OpenAI, Pinecone, Tavily (optional), LangSmith (optional)
 
 ### Setup
 
@@ -82,18 +75,17 @@ make ingest-regulations   # Regulation texts into Pinecone (namespace: regulatio
 ### Run the demo
 
 ```bash
-make act1    # GPT-5.5 + Pinecone RAG
-make act2    # DeepSeek-V4-Pro + Pinecone RAG (set AGENT2_RETRIEVAL=nexus|both to change)
-make demo    # Both acts sequentially
+make dev     # LangGraph dev server on port 2024
+make ui      # UI on port 8080 (connects to LangGraph)
 ```
 
 ### Test
 
 ```bash
-make test    # Run all 111 regression tests
+make test    # Run all 73 regression tests
 ```
 
-Tests cover models, adversarial detection, JSON parsing/repair, SOP loading, metrics, UI helpers, provider switching, and config validation. No API keys or external services required.
+Tests cover JSON parsing/repair, SOP loading, metrics, provider switching, and config validation. No API keys or external services required.
 
 ### Deploy
 
@@ -140,7 +132,7 @@ sentinel_agent/
 │   ├── retrieval/
 │   │   ├── local.py           # SOP file loading and search
 │   │   ├── nexus.py           # Nexus KnowQL client (optional)
-│   │   ├── regulations.py     # Pinecone regulation text retrieval (Act 1)
+│   │   ├── regulations.py     # Pinecone regulation text retrieval
 │   │   ├── ingest.py          # SOP -> Pinecone ingestion
 │   │   └── ingest_regulations.py  # Regulation text -> Pinecone ingestion
 │   ├── actuation/
@@ -149,8 +141,6 @@ sentinel_agent/
 │       ├── heatmap.py         # Rich console heatmap + summary
 │       └── register.py        # CSV/JSON/metrics output
 ├── demo/
-│   ├── act1_prototype.py      # Act 1: GPT-5.5 + Pinecone RAG
-│   ├── act2_production.py     # Act 2: DeepSeek-V4-Pro + Pinecone RAG
 │   └── ...
 ├── scripts/
 │   ├── validate_run.py        # Audit quality evaluation against compliance matrix
@@ -244,10 +234,10 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `NEBIUS_API_KEY` | Yes | Nebius AI Studio API key |
-| `OPENAI_API_KEY` | For Act 1 | OpenAI API key |
+| `OPENAI_API_KEY` | Optional | OpenAI API key (for Prototype agent) |
 | `PINECONE_API_KEY` | Yes | Pinecone vector DB key (agentic RAG) |
 | `NEXUS_API_KEY` | Optional | Pinecone Nexus API key (KnowQL, project `dbljkrx`) — for `AGENT2_RETRIEVAL=nexus\|both` |
-| `AGENT2_RETRIEVAL` | Optional | Act 2 retrieval backend: `rag` (default), `nexus`, or `both` |
+| `AGENT2_RETRIEVAL` | Optional | Production agent retrieval backend: `rag` (default), `nexus`, or `both` |
 | `NEXUS_BASE_URL` | Optional | Override Nexus endpoint (default: `https://prod.nexus.pinecone.io`) |
 | `NEXUS_CONTEXT_SLUG` | Optional | Override Nexus context (default: `sentinel-regs-test`) |
 | `TAVILY_API_KEY` | Optional | Live regulation grounding |
@@ -262,8 +252,8 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 
 | Operation | Model                                               | Tokens | Cost   | Latency |
 |-----------|-----------------------------------------------------|--------|--------|---------|
-| Full audit (Act 2) | Nebius DeepSeek-V4-Pro (\$1.75/\$3.50 per M tokens) | ~47M | ~$85   | ~4h     |
-| Full audit (Act 1) | GPT-5.4-mini (\$0.40/\$1.60 per M tokens)            | ~14M | ~$7    | ~5m     |
+| Full audit (DeepSeek) | Nebius DeepSeek-V4-Pro (\$1.75/\$3.50 per M tokens) | ~47M | ~$85   | ~35m    |
+| Full audit (GPT-5.5)  | OpenAI GPT-5.5 (\$5.00/\$30.00 per M tokens)       | ~17M | ~$140  | ~13m    |
 | SOP ingestion | Qwen3-Embedding-8B                                  | ~2M | ~$0.02 | ~5m     |
 
 Each SOP audit fans out a dedicated sub-agent with multiple tool calls (regulation retrieval, web search), so token counts are dominated by sub-agent usage across 200 SOPs. Token usage and cost are displayed live in the UI. Use `scripts/validate_run.py` to get exact cost/token/latency breakdowns for any LangSmith run.

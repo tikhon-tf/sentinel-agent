@@ -1,6 +1,6 @@
 PYTHON = .venv/bin/python
 
-.PHONY: install ingest act1 act2 demo all dev up build deploy ui ui-local test eval eval-naive eval-agentic eval-agentic-openai eval-agentic-openai-tavily eval-all eval-smoke
+.PHONY: install ingest dev up build deploy ui ui-local test eval eval-naive eval-agentic eval-agentic-openai eval-agentic-openai-tavily eval-all eval-smoke
 
 install:
 	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag]"
@@ -10,18 +10,6 @@ ingest:
 
 ingest-regulations:
 	$(PYTHON) -m sentinel.retrieval.ingest_regulations
-
-act1:
-	$(PYTHON) -m demo.act1_prototype --mode rag
-
-act2:
-	$(PYTHON) -m demo.act2_production --mode nexus
-
-# Full demo sequence
-demo: act1 act2
-
-# Full pipeline: ingest SOPs, then run both acts
-all: ingest act1 act2
 
 # LangGraph deployment
 dev:
