@@ -477,10 +477,15 @@ def _stream_one(
                 if parsed.get("type") == "tool_result":
                     text = parsed.get("text", "")
                     if isinstance(text, str):
-                        m = _TOTAL_TOKENS_RE.search(text) or _SUB_TOKENS_RE.search(text)
+                        m = _TOTAL_TOKENS_RE.search(text)
                         if m:
                             sub_tokens["input"] = int(m.group(1).replace(",", ""))
                             sub_tokens["output"] = int(m.group(2).replace(",", ""))
+                        else:
+                            m = _SUB_TOKENS_RE.search(text)
+                            if m:
+                                sub_tokens["input"] += int(m.group(1).replace(",", ""))
+                                sub_tokens["output"] += int(m.group(2).replace(",", ""))
                 elif parsed.get("type") == "usage":
                     if sub_tokens["input"] or sub_tokens["output"]:
                         updated = json.dumps({
