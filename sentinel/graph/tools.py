@@ -111,15 +111,33 @@ def _list_regulations_local() -> str:
     return f"{len(files)} regulation files available:\n" + "\n".join(lines)
 
 
+_LIST_SOPS_SYNONYMS = {
+    "fda": "clinical ai products",
+    "samd": "clinical ai products",
+    "medical device": "clinical ai products",
+    "ai/ml": "ai/ml engineering",
+    "ai ml": "ai/ml engineering",
+    "machine learning": "ai/ml engineering",
+    "algorithm": "ai/ml engineering",
+}
+
+
 @tool
 def list_sops(query: str = "") -> str:
-    """List all available SOPs. Optionally filter by a search query (matches against title, SOP ID, or business unit)."""
+    """List all available SOPs. Pass an empty query (the default) to return ALL SOPs in a single call — use this for broad discovery questions instead of guessing keywords. Optionally filter by a search query (matches title, SOP ID, or business unit substring). Available business units: 'AI/ML Engineering' (SOP-AIML-*), 'Clinical AI Products' (SOP-CLIN-*), 'Customer Operations' (SOP-COPS-*), 'Data Governance & Privacy' (SOP-DGP-*), 'Financial Services' (SOP-FIN-*), 'Human Resources' (SOP-HR-*), 'Information Security' (SOP-ISEC-*), 'IT Operations & Infrastructure' (SOP-ITOP-*), 'Legal & Compliance' (SOP-LEGC-*), 'Product & Engineering' (SOP-PENG-*). Synonyms map to business units: 'FDA'/'SaMD'/'medical device' -> 'Clinical AI Products'; 'AI/ML'/'AI ML'/'machine learning'/'algorithm' -> 'AI/ML Engineering'."""
     from sentinel.retrieval.local import list_all_sops
 
     all_sops = list_all_sops()
     if query:
         q = query.lower()
-        all_sops = [s for s in all_sops if q in s["title"].lower() or q in s["sop_id"].lower() or q in s.get("business_unit", "").lower()]
+        expanded = _LIST_SOPS_SYNONYMS.get(q, q)
+        all_sops = [
+            s for s in all_sops
+            if q in s["title"].lower()
+            or q in s["sop_id"].lower()
+            or q in s.get("business_unit", "").lower()
+            or expanded in s.get("business_unit", "").lower()
+        ]
 
     if not all_sops:
         return f"No SOPs found matching '{query}'"
