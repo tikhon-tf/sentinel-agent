@@ -140,6 +140,9 @@ def _process_one(mode: str, q: dict, run_judge: bool, print_lock: threading.Lock
     try:
         output = run_single(mode, q)
         error = None
+        if output.get("incomplete"):
+            with print_lock:
+                print(f"    INCOMPLETE [{qid}]: empty or truncated answer (finish_reason={output.get('finish_reason', '?')})", file=sys.stderr)
     except Exception as e:
         output = {"answer": "", "input_tokens": 0, "output_tokens": 0, "latency_s": 0.0, "model": "", "mode": mode}
         error = f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
@@ -176,6 +179,7 @@ def aggregate(mode: str, rows: list[dict]) -> dict:
     """Roll up per-category accuracy, F1, tokens, cost, latency."""
     total = len(rows)
     failed = sum(1 for r in rows if r["error"])
+    incomplete = sum(1 for r in rows if r["output"].get("incomplete"))
     in_tokens = sum(r["output"].get("input_tokens", 0) for r in rows)
     out_tokens = sum(r["output"].get("output_tokens", 0) for r in rows)
     judge_in = sum(r["scores"].get("judge_input_tokens", 0) for r in rows)
@@ -239,6 +243,7 @@ def aggregate(mode: str, rows: list[dict]) -> dict:
         "model": model,
         "total": total,
         "failed": failed,
+        "incomplete": incomplete,
         "input_tokens": in_tokens,
         "output_tokens": out_tokens,
         "judge_input_tokens": judge_in,
@@ -290,7 +295,7 @@ def print_summary(payload: dict) -> None:
     mode = payload["mode"]
     print(f"\n=== {mode.upper()} ===")
     print(f"  Model:       {payload['model']}")
-    print(f"  Total:       {payload['total']}   Failed: {payload['failed']}")
+    print(f"  Total:       {payload['total']}   Failed: {payload['failed']}   Incomplete: {payload.get('incomplete', 0)}")
     print(f"  Tokens:      {payload['input_tokens']:,} in / {payload['output_tokens']:,} out")
     print(f"  Cost:        ${payload['total_cost_usd']:.3f} (answers: ${payload['answer_cost_usd']:.3f}, judge: ${payload['judge_cost_usd']:.3f})")
     print(f"  Latency:     {payload['latency_total_s']:.1f}s total, {payload['latency_avg_s']:.1f}s avg")
