@@ -65,7 +65,8 @@ def agentic_qa_answer(
         sop_title=sop_title,
         use_tavily=use_tavily,
     )
-    # Drop read_sop when no SOP is provided — it would return empty content.
+    # Drop tools irrelevant to Q&A eval
+    tools = [t for t in tools if getattr(t, "name", "") != "record_finding"]
     if not sop_text:
         tools = [t for t in tools if getattr(t, "name", "") != "read_sop"]
 
