@@ -290,7 +290,7 @@ Audit the SOP against ALL applicable regulations. You must determine which regul
 3. For each regulation that applies, retrieve the specific sections/requirements relevant to this SOP
 4. If you need clarification on a regulation's current interpretation or recent enforcement, use `search_web`
 5. Assess the SOP against each applicable requirement. After completing each assessment, IMMEDIATELY call `record_finding` with the result — do not wait until the end.
-6. After all requirements are assessed, output a brief summary of your findings (counts, key gaps).
+6. After all requirements are assessed, output a single short sentence summarizing counts (e.g. "Done — 12 findings recorded."). Do NOT repeat findings in your final message.
 
 ## Rules
 - Every `retrieve_regulation_rag` and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args — if you have nothing specific to search for, don't call the tool. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
@@ -313,7 +313,8 @@ For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fi
 - remediation: specific recommendation (empty string if compliant)
 - reasoning: 2-3 sentences citing the specific regulation section
 
-Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output. Your final text message should be a brief summary (e.g. "Assessed 15 requirements: 8 compliant, 4 partial, 3 gaps")."""
+Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output.
+After calling `record_finding` for every requirement, your FINAL message should be a single short sentence (e.g. "Done — 12 findings recorded."). Do NOT list findings in your final message — the harness reads them from record_finding calls."""
 
 _AUDIT_SUBAGENT_PROMPT_NEXUS = """You are an expert regulatory compliance auditor assessing a single SOP for Meridian Health Technologies, an AI-powered healthcare fintech company.
 
@@ -357,7 +358,7 @@ Use `retrieve_regulation_nexus` to query the knowledge base. Nexus works best wi
 3. Query Nexus with specific, natural-language questions for each applicable regulation's requirements — cite structural locators when you know them. You may combine related regulations into a single cross-framework query.
 4. If you need the latest enforcement actions or guidance beyond the static corpus, use `search_web`
 5. Assess the SOP against each applicable requirement, preserving inline citations ([c1], [c2]) from Nexus in your reasoning. After completing each assessment, IMMEDIATELY call `record_finding` with the result — do not wait until the end.
-6. After all requirements are assessed, output a brief summary of your findings (counts, key gaps).
+6. After all requirements are assessed, output a single short sentence summarizing counts (e.g. "Done — 12 findings recorded."). Do NOT repeat findings in your final message.
 
 ## Rules
 - Every `retrieve_regulation_nexus` and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
@@ -380,7 +381,8 @@ For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fi
 - remediation: specific recommendation (empty string if compliant)
 - reasoning: 2-3 sentences citing the specific regulation section
 
-Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output. Your final text message should be a brief summary (e.g. "Assessed 15 requirements: 8 compliant, 4 partial, 3 gaps")."""
+Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output.
+After calling `record_finding` for every requirement, your FINAL message should be a single short sentence (e.g. "Done — 12 findings recorded."). Do NOT list findings in your final message — the harness reads them from record_finding calls."""
 
 
 _AUDIT_SUBAGENT_PROMPT_NEXUS_RAG = """You are an expert regulatory compliance auditor assessing a single SOP for Meridian Health Technologies, an AI-powered healthcare fintech company.
@@ -418,7 +420,7 @@ Optionally filter by regulation name for precision.
 3. Query for each applicable regulation's requirements using `retrieve_regulation_nexus` and/or `retrieve_regulation_rag`
 4. If you need the latest enforcement actions or guidance beyond the static corpus, use `search_web`
 5. Assess the SOP against each applicable requirement, preserving inline citations ([c1], [c2]) from Nexus in your reasoning. After completing each assessment, IMMEDIATELY call `record_finding` with the result — do not wait until the end.
-6. After all requirements are assessed, output a brief summary of your findings (counts, key gaps).
+6. After all requirements are assessed, output a single short sentence summarizing counts (e.g. "Done — 12 findings recorded."). Do NOT repeat findings in your final message.
 
 ## Rules
 - Every `retrieve_regulation_nexus`, `retrieve_regulation_rag`, and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
@@ -441,7 +443,8 @@ For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fi
 - remediation: specific recommendation (empty string if compliant)
 - reasoning: 2-3 sentences citing the specific regulation section
 
-Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output. Your final text message should be a brief summary (e.g. "Assessed 15 requirements: 8 compliant, 4 partial, 3 gaps")."""
+Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output.
+After calling `record_finding` for every requirement, your FINAL message should be a single short sentence (e.g. "Done — 12 findings recorded."). Do NOT list findings in your final message — the harness reads them from record_finding calls."""
 
 
 def _build_subagent_model(provider: str = "nebius", model_name: str | None = None):
@@ -600,10 +603,14 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
     truncated = False
     for msg in reversed(messages):
         if getattr(msg, "type", "") == "ai":
-            rm = getattr(msg, "response_metadata", {})
-            if rm.get("finish_reason") == "length":
+            rm = getattr(msg, "response_metadata", None) or {}
+            if isinstance(rm, dict) and rm.get("finish_reason") == "length":
                 truncated = True
                 logger.warning("Sub-agent for %s was truncated (finish_reason=length)", actual_id)
+            content = getattr(msg, "content", None)
+            if not truncated and (content is None or content == ""):
+                truncated = True
+                logger.warning("Sub-agent for %s produced empty final message (likely truncated)", actual_id)
             break
 
     # Phase 1: Use tool-recorded findings if available
@@ -711,7 +718,12 @@ def audit_single_sop(sop_id: str) -> str:
 
 
 def _is_retryable(result: str) -> bool:
-    """Check if a single-SOP audit result indicates a retryable failure."""
+    """Check if a single-SOP audit result indicates a retryable failure.
+
+    Truncation is NOT retryable — it will just truncate again.
+    """
+    if "response was truncated" in result:
+        return False
     return (
         "FAILED" in result
         or "sub-agent did not produce structured findings" in result
