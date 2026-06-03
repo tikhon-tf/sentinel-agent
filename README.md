@@ -205,9 +205,36 @@ Historical editions are included for temporal analysis (e.g., HIPAA 2017/2020/20
 
 27 additional external standards referenced by SOPs are also available in `data/regulations/`: 11 NIST special publications (SP 800-53, 800-88, 800-61, CSF 2.0, 800-63B, 800-207, 800-34, 1270, Privacy Framework, 800-161, 800-218), 5 FDA/eCFR titles (21 CFR Parts 820, 11, 807 + AI/ML SaMD + CDS guidance), 5 EU directives (MDR, SCCs, ePrivacy, AMLD4, Funds Transfer), 2 OWASP guides (Top 10, API Security), and 4 financial laws (BSA, ECOA/Reg B, FCRA, PCI DSS). See `data/regulations/README.md` for full inventory.
 
-## SOP Dataset
+## Data
+
+### SOPs
+
+Located in `data/sops/`, organized by business unit subdirectory (e.g. `data/sops/01_ai_ml_engineering/sop_aiml_001_*.md`). Each SOP is a Markdown file with YAML frontmatter containing `sop_id`, `title`, `business_unit`, and `regulations` fields.
 
 200 SOPs across 10 business units (AI/ML Engineering, Clinical AI Products, Customer Operations, Data Governance & Privacy, Financial Services, Human Resources, IT Operations, Information Security, Legal & Compliance, Product & Engineering), 20 SOPs each.
+
+To regenerate SOPs (requires `NEBIUS_API_KEY`):
+
+```bash
+python3 scripts/generate_sops.py                    # Generate all SOPs
+python3 scripts/generate_sops.py --resume            # Skip already-generated files
+python3 scripts/generate_sops.py --concurrency 5     # Parallel API calls
+python3 scripts/generate_sops.py --sop SOP-AIML-001  # Generate a single SOP
+```
+
+SOP definitions and metadata are in `scripts/sop_taxonomy.py`. The company profile used for generation is in `data/company_profile.md`.
+
+### Regulations
+
+Located in `data/regulations/` as `.txt`, `.md`, `.pdf`, and `.xml` files. See `data/regulations/README.md` for the full inventory and sources. PDFs are extracted to `.txt` via `scripts/extract_pdf_text.py` (pymupdf) before ingestion.
+
+To ingest into Pinecone:
+
+```bash
+make ingest-regulations   # Chunks, embeds, upserts into Pinecone namespace "regulations"
+```
+
+### Compliance matrix
 
 420 ground-truth (SOP, regulation) pairs in `data/compliance_matrix_revised.json` across 6 regulations:
 
