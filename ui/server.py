@@ -95,12 +95,12 @@ PARALLEL_AGENTS = [
     {"key": "naive",  "label": "Naive RAG",        "sublabel": "DeepSeek-V4-Pro",
      "tagline": "1 retrieval + 1 LLM call · no tools",
      "graph_id": "sentinel_naive", "model": MODEL},
-    {"key": "nebius", "label": "Agentic · Nebius", "sublabel": "DeepSeek-V4-Pro + Pinecone + Tavily",
-     "tagline": "ReAct · Pinecone + web · sub-agent fan-out",
-     "graph_id": "sentinel_optimized", "model": MODEL},
-    {"key": "openai", "label": "Agentic · OpenAI", "sublabel": "GPT-5.5 + Pinecone + Tavily",
+    {"key": "openai", "label": "Grounded agent", "sublabel": "GPT-5.5 + Tavily",
      "tagline": "ReAct · Pinecone + web · sub-agent fan-out",
      "graph_id": "sentinel_grounded", "model": OPENAI_MODEL},
+    {"key": "nemotron", "label": "Production agent", "sublabel": "Nemotron-Ultra + Tavily + LangSmith + Snowglobe",
+     "tagline": "ReAct · Pinecone + web · sub-agent fan-out",
+     "graph_id": "sentinel_nemotron", "model": "nvidia/Nemotron-3-Ultra-550b-a55b"},
 ]
 
 app = FastAPI(title="Sentinel UI", version="0.1.0")

@@ -1,13 +1,14 @@
 // Forge-styled Compare screen — 3-way race on a single random question.
 
 const AGENT_PRICING = {
-  "deepseek-ai/DeepSeek-V4-Pro": { input: 1.75, output: 3.50 },
-  "gpt-5.5":                      { input: 5.00, output: 30.00 },
+  "deepseek-ai/DeepSeek-V4-Pro":       { input: 1.75, output: 3.50 },
+  "gpt-5.5":                            { input: 5.00, output: 30.00 },
+  "nvidia/Nemotron-3-Ultra-550b-a55b":  { input: 1.00, output: 3.00 },
 };
 const AGENT_CONFIG = {
-  naive:  { label: "Naive RAG",        sublabel: "DeepSeek-V4-Pro",                            tagline: "1 retrieval + 1 LLM call · no tools",                     model: "deepseek-ai/DeepSeek-V4-Pro" },
-  nebius: { label: "Agentic · Nebius", sublabel: "DeepSeek-V4-Pro + Pinecone + Tavily",       tagline: "ReAct · Pinecone + web · sub-agent fan-out",              model: "deepseek-ai/DeepSeek-V4-Pro" },
-  openai: { label: "Agentic · OpenAI", sublabel: "GPT-5.5 + Pinecone + Tavily",                tagline: "ReAct · Pinecone + web · sub-agent fan-out",              model: "gpt-5.5" },
+  naive:    { label: "Naive RAG",         sublabel: "DeepSeek-V4-Pro",                                    tagline: "1 retrieval + 1 LLM call · no tools",        model: "deepseek-ai/DeepSeek-V4-Pro" },
+  openai:   { label: "Grounded agent",    sublabel: "GPT-5.5 + Tavily",                                  tagline: "ReAct · Pinecone + web · sub-agent fan-out", model: "gpt-5.5" },
+  nemotron: { label: "Production agent",  sublabel: "Nemotron-Ultra + Tavily + LangSmith + Snowglobe",   tagline: "ReAct · Pinecone + web · sub-agent fan-out", model: "nvidia/Nemotron-3-Ultra-550b-a55b" },
 };
 
 const blankAgentState = (key) => ({
@@ -33,7 +34,7 @@ const CompareScreen = () => {
   const [question, setQuestion] = React.useState(null);
   const [agents, setAgents] = React.useState(() => ({
     naive:  blankAgentState("naive"),
-    nebius: blankAgentState("nebius"),
+    nemotron: blankAgentState("nemotron"),
     openai: blankAgentState("openai"),
   }));
   // Increment to start a new race. Race is *not* auto-triggered on question
@@ -66,7 +67,7 @@ const CompareScreen = () => {
     const now = Date.now();
     setAgents({
       naive:  { ...blankAgentState("naive"),  status: "running", startedAt: now },
-      nebius: { ...blankAgentState("nebius"), status: "running", startedAt: now },
+      nemotron: { ...blankAgentState("nemotron"), status: "running", startedAt: now },
       openai: { ...blankAgentState("openai"), status: "running", startedAt: now },
     });
 
@@ -123,7 +124,7 @@ const CompareScreen = () => {
     return () => ctrl.abort();
   }, [runToken]);
 
-  const anyRunning = ["naive", "nebius", "openai"].some(k => agents[k].status === "running");
+  const anyRunning = ["naive", "openai", "nemotron"].some(k => agents[k].status === "running");
 
   // Force a re-render every 200ms while any agent is running so the elapsed
   // counters keep ticking even when no SSE event has arrived in a while
@@ -141,7 +142,7 @@ const CompareScreen = () => {
     setQuestion(q2);
     setAgents({
       naive:  blankAgentState("naive"),
-      nebius: blankAgentState("nebius"),
+      nemotron: blankAgentState("nemotron"),
       openai: blankAgentState("openai"),
     });
   };
@@ -152,7 +153,7 @@ const CompareScreen = () => {
 
   // Build the agent objects in the shape AgentSlab expects.
   const expectedLevel = question?.expected_compliance_level || null;
-  const renderAgents = ["naive", "nebius", "openai"].map(key => {
+  const renderAgents = ["naive", "openai", "nemotron"].map(key => {
     const a = agents[key];
     const elapsed = a.startedAt ? ((a.endedAt || Date.now()) - a.startedAt) / 1000 : 0;
     const px = AGENT_PRICING[a.model] || { input: 0, output: 0 };
