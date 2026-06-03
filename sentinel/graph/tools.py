@@ -15,7 +15,7 @@ MAX_RETRIES = 4
 RETRY_BACKOFF = 5
 RATE_LIMIT_BACKOFF = 30
 
-from sentinel.config import NEXUS_API_KEY, PINECONE_API_KEY, TAVILY_API_KEY
+from sentinel.config import PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
 
 _audit_results: dict = {"findings": [], "cell_metrics": [], "total_input_tokens": 0, "total_output_tokens": 0}
@@ -189,7 +189,7 @@ def search_web(query: str = "") -> str:
         return f"Web search failed: {e}"
 
 
-def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily: bool = True, retrieval: str = "rag"):
+def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily: bool = True):
     """Build the tool set for the audit sub-agent.
 
     Returns (tools, recorded_findings) where recorded_findings is a mutable
@@ -254,26 +254,6 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
             return f"RAG retrieval failed: {e}"
 
     @tool
-    def retrieve_regulation_nexus(query: str = "", regulation: str = "") -> str:
-        """Query Pinecone Nexus for regulation requirements using natural-language questions. Ask things like 'What does HIPAA require for access controls?' or 'What are the SOC 2 CC6.1 requirements for logical access?'. Optionally specify a regulation name to focus the query. The `query` argument is required and must be a non-empty search phrase."""
-        if _retrieval_calls["count"] >= _retrieval_calls["limit"]:
-            return f"Retrieval limit reached ({_retrieval_calls['limit']} calls). Record your findings now with record_finding and finish the audit."
-        _retrieval_calls["count"] += 1
-        if not isinstance(query, str) or not query.strip():
-            return "Missing or empty 'query' argument — please re-issue with a specific search phrase"
-        if not NEXUS_API_KEY:
-            return "Nexus not configured — set NEXUS_API_KEY."
-        try:
-            from sentinel.retrieval.nexus import query_nexus, format_nexus_response
-            ask = f"{regulation}: {query}" if regulation else query
-            data = query_nexus(ask)
-            if data.get("state") != "completed":
-                return f"Nexus query failed: {data.get('state', 'unknown')}"
-            return format_nexus_response(data)
-        except Exception as e:
-            return f"Nexus retrieval failed: {e}"
-
-    @tool
     def read_sop() -> str:
         """Read the full SOP text being audited. Call this to review the SOP content before or during your assessment."""
         return f"SOP: {sop_id} — {sop_title}\n\n{sop_text}"
@@ -288,9 +268,7 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
     _search_web_capped.name = "search_web"
 
     tools = [read_sop, record_finding]
-    if retrieval in ("nexus", "both") and NEXUS_API_KEY:
-        tools.insert(0, retrieve_regulation_nexus)
-    if retrieval in ("rag", "both") and PINECONE_API_KEY:
+    if PINECONE_API_KEY:
         tools.insert(0, retrieve_regulation_rag)
     if use_tavily:
         tools.append(_search_web_capped)
@@ -333,137 +311,6 @@ For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fi
 
 Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output.
 After calling `record_finding` for every requirement, your FINAL message should be a single short sentence (e.g. "Done — 12 findings recorded."). Do NOT list findings in your final message — the harness reads them from record_finding calls."""
-
-_AUDIT_SUBAGENT_PROMPT_NEXUS = """You are an expert regulatory compliance auditor assessing a single SOP for Meridian Health Technologies, an AI-powered healthcare fintech company.
-
-## Your Task
-Audit the SOP against ALL applicable regulations. You must determine which regulations are relevant based on the SOP's content and business unit.
-
-## Knowledge base
-You have access to a Nexus knowledge base containing 50 regulatory source documents covering:
-- **Core frameworks**: HIPAA (45 CFR Parts 160/162/164, multiple editions), SOC 2 (Trust Services Criteria + Description Criteria), GDPR (full article-by-article), EU AI Act (current + 2021 proposal), NIST AI RMF (AI 100-1 + AI 600-1 GenAI Profile), SR 11-7/SR 26-2 (Model Risk Management), California SB 53/SB 942/AB 853
-- **NIST publications**: CSF 2.0, SP 800-53 Rev 5, 800-88, 800-61, 800-63B, 800-207, 800-34, 800-161, 800-218, SP 1270, Privacy Framework 1.0
-- **Healthcare/FDA**: 21 CFR Part 11 (electronic records), Part 807, Part 820 (QSR), AI/ML SaMD framework, Clinical Decision Support guidance, EU MDR 2017/745
-- **Financial/security**: BSA, ECOA (Reg B), FCRA, PCI DSS, AMLD4, OWASP Top 10, OWASP API Security Top 10
-
-Nexus returns grounded, cited answers with inline citation markers ([c1], [c2], etc.) referencing the source documents. Each answer is synthesized from the actual regulation text — not a summary.
-
-## How to query Nexus effectively
-Use `retrieve_regulation_nexus` to query the knowledge base. Nexus works best with:
-
-1. **Natural-language questions, not keyword searches.**
-   - Good: "What does 45 CFR 164.312(a) require for access control to electronic PHI?"
-   - Good: "Under SOC 2 CC6.1, what controls must an entity implement for logical access?"
-   - Bad: "HIPAA access control requirements" (too vague for Nexus)
-
-2. **Include structural locators** (article numbers, CFR sections, criterion codes) when you know them — this produces the most precise answers.
-   - "What exactly does GDPR Article 32 require for security of processing?"
-   - "What does SOC 2 Common Criterion CC6.1 address?"
-
-3. **Ask narrow, focused questions.** One specific requirement per query outperforms broad requests. If you need to check multiple sections of a regulation, make separate calls.
-   - Instead of: "List all HIPAA Security Rule safeguards"
-   - Prefer: "What administrative safeguards does 45 CFR 164.308 require?" + "What technical safeguards does 45 CFR 164.312 require?"
-
-4. **Cross-framework synthesis works in a single query.** When an SOP touches multiple regulations, you can ask Nexus to compare requirements across frameworks.
-   - "Compare breach notification requirements under HIPAA 45 CFR 164.404 and GDPR Article 33. Cite each."
-   - "What access control requirements apply under both HIPAA 164.312(a) and SOC 2 CC6.1?"
-
-5. **Temporal/edition queries are supported.** The corpus includes multiple editions (HIPAA 2017/2020/2024, SR 11-7 2011 vs SR 26-2 2026). Ask about differences when relevant.
-
-## Process
-1. Call `read_sop` to review the SOP content
-2. Determine which regulations apply based on the SOP's subject matter and business unit
-3. Query Nexus with specific, natural-language questions for each applicable regulation's requirements — cite structural locators when you know them. You may combine related regulations into a single cross-framework query.
-4. If you need the latest enforcement actions or guidance beyond the static corpus, use `search_web`
-5. Assess the SOP against each applicable requirement, preserving inline citations ([c1], [c2]) from Nexus in your reasoning. After completing each assessment, IMMEDIATELY call `record_finding` with the result — do not wait until the end.
-6. After all requirements are assessed, output a single short sentence summarizing counts (e.g. "Done — 12 findings recorded."). Do NOT repeat findings in your final message.
-
-## Rules
-- Every `retrieve_regulation_nexus` and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
-- Be thorough: check EVERY regulation that could apply — including supplementary frameworks (NIST SP 800-series, OWASP, PCI DSS, FDA/21 CFR) when the SOP's subject matter warrants it
-- Be specific: cite the exact regulatory section returned by Nexus (preserve [c1]/[c2] markers)
-- Be efficient: you have a budget of ~30 retrieval calls total. Use 1–3 targeted Nexus queries per regulation. Once you have enough context, record your findings and move on.
-- Do NOT downgrade severity for aspirational language
-- Skip regulations clearly irrelevant to this SOP's scope
-- If a retrieval tool call fails (returns an error), do NOT cite that regulation's requirements from memory. Only record findings based on text you successfully retrieved. State that retrieval failed in your summary.
-
-## CRITICAL: Output Method
-For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fields:
-- requirement_id: short identifier (e.g. "HIPAA-164.312(a)", "CC6.1", "GDPR-Art.32")
-- requirement_title: brief title
-- regulation: which regulation (e.g. "HIPAA", "SOC 2", "GDPR")
-- compliance_level: "compliant" | "partial" | "gap"
-- severity: "critical" | "high" | "medium" | "low" | "info"
-- evidence_quote: exact quote from the SOP (empty string if none)
-- gap_description: what is missing (empty string if compliant)
-- remediation: specific recommendation (empty string if compliant)
-- reasoning: 2-3 sentences citing the specific regulation section
-
-Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output.
-After calling `record_finding` for every requirement, your FINAL message should be a single short sentence (e.g. "Done — 12 findings recorded."). Do NOT list findings in your final message — the harness reads them from record_finding calls."""
-
-
-_AUDIT_SUBAGENT_PROMPT_NEXUS_RAG = """You are an expert regulatory compliance auditor assessing a single SOP for Meridian Health Technologies, an AI-powered healthcare fintech company.
-
-## Your Task
-Audit the SOP against ALL applicable regulations. You must determine which regulations are relevant based on the SOP's content and business unit.
-
-## Knowledge base — two retrieval tools
-You have two regulation retrieval tools. Use whichever is most effective for each query, or both for cross-validation:
-
-### `retrieve_regulation_nexus` (Nexus KnowQL — grounded answers)
-Nexus contains 50 regulatory source documents and returns grounded, cited answers with inline citation markers ([c1], [c2], etc.). Best for:
-- Natural-language questions: "What does 45 CFR 164.312(a) require for access control to electronic PHI?"
-- Cross-framework synthesis: "Compare breach notification requirements under HIPAA 45 CFR 164.404 and GDPR Article 33."
-- Questions that include structural locators (article numbers, CFR sections, criterion codes)
-
-Corpus covers: HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7/SR 26-2, California SB 53/SB 942/AB 853, NIST SP 800-series, FDA/21 CFR, OWASP, PCI DSS, BSA, ECOA, FCRA, EU MDR, EU SCCs, EU ePrivacy, AMLD4.
-
-### `retrieve_regulation_rag` (Pinecone RAG — semantic search)
-Searches chunked regulation text via vector similarity. Best for:
-- Keyword-oriented searches: "HIPAA encryption key management HSM technical safeguards"
-- Broad discovery: finding which sections mention a concept when you don't know the exact provision
-- Retrieving raw regulation text chunks with section metadata
-
-Optionally filter by regulation name for precision.
-
-### When to use which
-- **Start with Nexus** for most queries — it returns synthesized, cited answers
-- **Use RAG** when Nexus returns sparse results, or when you want the raw text of a specific regulation section
-- **Cross-validate** critical findings by querying both tools to confirm coverage
-
-## Process
-1. Call `read_sop` to review the SOP content
-2. Determine which regulations apply based on the SOP's subject matter and business unit
-3. Query for each applicable regulation's requirements using `retrieve_regulation_nexus` and/or `retrieve_regulation_rag`
-4. If you need the latest enforcement actions or guidance beyond the static corpus, use `search_web`
-5. Assess the SOP against each applicable requirement, preserving inline citations ([c1], [c2]) from Nexus in your reasoning. After completing each assessment, IMMEDIATELY call `record_finding` with the result — do not wait until the end.
-6. After all requirements are assessed, output a single short sentence summarizing counts (e.g. "Done — 12 findings recorded."). Do NOT repeat findings in your final message.
-
-## Rules
-- Every `retrieve_regulation_nexus`, `retrieve_regulation_rag`, and `search_web` call MUST include a non-empty `query` argument. Never emit a tool call with empty `{}` args. When issuing parallel tool calls, double-check that each call's argument dict contains a concrete `query` string.
-- Be thorough: check EVERY regulation that could apply — including supplementary frameworks (NIST SP 800-series, OWASP, PCI DSS, FDA/21 CFR) when the SOP's subject matter warrants it
-- Be specific: cite the exact regulatory section returned by Nexus (preserve [c1]/[c2] markers) or RAG (section metadata)
-- Be efficient: you have a budget of ~30 retrieval calls total. Use 1–3 targeted queries per regulation. Once you have enough context, record your findings and move on.
-- Do NOT downgrade severity for aspirational language
-- Skip regulations clearly irrelevant to this SOP's scope
-- If a retrieval tool call fails (returns an error), do NOT cite that regulation's requirements from memory. Only record findings based on text you successfully retrieved. State that retrieval failed in your summary.
-
-## CRITICAL: Output Method
-For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fields:
-- requirement_id: short identifier (e.g. "HIPAA-164.312(a)", "CC6.1", "GDPR-Art.32")
-- requirement_title: brief title
-- regulation: which regulation (e.g. "HIPAA", "SOC 2", "GDPR")
-- compliance_level: "compliant" | "partial" | "gap"
-- severity: "critical" | "high" | "medium" | "low" | "info"
-- evidence_quote: exact quote from the SOP (empty string if none)
-- gap_description: what is missing (empty string if compliant)
-- remediation: specific recommendation (empty string if compliant)
-- reasoning: 2-3 sentences citing the specific regulation section
-
-Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output.
-After calling `record_finding` for every requirement, your FINAL message should be a single short sentence (e.g. "Done — 12 findings recorded."). Do NOT list findings in your final message — the harness reads them from record_finding calls."""
-
 
 def _build_subagent_model(provider: str = "nebius", model_name: str | None = None):
     """Build the ChatOpenAI model for audit sub-agents.
@@ -555,7 +402,7 @@ def _parse_findings_json(messages) -> str | None:
     return None
 
 
-def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True, retrieval: str = "rag", model_name: str | None = None) -> str:
+def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True, model_name: str | None = None) -> str:
     """Core implementation for auditing a single SOP."""
     from langchain.agents import create_agent
     from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
@@ -574,19 +421,13 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
     business_unit = fm.get("business_unit", "")
     sop_text = "\n\n---\n\n".join(f"[{c.section}]\n{c.chunk_text}" for c in chunks)
 
-    subagent_tools, recorded_findings = _build_subagent_tools(sop_text, actual_id, title, use_tavily=use_tavily, retrieval=retrieval)
+    subagent_tools, recorded_findings = _build_subagent_tools(sop_text, actual_id, title, use_tavily=use_tavily)
     model = _build_subagent_model(provider, model_name=model_name)
 
-    if retrieval == "both":
-        prompt = _AUDIT_SUBAGENT_PROMPT_NEXUS_RAG
-    elif retrieval == "nexus":
-        prompt = _AUDIT_SUBAGENT_PROMPT_NEXUS
-    else:
-        prompt = _AUDIT_SUBAGENT_PROMPT_RAG
     subagent = create_agent(
         model=model,
         tools=subagent_tools,
-        system_prompt=prompt,
+        system_prompt=_AUDIT_SUBAGENT_PROMPT_RAG,
         name="sop_auditor",
     )
 
@@ -1045,20 +886,20 @@ def create_jira_tickets(findings_json: str) -> str:
     return "\n".join(lines)
 
 
-def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: str = "rag", model_name: str | None = None) -> list:
-    """Build the complete tool list for the agent, parameterized by provider, Tavily, retrieval backend ("rag", "nexus", or "both"), and optional model_name override."""
+def build_tools(provider: str = "nebius", use_tavily: bool = True, model_name: str | None = None) -> list:
+    """Build the complete tool list for the agent, parameterized by provider, Tavily, and optional model_name override."""
 
     @tool
     def _audit_single_sop(sop_id: str) -> str:
         """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base. Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
-        result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, retrieval=retrieval, model_name=model_name)
+        result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, model_name=model_name)
         for attempt in range(1, MAX_RETRIES + 1):
             if not _is_retryable(result):
                 break
             delay = _retry_delay(attempt, result)
             logger.info("Retry attempt %d/%d for %s (waiting %.0fs)", attempt, MAX_RETRIES, sop_id, delay)
             time.sleep(delay)
-            result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, retrieval=retrieval, model_name=model_name)
+            result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, model_name=model_name)
         return result
 
     @tool
@@ -1108,100 +949,16 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, retrieval: st
     _audit_sops.name = "audit_sops"
     _audit_all_sops.name = "audit_all_sops"
 
-    if retrieval in ("nexus", "both"):
-        @tool
-        def _list_regulations() -> str:
-            """List all regulations available in the Nexus knowledge base. Returns regulation names and document coverage."""
-            return (
-                "Nexus knowledge base (50 source documents):\n"
-                "\n"
-                "Core 9 frameworks:\n"
-                "- HIPAA: 45 CFR Parts 160, 162, 164 (current + 2017/2020/2024 editions)\n"
-                "- SOC 2: 2017 Trust Services Criteria, 2018 Description Criteria\n"
-                "- GDPR: Regulation (EU) 2016/679, full article-by-article text\n"
-                "- EU AI Act: Regulation (EU) 2024/1689 + 2021 Commission proposal\n"
-                "- NIST AI RMF: AI 100-1 (final + drafts), AI 600-1 GenAI Profile\n"
-                "- SR 11-7 / SR 26-2: Model Risk Management (2011 original + 2026 revised)\n"
-                "- California SB 53: Frontier AI Transparency\n"
-                "- California SB 942: AI Transparency Act\n"
-                "- California AB 853: AI Transparency Amendments\n"
-                "\n"
-                "NIST publications:\n"
-                "- NIST CSF 2.0: Cybersecurity Framework\n"
-                "- NIST Privacy Framework 1.0\n"
-                "- NIST SP 1270: AI Bias\n"
-                "- NIST SP 800-53 Rev 5: Security and Privacy Controls\n"
-                "- NIST SP 800-88 Rev 1: Media Sanitization\n"
-                "- NIST SP 800-61 Rev 2: Incident Handling\n"
-                "- NIST SP 800-63B: Digital Identity / Authentication\n"
-                "- NIST SP 800-207: Zero Trust Architecture\n"
-                "- NIST SP 800-34 Rev 1: Contingency Planning\n"
-                "- NIST SP 800-161 Rev 1: Supply Chain Risk Management\n"
-                "- NIST SP 800-218: Secure Software Development (SSDF)\n"
-                "\n"
-                "FDA / 21 CFR:\n"
-                "- FDA 21 CFR Part 11: Electronic Records & Signatures\n"
-                "- FDA 21 CFR Part 807: Premarket Notification (510k)\n"
-                "- FDA 21 CFR Part 820: Quality System Regulation\n"
-                "- FDA AI/ML SaMD: Software as Medical Device Framework\n"
-                "- FDA CDS Guidance: Clinical Decision Support\n"
-                "\n"
-                "EU directives & regulations:\n"
-                "- EU MDR: Medical Device Regulation 2017/745\n"
-                "- EU SCCs: Standard Contractual Clauses 2021/914\n"
-                "- EU ePrivacy Directive 2002/58\n"
-                "- EU AMLD4: Anti-Money Laundering Directive 2015/849\n"
-                "- EU Funds Transfer Regulation 2015/847\n"
-                "\n"
-                "OWASP:\n"
-                "- OWASP Top 10 (2021)\n"
-                "- OWASP API Security Top 10 (2023)\n"
-                "\n"
-                "Financial:\n"
-                "- BSA: Bank Secrecy Act (31 CFR Chapter X)\n"
-                "- ECOA Regulation B: Equal Credit Opportunity\n"
-                "- FCRA: Fair Credit Reporting Act\n"
-                "- PCI DSS: Payment Card Industry Data Security Standard"
-            )
-        _list_regulations.name = "list_regulations"
-
-        @tool
-        def _retrieve_regulation_text(query: str, regulation: str = "") -> str:
-            """Retrieve regulation text from the Nexus knowledge base for a given query. Optionally filter by regulation name (e.g. 'HIPAA', 'SOC 2', 'GDPR'). Returns a grounded answer with citations."""
-            if not NEXUS_API_KEY:
-                return "Nexus not configured — set NEXUS_API_KEY."
-            try:
-                from sentinel.retrieval.nexus import query_nexus, format_nexus_response
-                ask = f"{regulation}: {query}" if regulation else query
-                data = query_nexus(ask)
-                if data.get("state") != "completed":
-                    return f"Nexus query failed: {data.get('state', 'unknown')}"
-                return f"Nexus result:\n{format_nexus_response(data)}"
-            except Exception as e:
-                return f"Nexus retrieval failed: {e}"
-        _retrieve_regulation_text.name = "retrieve_regulation_text_tool"
-
-        tools = [
-            list_sops,
-            _list_regulations,
-            _retrieve_regulation_text,
-            _audit_single_sop,
-            _audit_sops,
-            _audit_all_sops,
-            create_jira_ticket,
-            create_jira_tickets,
-        ]
-    else:
-        tools = [
-            list_sops,
-            list_regulations,
-            retrieve_regulation_text_tool,
-            _audit_single_sop,
-            _audit_sops,
-            _audit_all_sops,
-            create_jira_ticket,
-            create_jira_tickets,
-        ]
+    tools = [
+        list_sops,
+        list_regulations,
+        retrieve_regulation_text_tool,
+        _audit_single_sop,
+        _audit_sops,
+        _audit_all_sops,
+        create_jira_ticket,
+        create_jira_tickets,
+    ]
     if use_tavily:
         tools.insert(3, search_web)
     return tools

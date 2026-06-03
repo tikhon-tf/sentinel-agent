@@ -31,11 +31,6 @@ OPENAI_MODEL = "gpt-5.5"
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", "")
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "sentinel-sops")
 
-NEXUS_API_KEY = os.environ.get("NEXUS_API_KEY", "")
-NEXUS_BASE_URL = os.environ.get("NEXUS_BASE_URL", "https://prod.nexus.pinecone.io")
-NEXUS_CONTEXT_SLUG = os.environ.get("NEXUS_CONTEXT_SLUG", "sentinel-regs-test")
-AGENT2_RETRIEVAL = os.environ.get("AGENT2_RETRIEVAL", "rag").lower()  # "rag", "nexus", or "both"
-
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
 JIRA_BASE_URL = os.environ.get("JIRA_BASE_URL", "")

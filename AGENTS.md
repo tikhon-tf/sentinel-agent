@@ -2,7 +2,7 @@
 
 ## What this project is
 
-Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs for a fictional healthcare fintech (Meridian Health Technologies) against 36 regulation frameworks. Regulation text is retrieved from Pinecone via agentic RAG, optionally supplemented by Pinecone Nexus KnowQL. Built for the Nebius Blueprint for Agents demo (Nebius Inflection, June 9, 2026).
+Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs for a fictional healthcare fintech (Meridian Health Technologies) against 36 regulation frameworks. Regulation text is retrieved from Pinecone via agentic RAG. Built for the Nebius Blueprint for Agents demo (Nebius Inflection, June 9, 2026).
 
 ## Quick reference
 
@@ -24,7 +24,7 @@ make deploy               # Deploy to LangGraph Cloud (remote Docker build)
 |----------|---------|-------|-------------|
 | `sentinel_prototype` | `agent_prototype()` | GPT-5.5 | Baseline: OpenAI, no Tavily |
 | `sentinel_grounded` | `agent_grounded()` | GPT-5.5 | OpenAI + Tavily web search |
-| `sentinel_optimized` | `agent_optimized()` | DeepSeek-V4-Pro | Nebius + Tavily, default retrieval via `AGENT2_RETRIEVAL` |
+| `sentinel_optimized` | `agent_optimized()` | DeepSeek-V4-Pro | Nebius + Tavily |
 | `sentinel_nemotron` | `agent_nemotron()` | Nemotron-3-Ultra-550b | Nebius testing endpoint + Tavily |
 | `sentinel_naive` | `agent_naive()` | DeepSeek-V4-Pro | Single retrieval + single LLM call, no tools |
 | `sentinel_kimi` | `agent_kimi()` | Kimi-K2.6 | Nebius + Tavily |
@@ -35,7 +35,7 @@ Each SOP is audited by a dedicated ReAct sub-agent with access to regulation ret
 
 Sub-agent tools:
 - `record_finding` — records a single finding into a closure-scoped list
-- `retrieve_regulation_rag` / `retrieve_regulation_nexus` — regulation knowledge base
+- `retrieve_regulation_rag` — regulation knowledge base (Pinecone semantic search)
 - `search_web` — Tavily web search (capped)
 - `read_sop` — full SOP text
 
@@ -61,7 +61,6 @@ Sub-agent tools:
 | `sentinel/config.py` | API keys, model names, pricing |
 | `sentinel/retrieval/local.py` | SOP loading and search |
 | `sentinel/retrieval/regulations.py` | Pinecone regulation retrieval |
-| `sentinel/retrieval/nexus.py` | Nexus KnowQL client (optional) |
 | `sentinel/retrieval/ingest.py` | SOP ingestion to Pinecone |
 | `sentinel/retrieval/ingest_regulations.py` | Regulation text ingestion (36 frameworks) |
 | `sentinel/actuation/jira_client.py` | Jira Cloud REST client |
@@ -75,7 +74,7 @@ Sub-agent tools:
 
 ## Environment variables
 
-Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY`, `PINECONE_API_KEY`, `NEXUS_API_KEY`, `TAVILY_API_KEY`, `LANGSMITH_API_KEY`, `NEBIUS_TESTING_API_KEY` (Nemotron), `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` / `JIRA_PROJECT_KEY`. See `.env.example`.
+Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY`, `PINECONE_API_KEY`, `TAVILY_API_KEY`, `LANGSMITH_API_KEY`, `NEBIUS_TESTING_API_KEY` (Nemotron), `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` / `JIRA_PROJECT_KEY`. See `.env.example`.
 
 ## Patterns to follow
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from langchain_openai import ChatOpenAI
 
-from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL, NEBIUS_TESTING_API_KEY, NEBIUS_TESTING_BASE_URL, AGENT2_RETRIEVAL, NEBIUS_MODELS
+from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL, NEBIUS_TESTING_API_KEY, NEBIUS_TESTING_BASE_URL, NEBIUS_MODELS
 from sentinel.graph.tools import (
     build_tools,
     get_audit_results,
@@ -104,9 +104,9 @@ def _build_react_agent(model, tools):
 
 
 def build_agent_optimized():
-    """Build the Optimized agent: Nebius DeepSeek + Tavily, retrieval via AGENT2_RETRIEVAL."""
+    """Build the Optimized agent: Nebius DeepSeek + Tavily."""
     model = _build_model()
-    tools = build_tools(provider="nebius", use_tavily=True, retrieval=AGENT2_RETRIEVAL)
+    tools = build_tools(provider="nebius", use_tavily=True)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -116,7 +116,7 @@ def build_agent_optimized():
 def build_agent_prototype():
     """Build the Prototype agent: OpenAI, no Tavily."""
     model = _build_model("openai")
-    tools = build_tools(provider="openai", use_tavily=False, retrieval="rag")
+    tools = build_tools(provider="openai", use_tavily=False)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -126,7 +126,7 @@ def build_agent_prototype():
 def build_agent_grounded():
     """Build the Grounded agent: OpenAI + Tavily web search."""
     model = _build_model("openai")
-    tools = build_tools(provider="openai", use_tavily=True, retrieval="rag")
+    tools = build_tools(provider="openai", use_tavily=True)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -144,7 +144,7 @@ def _build_agent_nebius_model(model_key: str):
         stream_usage=True,
         metadata={"ls_provider": "nebius", "ls_model_name": model_id},
     )
-    tools = build_tools(provider="nebius", use_tavily=True, retrieval="rag", model_name=model_id)
+    tools = build_tools(provider="nebius", use_tavily=True, model_name=model_id)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -162,7 +162,7 @@ def build_agent_nemotron():
         stream_usage=True,
         metadata={"ls_provider": "nebius", "ls_model_name": model_id},
     )
-    tools = build_tools(provider="nebius", use_tavily=True, retrieval="rag", model_name=model_id)
+    tools = build_tools(provider="nebius", use_tavily=True, model_name=model_id)
     try:
         return _build_deep_agent(model, tools)
     except ImportError:
@@ -206,17 +206,14 @@ def run_audit(
     provider: str = "nebius",
     run_name: str | None = None,
     tags: list[str] | None = None,
-    retrieval: str | None = None,
 ) -> dict:
     """Run the full Sentinel audit and return findings + metrics."""
     reset_audit_results()
     set_provider(provider)
 
     use_tavily = provider != "openai"
-    if retrieval is None:
-        retrieval = "rag" if provider == "openai" else AGENT2_RETRIEVAL
     model = _build_model(provider)
-    tools = build_tools(provider=provider, use_tavily=use_tavily, retrieval=retrieval)
+    tools = build_tools(provider=provider, use_tavily=use_tavily)
     try:
         agent = _build_deep_agent(model, tools)
     except ImportError:

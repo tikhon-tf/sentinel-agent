@@ -2,7 +2,7 @@
 
 ## What this project is
 
-Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs for a fictional healthcare fintech (Meridian Health Technologies) against 36 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853, BSA, ECOA, FCRA, PCI DSS, OWASP, FDA, NIST SP 800-series, EU AMLD4/ePrivacy/MDR/SCCs). Regulation text is retrieved from Pinecone via agentic RAG, optionally supplemented by Pinecone Nexus KnowQL (via `AGENT2_RETRIEVAL`). Built for the Nebius Blueprint for Agents demo (Nebius Inflection, June 9, 2026).
+Sentinel is a regulatory compliance auditor agent that audits 200 synthetic SOPs for a fictional healthcare fintech (Meridian Health Technologies) against 36 regulation frameworks (HIPAA, SOC 2, GDPR, EU AI Act, NIST AI RMF, SR 11-7, California SB 53/SB 942/AB 853, BSA, ECOA, FCRA, PCI DSS, OWASP, FDA, NIST SP 800-series, EU AMLD4/ePrivacy/MDR/SCCs). Regulation text is retrieved from Pinecone via agentic RAG. Built for the Nebius Blueprint for Agents demo (Nebius Inflection, June 9, 2026).
 
 ## Quick reference
 
@@ -19,14 +19,9 @@ make deploy               # Deploy to LangGraph Cloud (remote Docker build)
 ## Architecture decisions
 
 ### Regulation knowledge base (not hardcoded clauses)
-Regulation texts live in `data/regulations/` as `.txt` and `.md` files. Two retrieval backends are supported:
-
-**Pinecone RAG:** Regulation texts are chunked, embedded (Qwen3-Embedding-8B on Nebius, 4096 dimensions), and stored in Pinecone namespace `regulations`. Sub-agents retrieve raw text chunks via semantic search with metadata filtering by regulation name. Multiple retrieval calls per regulation, per SOP.
-
-**Nexus KnowQL (optional, via `AGENT2_RETRIEVAL=nexus` or `both`):** The same regulation corpus is pre-loaded into a Pinecone Nexus context (`sentinel-regs-test`, 50 source documents). Sub-agents query the Nexus `/knowql` endpoint with natural-language questions and receive grounded, cited answers in one shot. Nexus handles retrieval, synthesis, and citation internally — no embedding or chunk management needed on our side. Auth is JWT-based (exchange `NEXUS_API_KEY` for a short-lived token, cached ~30 days). The Nexus corpus is a superset of the Pinecone index — it also includes NIST SP 800-series, OWASP, FDA/21 CFR, PCI DSS, and EU directives.
+Regulation texts live in `data/regulations/` as `.txt` and `.md` files. Regulation texts are chunked, embedded (Qwen3-Embedding-8B on Nebius, 4096 dimensions), and stored in Pinecone namespace `regulations`. Sub-agents retrieve raw text chunks via semantic search with metadata filtering by regulation name. Multiple retrieval calls per regulation, per SOP.
 
 Key modules:
-- `sentinel/retrieval/nexus.py` — Nexus KnowQL client: JWT auth with thread-safe caching, `query_nexus()`, retry on 401/429/409, `format_nexus_response()`
 - `sentinel/retrieval/regulations.py` — Pinecone regulation text retrieval: `retrieve_regulation_text()`, `retrieve_for_sop()`, `format_regulation_context()`
 - `sentinel/retrieval/ingest_regulations.py` — chunks .txt/.md files, embeds, upserts into Pinecone
 - `scripts/extract_pdf_text.py` — extracts text from regulation PDFs (pymupdf) for ingestion
@@ -34,29 +29,25 @@ Key modules:
 ### Sub-agent architecture (not single-shot LLM calls)
 Each SOP is audited by a dedicated ReAct sub-agent (`audit_single_sop` in `tools.py`) built with `langchain.agents.create_agent`. The sub-agent has its own tool loop with access to a regulation knowledge base, Tavily (web search), the SOP text, and a `record_finding` tool. It determines which regulations apply based on the SOP's content and business unit, queries the knowledge base for each applicable regulation, and calls `record_finding` for each assessed requirement. `audit_all_sops` fans out 200 sub-agents through a `ThreadPoolExecutor` (configurable via `MAX_AUDIT_WORKERS`). Do not revert to single-shot LLM calls.
 
-Sub-agent tools (built per-invocation in `_build_subagent_tools(retrieval=...)`):
+Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 - `record_finding` — records a single audit finding into a closure-scoped list; called per requirement as the sub-agent assesses it, so partial progress survives truncation
-- `retrieve_regulation_rag` (when `retrieval` is `"rag"` or `"both"`) — semantic search on Pinecone `regulations` namespace with optional regulation filter
-- `retrieve_regulation_nexus` (when `retrieval` is `"nexus"` or `"both"`) — Nexus KnowQL natural-language query returning grounded, cited answers
+- `retrieve_regulation_rag` — semantic search on Pinecone `regulations` namespace with optional regulation filter
 - `search_web` — Tavily advanced search for latest guidance/enforcement
 - `read_sop` — returns the full SOP text (closure over the loaded content)
 
 Finding extraction uses two phases: (1) tool-recorded findings from `record_finding` calls, (2) JSON parsing from the final message as a backwards-compatible fallback. Truncation is detected via `finish_reason=length` on the last AI message and surfaced explicitly. Cell metrics include `findings_source` ("tool"/"json"/"none") and `truncated` flag.
-
-The sub-agent system prompt is selected based on `retrieval`: `_AUDIT_SUBAGENT_PROMPT_RAG` (keyword-style queries, multiple retrieval calls), `_AUDIT_SUBAGENT_PROMPT_NEXUS` (natural-language questions, structural locators, cross-framework synthesis, awareness of the 50-doc Nexus corpus), or `_AUDIT_SUBAGENT_PROMPT_NEXUS_RAG` (both tools with guidance on when to use each).
 
 Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Nebius 504 timeouts) return a `"FAILED: ..."` string so the retry loop in `_audit_single_sop` can re-attempt. If findings were already recorded via `record_finding` before the error, those findings are preserved.
 
 ### Multi-model support
 - **Prototype** (`sentinel_prototype`): GPT-5.5 via OpenAI API — no Tavily
 - **Grounded** (`sentinel_grounded`): GPT-5.5 via OpenAI API + Tavily web search
-- **Optimized** (`sentinel_optimized`): DeepSeek-V4-Pro on Nebius (`https://api.tokenfactory.nebius.com/v1/`) + Tavily, retrieval via `AGENT2_RETRIEVAL`
+- **Optimized** (`sentinel_optimized`): DeepSeek-V4-Pro on Nebius (`https://api.tokenfactory.nebius.com/v1/`) + Tavily
 - **Production** (`sentinel_nemotron`): Nemotron-3-Ultra-550b on Nebius testing endpoint + Tavily
 - **Additional**: Kimi-K2.6 (`sentinel_kimi`), GLM-5.1 (`sentinel_glm`) via `_build_agent_nebius_model()`
 - `model_name` is threaded through `build_tools()` → `_audit_single_sop_impl()` → `_build_subagent_model()` so sub-agents use the same model as the outer agent
 - Only DeepSeek models set `max_tokens` on sub-agents — other Nebius models reject `max_completion_tokens`
 - Provider switching is handled by `set_provider()` in `llm.py` and `_build_model()` in `agent.py`
-- Retrieval backend is selected by the `retrieval` parameter (from `AGENT2_RETRIEVAL` env var) threaded through `build_tools()` → `_audit_single_sop_impl()` → `_build_subagent_tools()`. Values: `"rag"` (Pinecone RAG, default), `"nexus"` (Nexus KnowQL), `"both"` (both tools available to sub-agents)
 
 ### Recursion limits
 - **Outer agent**: 25 graph nodes — set in `run_audit()` config and via `LANGGRAPH_DEFAULT_RECURSION_LIMIT` env var for cloud deployment. Typical runs use ~11 nodes.
@@ -69,19 +60,18 @@ Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Neb
 When an audit finding is a gap or partial at medium+ severity, the `create_jira_ticket` tool files a single ticket and `create_jira_tickets` files multiple tickets in batch (accepts a JSON array string). Both are available to the outer Sentinel agent. The Jira client (`sentinel/actuation/jira_client.py`) uses the REST API v3 with basic auth (email + API token). Ticket description is rendered in Atlassian Document Format (ADF). Labels include `sentinel`, `compliance-finding`, severity, regulation slug, and SOP slug. Configuration via `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`, and optionally `JIRA_DEFAULT_ISSUE_TYPE` (default: Task).
 
 ### Lazy imports for cloud compatibility
-`tavily` (in sub-agent tools in `tools.py`), `pinecone` (in `retrieval/ingest.py`, `retrieval/regulations.py`, `tools.py`), `openai` (in `retrieval/ingest.py`), and `httpx` (in `actuation/jira_client.py`, `retrieval/nexus.py`) are imported lazily inside functions, not at module level. This prevents import failures in the LangGraph Cloud container where these packages may not be installed or configured. Do not move these to top-level imports.
+`tavily` (in sub-agent tools in `tools.py`), `pinecone` (in `retrieval/ingest.py`, `retrieval/regulations.py`, `tools.py`), `openai` (in `retrieval/ingest.py`), and `httpx` (in `actuation/jira_client.py`) are imported lazily inside functions, not at module level. This prevents import failures in the LangGraph Cloud container where these packages may not be installed or configured. Do not move these to top-level imports.
 
 ## Key modules
 
 | Module | Purpose |
 |--------|---------|
 | `sentinel/graph/agent.py` | Agent builders (`agent_prototype`, `agent_grounded`, `agent_optimized`, `agent_nemotron`), `run_audit()` entry point |
-| `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_single_sop` (sub-agent), `audit_sops`, `audit_all_sops`, `list_sops`, `list_regulations`, `retrieve_regulation_text_tool`, `create_jira_ticket`, `create_jira_tickets`; sub-agent builder `_build_subagent_tools(retrieval=...)` with `record_finding` tool; three prompts `_AUDIT_SUBAGENT_PROMPT_RAG` / `_AUDIT_SUBAGENT_PROMPT_NEXUS` / `_AUDIT_SUBAGENT_PROMPT_NEXUS_RAG` |
+| `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_single_sop` (sub-agent), `audit_sops`, `audit_all_sops`, `list_sops`, `list_regulations`, `retrieve_regulation_text_tool`, `create_jira_ticket`, `create_jira_tickets`; sub-agent builder `_build_subagent_tools()` with `record_finding` tool |
 | `sentinel/llm.py` | OpenAI client provider switching (`set_provider()`, `get_client()`, `get_model()`) |
 | `sentinel/models.py` | Pydantic models (`AuditFinding`, `SOPChunk`, `AuditMetrics`), enums (`ComplianceLevel`, `Severity`) |
 | `sentinel/config.py` | API keys, model names, paths, pricing, business unit list |
 | `sentinel/retrieval/local.py` | SOP loading: `list_all_sops()`, `load_sop_by_id()`, `load_sop_chunks()` |
-| `sentinel/retrieval/nexus.py` | Nexus KnowQL client (optional, via `AGENT2_RETRIEVAL`): `query_nexus()`, `format_nexus_response()`, JWT auth with thread-safe caching, 401/429/409 retry |
 | `sentinel/retrieval/regulations.py` | Pinecone regulation text retrieval: `retrieve_regulation_text()`, `retrieve_for_sop()`, `format_regulation_context()` |
 | `sentinel/retrieval/ingest_regulations.py` | Regulation text chunker + Pinecone ingestion (`REGULATION_MAP`, `EDITION_PATTERNS`, edition metadata) |
 | `sentinel/retrieval/ingest.py` | SOP markdown parser (`parse_sop()`), chunker, Pinecone ingestion |
@@ -138,7 +128,7 @@ The `create_jira_ticket` (single) and `create_jira_tickets` (batch, accepts JSON
 
 ## Environment variables
 
-Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Prototype/Grounded agents), `PINECONE_API_KEY` (Pinecone RAG), `NEXUS_API_KEY` (Nexus KnowQL), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `NEBIUS_TESTING_API_KEY` (Nemotron/Production agent), `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` / `JIRA_PROJECT_KEY` (Jira actuation). `AGENT2_RETRIEVAL` controls the Optimized agent retrieval backend (`"rag"`, `"nexus"`, or `"both"`; default: `"rag"`). `LANGGRAPH_DEFAULT_RECURSION_LIMIT` sets the outer agent recursion limit for cloud deployment (default: 25). See `.env.example`.
+Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Prototype/Grounded agents), `PINECONE_API_KEY` (Pinecone RAG), `TAVILY_API_KEY` (grounding), `LANGSMITH_API_KEY` (tracing + cloud auth), `NEBIUS_TESTING_API_KEY` (Nemotron/Production agent), `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` / `JIRA_PROJECT_KEY` (Jira actuation). `LANGGRAPH_DEFAULT_RECURSION_LIMIT` sets the outer agent recursion limit for cloud deployment (default: 25). See `.env.example`.
 
 ## Patterns to follow
 
@@ -148,9 +138,7 @@ Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Prototype/Grounded agent
 - Audit results are accumulated in the module-level `_audit_results` dict in `tools.py`
 - SOP lookup (`load_sop_by_id`) supports exact ID, exact title, and fuzzy substring matching
 - The sub-agent determines which regulations apply — there is no predefined SOP-to-regulation mapping
-- Regulation retrieval uses metadata filters (`regulation`, `edition`) on the Pinecone `regulations` namespace; the Optimized agent's retrieval backend is controlled by `AGENT2_RETRIEVAL`
-- When `retrieval` is `"nexus"` or `"both"`, `list_regulations` returns a static corpus inventory (no API call); `retrieve_regulation_text_tool` calls Nexus; sub-agent gets `retrieve_regulation_nexus`. When `retrieval` is `"rag"`, both use Pinecone. When `"both"`, sub-agents get both `retrieve_regulation_rag` and `retrieve_regulation_nexus`
-- Nexus JWT is cached in a module-level `_token` with `threading.Lock` for thread safety across concurrent sub-agents; re-login on 401, backoff on 429 (honors `retry_after_seconds`) and 409 (exponential backoff)
+- Regulation retrieval uses metadata filters (`regulation`, `edition`) on the Pinecone `regulations` namespace
 - JSON parsing from sub-agent responses scans messages in reverse, strips markdown code fences, repairs truncated arrays, and maps unexpected enum values (`_COMPLIANCE_LEVEL_MAP`, `_SEVERITY_MAP`)
 - All `ChatOpenAI` instances must set `stream_usage=True` — without it, custom `base_url` providers (Nebius, OpenAI) don't send `stream_options: {include_usage: true}` and `usage_metadata` is always `None` in thread state
 - Token pricing is centralized in `PRICING` dict in `config.py`; the UI also embeds per-agent pricing in `AUDIT_AGENTS` for live cost display
