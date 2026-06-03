@@ -10,3 +10,4 @@ output/
 .idea/
 .mcp.json
 tmp.txt
+.codex/
