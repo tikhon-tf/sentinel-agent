@@ -1,10 +1,10 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "sentinel": "./sentinel/graph/agent.py:agent",
-    "sentinel_act0": "./sentinel/graph/naive_agent.py:agent_act0",
-    "sentinel_act1": "./sentinel/graph/agent.py:agent_act1",
-    "sentinel_act1_alt": "./sentinel/graph/agent.py:agent_act1_alt",
+    "sentinel_optimized": "./sentinel/graph/agent.py:agent_optimized",
+    "sentinel_naive": "./sentinel/graph/naive_agent.py:agent_naive",
+    "sentinel_prototype": "./sentinel/graph/agent.py:agent_prototype",
+    "sentinel_grounded": "./sentinel/graph/agent.py:agent_grounded",
     "sentinel_nemotron": "./sentinel/graph/agent.py:agent_nemotron",
     "sentinel_kimi": "./sentinel/graph/agent.py:agent_kimi",
     "sentinel_glm": "./sentinel/graph/agent.py:agent_glm"

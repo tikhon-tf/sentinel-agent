@@ -1,9 +1,9 @@
 // Forge-styled Audit screen — composer + Jira-sourced findings register
 
 const AUDIT_AGENTS = [
-  { key: "sentinel_prototype",      graph_id: "sentinel_act1",     label: "Prototype",   sublabel: "GPT-5.5",                                       pricing: { input: 5.00, output: 30.00 } },
-  { key: "sentinel_prototype_plus", graph_id: "sentinel_act1_alt", label: "Grounded",    sublabel: "GPT-5.5 + Tavily",                              pricing: { input: 5.00, output: 30.00 } },
-  { key: "sentinel_production",     graph_id: "sentinel",          label: "Optimized",   sublabel: "DeepSeek-V4-Pro + Tavily",                      pricing: { input: 1.75, output: 3.50 } },
+  { key: "sentinel_prototype",      graph_id: "sentinel_prototype",     label: "Prototype",   sublabel: "GPT-5.5",                                       pricing: { input: 5.00, output: 30.00 } },
+  { key: "sentinel_prototype_plus", graph_id: "sentinel_grounded", label: "Grounded",    sublabel: "GPT-5.5 + Tavily",                              pricing: { input: 5.00, output: 30.00 } },
+  { key: "sentinel_production",     graph_id: "sentinel_optimized",          label: "Optimized",   sublabel: "DeepSeek-V4-Pro + Tavily",                      pricing: { input: 1.75, output: 3.50 } },
   { key: "sentinel_nemotron",       graph_id: "sentinel_nemotron", label: "Production",  sublabel: "Nemotron-Ultra + Tavily + LangSmith + Snowglobe", pricing: { input: 1.00, output: 3.00 } },
 ];
 

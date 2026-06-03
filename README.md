@@ -137,11 +137,6 @@ sentinel_agent/
 │   │   └── ingest_regulations.py  # Regulation text -> Pinecone ingestion
 │   ├── actuation/
 │   │   └── jira_client.py     # Jira Cloud REST client
-│   └── output/
-│       ├── heatmap.py         # Rich console heatmap + summary
-│       └── register.py        # CSV/JSON/metrics output
-├── demo/
-│   └── ...
 ├── scripts/
 │   ├── validate_run.py        # Audit quality evaluation against compliance matrix
 │   ├── inspect_tool_calls.py  # LangSmith tool call inspector (args, timing, tokens)

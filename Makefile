@@ -3,7 +3,7 @@ PYTHON = .venv/bin/python
 .PHONY: install ingest dev up build deploy ui ui-local test eval eval-naive eval-agentic eval-agentic-openai eval-agentic-openai-tavily eval-agentic-nemotron eval-all eval-smoke
 
 install:
-	$(PYTHON) -m pip install -e ".[dev,deep,demo,rag]"
+	$(PYTHON) -m pip install -e ".[dev,deep,rag]"
 
 ingest:
 	$(PYTHON) -m sentinel.retrieval.ingest

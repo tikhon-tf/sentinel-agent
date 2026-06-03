@@ -84,8 +84,6 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 | `sentinel/retrieval/ingest_regulations.py` | Regulation text chunker + Pinecone ingestion (`REGULATION_MAP`, `EDITION_PATTERNS`, edition metadata) |
 | `sentinel/retrieval/ingest.py` | SOP markdown parser (`parse_sop()`), chunker, Pinecone ingestion |
 | `sentinel/actuation/jira_client.py` | Sync Jira Cloud REST client used by the `create_jira_ticket` tool |
-| `sentinel/output/heatmap.py` | Rich console heatmap rendering |
-| `sentinel/output/register.py` | CSV/JSON/metrics output |
 | `ui/server.py` | FastAPI backend: serves static UI, SSE audit streaming, eval results, Jira findings, KB stats |
 | `ui/static/components-forge/audit.jsx` | Audit screen: composer, agent picker, live stream with Meter metrics, Jira findings register |
 | `ui/static/components-forge/eval.jsx` | Evaluation screen: multi-agent benchmark dashboard (recall, cost, confusion matrices, per-category table) |
@@ -93,7 +91,6 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 | `scripts/validate_run.py` | Audit quality evaluation: compares LangSmith run output against compliance matrix |
 | `scripts/run_qa_eval.py` | Q&A eval runner: naive, agentic, agentic-openai, agentic-openai-tavily modes |
 | `scripts/inspect_tool_calls.py` | LangSmith tool call inspector: shows all tool calls with args, timing, and output token counts for a run (`--show-output`, `--json`) |
-| `demo/act{1,2}_*.py` | Demo scripts (prototype + production) |
 
 ## LangGraph Cloud deployment
 

@@ -92,6 +92,6 @@ def build_naive_graph():
     return g.compile()
 
 
-def agent_act0():
+def agent_naive():
     """Entry point for langgraph.json — returns the compiled naive graph."""
     return build_naive_graph()

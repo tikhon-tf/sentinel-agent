@@ -103,8 +103,8 @@ def _build_react_agent(model, tools):
     )
 
 
-def build_agent():
-    """Build the Sentinel agent (Act 2: Nebius + Tavily, retrieval via AGENT2_RETRIEVAL)."""
+def build_agent_optimized():
+    """Build the Optimized agent: Nebius DeepSeek + Tavily, retrieval via AGENT2_RETRIEVAL."""
     model = _build_model()
     tools = build_tools(provider="nebius", use_tavily=True, retrieval=AGENT2_RETRIEVAL)
     try:
@@ -113,8 +113,8 @@ def build_agent():
         return _build_react_agent(model, tools)
 
 
-def build_agent_act1():
-    """Build the Sentinel agent (Act 1: OpenAI, no Tavily)."""
+def build_agent_prototype():
+    """Build the Prototype agent: OpenAI, no Tavily."""
     model = _build_model("openai")
     tools = build_tools(provider="openai", use_tavily=False, retrieval="rag")
     try:
@@ -123,15 +123,8 @@ def build_agent_act1():
         return _build_react_agent(model, tools)
 
 
-def build_agent_act1_alt():
-    """Build the Sentinel agent (Act 1 alternative: OpenAI + Tavily).
-
-    Same model as Act 1 (OPENAI_MODEL from sentinel.config) but with the full
-    agentic toolset including web search via Tavily. Matches the
-    `agentic-openai` eval mode — isolates "agentic stack value" from
-    "underlying model value" by holding tools constant against Act 2 and only
-    varying the LLM.
-    """
+def build_agent_grounded():
+    """Build the Grounded agent: OpenAI + Tavily web search."""
     model = _build_model("openai")
     tools = build_tools(provider="openai", use_tavily=True, retrieval="rag")
     try:
@@ -184,16 +177,16 @@ def build_agent_glm():
     return _build_agent_nebius_model("glm-5")
 
 
-def agent():
-    return build_agent()
+def agent_optimized():
+    return build_agent_optimized()
 
 
-def agent_act1():
-    return build_agent_act1()
+def agent_prototype():
+    return build_agent_prototype()
 
 
-def agent_act1_alt():
-    return build_agent_act1_alt()
+def agent_grounded():
+    return build_agent_grounded()
 
 
 def agent_nemotron():

@@ -48,9 +48,9 @@ from sentinel.config import (
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 EVAL_RESULTS_DIR = PROJECT_ROOT / "data" / "eval" / "results"
 EVAL_AGENTS = {
-    "production":  EVAL_RESULTS_DIR / "agentic_20260529_223702.json",
+    "optimized":   EVAL_RESULTS_DIR / "agentic_20260529_223702.json",
     "prototype":   EVAL_RESULTS_DIR / "agentic_openai_20260529_142141.json",
-    "prototype+":  EVAL_RESULTS_DIR / "agentic_openai_tavily_20260529_171528.json",
+    "grounded":    EVAL_RESULTS_DIR / "agentic_openai_tavily_20260529_171528.json",
     "nemotron":    EVAL_RESULTS_DIR / "agentic_nemotron_20260601_153758.json",
     "kimi-k2":     EVAL_RESULTS_DIR / "agentic_20260529_223420.json",
     "glm-5":       EVAL_RESULTS_DIR / "agentic_20260529_223626.json",
@@ -94,13 +94,13 @@ def _trace_url(run_id: str) -> str | None:
 PARALLEL_AGENTS = [
     {"key": "naive",  "label": "Naive RAG",        "sublabel": "DeepSeek-V4-Pro",
      "tagline": "1 retrieval + 1 LLM call · no tools",
-     "graph_id": "sentinel_act0", "model": MODEL},
+     "graph_id": "sentinel_naive", "model": MODEL},
     {"key": "nebius", "label": "Agentic · Nebius", "sublabel": "DeepSeek-V4-Pro + Pinecone + Tavily",
      "tagline": "ReAct · Pinecone + web · sub-agent fan-out",
-     "graph_id": "sentinel",      "model": MODEL},
+     "graph_id": "sentinel_optimized", "model": MODEL},
     {"key": "openai", "label": "Agentic · OpenAI", "sublabel": "GPT-5.5 + Pinecone + Tavily",
      "tagline": "ReAct · Pinecone + web · sub-agent fan-out",
-     "graph_id": "sentinel_act1_alt", "model": OPENAI_MODEL},
+     "graph_id": "sentinel_grounded", "model": OPENAI_MODEL},
 ]
 
 app = FastAPI(title="Sentinel UI", version="0.1.0")
@@ -433,7 +433,7 @@ def findings():
 
 class AuditRequest(BaseModel):
     message: str
-    graph_id: str = "sentinel"
+    graph_id: str = "sentinel_optimized"
 
 
 def _stream_one(
