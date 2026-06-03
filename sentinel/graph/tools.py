@@ -203,14 +203,31 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
         requirement_id: str,
         requirement_title: str,
         regulation: str,
-        compliance_level: str,
-        severity: str,
-        reasoning: str,
+        compliance_level: str = "",
+        severity: str = "",
+        reasoning: str = "",
         evidence_quote: str = "",
         gap_description: str = "",
         remediation: str = "",
+        compliance_status: str = "",
+        finding: str = "",
+        sop_reference: str = "",
     ) -> str:
         """Record a single audit finding. Call this IMMEDIATELY after assessing each requirement — do NOT wait until the end. Each call saves one finding."""
+        if not compliance_level and compliance_status:
+            logger.warning("record_finding: aliasing 'compliance_status' -> 'compliance_level' (prompt schema drift)")
+            compliance_level = compliance_status
+        if not reasoning and finding:
+            logger.warning("record_finding: aliasing 'finding' -> 'reasoning' (prompt schema drift)")
+            reasoning = finding
+        if sop_reference:
+            logger.warning("record_finding: dropping unsupported 'sop_reference' arg (prompt schema drift)")
+        if not compliance_level:
+            return "Missing required 'compliance_level'. Must be one of: compliant, partial, gap"
+        if not severity:
+            return "Missing required 'severity'. Must be one of: critical, high, medium, low, info"
+        if not reasoning:
+            return "Missing required 'reasoning'. Provide 2-3 sentences citing the specific regulation section."
         valid_levels = {"compliant", "partial", "gap"}
         valid_sevs = {"critical", "high", "medium", "low", "info"}
         cl = compliance_level.lower().strip()
@@ -331,6 +348,19 @@ For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fi
 - remediation: specific recommendation (empty string if compliant)
 - reasoning: 2-3 sentences citing the specific regulation section
 
+The argument keys MUST be exactly these names — not `compliance_status`, not `finding`, not `sop_reference`. Example tool-call payload:
+{
+  "requirement_id": "HIPAA-164.312(a)",
+  "requirement_title": "Access Control",
+  "regulation": "HIPAA",
+  "compliance_level": "partial",
+  "severity": "high",
+  "evidence_quote": "...",
+  "gap_description": "...",
+  "remediation": "...",
+  "reasoning": "..."
+}
+
 Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output.
 After calling `record_finding` for every requirement, your FINAL message should be a single short sentence (e.g. "Done — 12 findings recorded."). Do NOT list findings in your final message — the harness reads them from record_finding calls."""
 
@@ -399,6 +429,19 @@ For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fi
 - remediation: specific recommendation (empty string if compliant)
 - reasoning: 2-3 sentences citing the specific regulation section
 
+The argument keys MUST be exactly these names — not `compliance_status`, not `finding`, not `sop_reference`. Example tool-call payload:
+{
+  "requirement_id": "HIPAA-164.312(a)",
+  "requirement_title": "Access Control",
+  "regulation": "HIPAA",
+  "compliance_level": "partial",
+  "severity": "high",
+  "evidence_quote": "...",
+  "gap_description": "...",
+  "remediation": "...",
+  "reasoning": "..."
+}
+
 Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output.
 After calling `record_finding` for every requirement, your FINAL message should be a single short sentence (e.g. "Done — 12 findings recorded."). Do NOT list findings in your final message — the harness reads them from record_finding calls."""
 
@@ -460,6 +503,19 @@ For EACH requirement you assess, IMMEDIATELY call `record_finding` with these fi
 - gap_description: what is missing (empty string if compliant)
 - remediation: specific recommendation (empty string if compliant)
 - reasoning: 2-3 sentences citing the specific regulation section
+
+The argument keys MUST be exactly these names — not `compliance_status`, not `finding`, not `sop_reference`. Example tool-call payload:
+{
+  "requirement_id": "HIPAA-164.312(a)",
+  "requirement_title": "Access Control",
+  "regulation": "HIPAA",
+  "compliance_level": "partial",
+  "severity": "high",
+  "evidence_quote": "...",
+  "gap_description": "...",
+  "remediation": "...",
+  "reasoning": "..."
+}
 
 Call `record_finding` ONCE PER REQUIREMENT as you go. Do NOT accumulate findings for a batch output.
 After calling `record_finding` for every requirement, your FINAL message should be a single short sentence (e.g. "Done — 12 findings recorded."). Do NOT list findings in your final message — the harness reads them from record_finding calls."""
