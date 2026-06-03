@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Run the naive-vs-agentic Q&A eval over `data/eval/qa_dataset.jsonl`.
+"""Run the Q&A eval over `data/eval/qa_dataset.jsonl`.
 
 Usage:
-    python scripts/run_qa_eval.py --mode both                    # naive + agentic (Nebius)
-    python scripts/run_qa_eval.py --mode all                     # naive + agentic + agentic-openai
+    python scripts/run_qa_eval.py --mode both                    # naive + optimized (Nebius DeepSeek)
+    python scripts/run_qa_eval.py --mode all                     # all modes
     python scripts/run_qa_eval.py --mode naive --limit 5         # 5 questions, naive only
-    python scripts/run_qa_eval.py --mode agentic-openai          # agentic stack on OpenAI model (no web)
-    python scripts/run_qa_eval.py --mode agentic-openai-tavily   # agentic stack on OpenAI model + Tavily
-    python scripts/run_qa_eval.py --mode agentic-nemotron       # agentic stack on Nemotron Ultra
-    python scripts/run_qa_eval.py --mode agentic --category sop_compliance
+    python scripts/run_qa_eval.py --mode prototype               # GPT-5.5, no Tavily
+    python scripts/run_qa_eval.py --mode grounded                # GPT-5.5 + Tavily
+    python scripts/run_qa_eval.py --mode optimized               # DeepSeek-V4-Pro + Tavily
+    python scripts/run_qa_eval.py --mode production              # Nemotron Ultra + Tavily
+    python scripts/run_qa_eval.py --mode optimized --category sop_compliance
     python scripts/run_qa_eval.py --mode both --no-judge         # skip LLM-as-judge
 """
 from __future__ import annotations
@@ -79,16 +80,16 @@ def run_single(mode: str, question: dict) -> dict:
     if mode == "naive":
         from sentinel.eval.naive_rag import naive_rag_answer
         return naive_rag_answer(question["question"], sop_id=sop_id)
-    if mode == "agentic":
-        from sentinel.eval.agentic_qa import agentic_qa_answer
-        return agentic_qa_answer(question["question"], sop_id=sop_id, provider="nebius")
-    if mode == "agentic-openai":
+    if mode == "prototype":
         from sentinel.eval.agentic_qa import agentic_qa_answer
         return agentic_qa_answer(question["question"], sop_id=sop_id, provider="openai", use_tavily=False)
-    if mode == "agentic-openai-tavily":
+    if mode == "grounded":
         from sentinel.eval.agentic_qa import agentic_qa_answer
         return agentic_qa_answer(question["question"], sop_id=sop_id, provider="openai", use_tavily=True)
-    if mode == "agentic-nemotron":
+    if mode == "optimized":
+        from sentinel.eval.agentic_qa import agentic_qa_answer
+        return agentic_qa_answer(question["question"], sop_id=sop_id, provider="nebius")
+    if mode == "production":
         from sentinel.eval.agentic_qa import agentic_qa_answer
         from sentinel.config import NEBIUS_MODELS
         return agentic_qa_answer(question["question"], sop_id=sop_id, provider="nebius", model_name=NEBIUS_MODELS["nemotron"])
@@ -332,10 +333,10 @@ def print_summary(payload: dict) -> None:
 
 _MODE_LABEL = {
     "naive": "naive",
-    "agentic": "ag-neb",
-    "agentic-openai": "ag-oai",
-    "agentic-openai-tavily": "ag-oai+t",
-    "agentic-nemotron": "ag-nemo",
+    "prototype": "proto",
+    "grounded": "ground",
+    "optimized": "optim",
+    "production": "prod",
 }
 _COL = 13  # column width in the comparison table
 
@@ -393,9 +394,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--mode",
-        choices=["naive", "agentic", "agentic-openai", "agentic-openai-tavily", "agentic-nemotron", "both", "all"],
+        choices=["naive", "prototype", "grounded", "optimized", "production", "both", "all"],
         default="both",
-        help="Single mode, or 'both' (naive+agentic) / 'all' (all four modes).",
+        help="Single mode, or 'both' (naive+optimized) / 'all' (all five modes).",
     )
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--category", default=None)
@@ -416,9 +417,9 @@ def main():
     timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     run_judge = not args.no_judge
     if args.mode == "both":
-        modes = ["naive", "agentic"]
+        modes = ["naive", "optimized"]
     elif args.mode == "all":
-        modes = ["naive", "agentic", "agentic-openai", "agentic-openai-tavily", "agentic-nemotron"]
+        modes = ["naive", "prototype", "grounded", "optimized", "production"]
     else:
         modes = [args.mode]
 

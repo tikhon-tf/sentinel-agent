@@ -1,6 +1,6 @@
 PYTHON = .venv/bin/python
 
-.PHONY: install ingest dev up build deploy ui ui-local test eval eval-naive eval-agentic eval-agentic-openai eval-agentic-openai-tavily eval-agentic-nemotron eval-all eval-smoke
+.PHONY: install ingest dev up build deploy ui ui-local test eval eval-naive eval-prototype eval-grounded eval-optimized eval-production eval-all eval-smoke
 
 install:
 	$(PYTHON) -m pip install -e ".[dev,deep,rag]"
@@ -34,24 +34,24 @@ ui-local:
 test:
 	$(PYTHON) -m pytest tests/ -v
 
-# Naive RAG vs agentic Q&A eval. Pass EVAL_ARGS to override (e.g. --limit, --category, --no-judge).
+# Q&A eval. Pass EVAL_ARGS to override (e.g. --limit, --category, --no-judge).
 eval:
 	$(PYTHON) scripts/run_qa_eval.py --mode both $(EVAL_ARGS)
 
 eval-naive:
 	$(PYTHON) scripts/run_qa_eval.py --mode naive $(EVAL_ARGS)
 
-eval-agentic:
-	$(PYTHON) scripts/run_qa_eval.py --mode agentic $(EVAL_ARGS)
+eval-prototype:
+	$(PYTHON) scripts/run_qa_eval.py --mode prototype $(EVAL_ARGS)
 
-eval-agentic-openai:
-	$(PYTHON) scripts/run_qa_eval.py --mode agentic-openai $(EVAL_ARGS)
+eval-grounded:
+	$(PYTHON) scripts/run_qa_eval.py --mode grounded $(EVAL_ARGS)
 
-eval-agentic-openai-tavily:
-	$(PYTHON) scripts/run_qa_eval.py --mode agentic-openai-tavily $(EVAL_ARGS)
+eval-optimized:
+	$(PYTHON) scripts/run_qa_eval.py --mode optimized $(EVAL_ARGS)
 
-eval-agentic-nemotron:
-	$(PYTHON) scripts/run_qa_eval.py --mode agentic-nemotron $(EVAL_ARGS)
+eval-production:
+	$(PYTHON) scripts/run_qa_eval.py --mode production $(EVAL_ARGS)
 
 # Run all baselines.
 eval-all:
