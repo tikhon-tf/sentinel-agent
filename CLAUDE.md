@@ -91,7 +91,7 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 | `ui/static/components-forge/eval.jsx` | Evaluation screen: multi-agent benchmark dashboard (recall, cost, confusion matrices, per-category table) |
 | `ui/static/components-forge/compare.jsx` | Compare screen: side-by-side agent race with parallel SSE streams |
 | `scripts/validate_run.py` | Audit quality evaluation: compares LangSmith run output against compliance matrix |
-| `scripts/run_qa_eval.py` | Q&A eval runner: naive, agentic, agentic-openai, agentic-openai-tavily modes |
+| `scripts/run_qa_eval.py` | Q&A eval runner: naive, prototype, grounded, optimized, production modes |
 | `scripts/inspect_tool_calls.py` | LangSmith tool call inspector: shows all tool calls with args, timing, and output token counts for a run (`--show-output`, `--json`) |
 
 ## LangGraph Cloud deployment
