@@ -11,3 +11,4 @@ output/
 .mcp.json
 tmp.txt
 .codex/
+.streamlit/
