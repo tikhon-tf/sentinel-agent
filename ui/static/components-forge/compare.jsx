@@ -374,7 +374,7 @@ const AgentSlab = ({ agent: a }) => {
         <div style={{ flex: 1 }}><Meter label="elapsed" value={`${a.elapsed.toFixed(1)}s`} live={a.status === "running"}/></div>
         <div style={{ flex: 1 }}><Meter label="tokens"  value={`${((a.tokens.in + a.tokens.out) / 1000).toFixed(1)}k`}/></div>
         <div style={{ flex: 1 }}><Meter label="cost"    value={`$${a.cost.toFixed(4)}`} accent/></div>
-        {a.traceUrl && (
+        {a.traceUrl && a.key === "nemotron" && (
           <a href={a.traceUrl} target="_blank" rel="noopener noreferrer"
              style={{
                display: "inline-flex", alignItems: "center", gap: 6,
