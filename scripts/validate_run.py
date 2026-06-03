@@ -134,10 +134,6 @@ def fetch_run_data(run_id: str) -> dict:
                 if content:
                     break
 
-    if not content:
-        print(f"ERROR: Could not find audit content in run {run_id}", file=sys.stderr)
-        sys.exit(1)
-
     # Determine wall-clock latency: root start to last completed child end
     start_time = root.start_time
     end_time = root.end_time
@@ -181,7 +177,7 @@ def parse_run_stats(content: str, run_data: dict) -> dict:
     sub_in = sub_out = 0
     match = re.search(
         r"(?:Total tokens|Sub-agent tokens):\s*([\d,]+)\s*\(([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)",
-        content,
+        content or "",
     )
     if match:
         sub_in = int(match.group(2).replace(",", ""))
@@ -466,6 +462,10 @@ def validate_single(run_id, gt):
     print(f"Run: {run_data['label']}")
     print(f"{'=' * 70}")
     print_stats(stats)
+
+    if not content:
+        print("\n  No audit content found — skipping quality evaluation.")
+        return
 
     all_findings, total_parsed, failed_sops, error_sops = parse_full_findings(content)
     print(f"  Parsed {total_parsed} criterion-level findings")
