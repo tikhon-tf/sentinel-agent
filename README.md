@@ -45,7 +45,7 @@ User Query (via UI or LangGraph API)
 **Orchestration:** LangGraph ReAct agent with per-SOP sub-agents, optional deepagents upgrade
 **Retrieval:** Pinecone vector search (Qwen3-Embedding-8B, 4096 dims)
 **Grounding:** Tavily live regulation search
-**Observability:** LangSmith tracing with cost tracking + [LangSmith MCP](https://docs.langchain.com/langsmith/langsmith-remote-mcp) integration
+**Observability:** LangSmith tracing with cost tracking
 **Actuation:** Jira Cloud REST API for filing compliance gap tickets
 **Deployment:** LangGraph Cloud + UI (FastAPI + React)
 
@@ -153,7 +153,6 @@ sentinel_agent/
 │   ├── company_profile.md     # Meridian Health Technologies background
 │   ├── compliance_matrix.json # Ground truth
 │   └── compliance_matrix_revised.json # Revised ground truth (16 SOC 2 corrections)
-├── .mcp.json                  # MCP server config (LangSmith, gitignored)
 ├── langgraph.json             # LangGraph deployment config
 ├── pyproject.toml             # Dependencies
 ├── Makefile                   # Build/run targets
@@ -282,22 +281,6 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 Each SOP audit fans out a dedicated sub-agent with multiple tool calls (regulation retrieval, web search), so token counts are dominated by sub-agent usage across 200 SOPs. Token usage and cost are displayed live in the UI. Use `scripts/validate_run.py` to get exact cost/token/latency breakdowns for any LangSmith run.
 
 ## Integrations
-
-### LangSmith MCP
-
-A [LangSmith remote MCP server](https://docs.langchain.com/langsmith/langsmith-remote-mcp) is configured in `.mcp.json` for accessing LangSmith data from Claude Code and Codex. Uses OAuth authentication — a browser login flow runs on first use.
-
-Available MCP tools:
-- `list_projects` — list LangSmith projects
-- `fetch_runs` — fetch runs by project, trace ID, or filters
-- `get_thread_history` — retrieve thread message history
-- `list_datasets` / `read_dataset` / `list_examples` / `read_example` — dataset access
-- `list_experiments` / `run_experiment` — experiment management
-- `list_prompts` / `get_prompt_by_name` / `push_prompt` — prompt hub
-- `get_billing_usage` — billing and usage stats
-- `create_dataset` / `update_examples` — dataset creation and mutation
-
-Use these tools to inspect audit run traces, compare run metrics, or debug sub-agent behavior without leaving the editor.
 
 ### Jira Cloud
 
