@@ -5,37 +5,43 @@ Sentinel is an AI-powered compliance auditor that assesses 200 enterprise SOPs a
 ## Architecture
 
 ```
-User Query
+User Query (via UI or LangGraph API)
     |
     v
-+------------------------+
-|  Sentinel ReAct Agent  |  LangGraph (+ deepagents when available)
-|  (DeepSeek-V4-Pro)     |
-+------------------------+
++-----------------------------------+
+|  Sentinel Outer Agent             |  LangGraph ReAct (+ deepagents)
+|  Prototype / Grounded / Optimized |  GPT-5.5 or DeepSeek-V4-Pro
+|  / Production (Nemotron Ultra)    |  or Nemotron-3-Ultra-550b
++-----------------------------------+
     |
-    +---> audit_all_sops (10-wide ThreadPoolExecutor)
+    +---> list_sops (search/discover SOPs, synonym mapping)
+    |
+    +---> audit_sops / audit_all_sops (ThreadPoolExecutor fan-out)
     |         |
-    |         v  (per SOP)
-    |    +-------------------+
-    |    |  Sub-Agent        |  LangGraph ReAct
-    |    |  (audit_single_   |
-    |    |   sop)            |
-    |    +-------------------+
+    |         v  (per SOP, up to MAX_AUDIT_WORKERS in parallel)
+    |    +----------------------------+
+    |    |  Sub-Agent (sop_auditor)   |  LangGraph ReAct
+    |    |  Same model as outer agent |  Retrieval capped at 30 calls
+    |    +----------------------------+
     |         |
+    |         +---> read_sop (full SOP text)
     |         +---> retrieve_regulation_rag (Pinecone semantic search)
-    |         +---> search_web (Tavily live search)
-    |         +---> read_sop (SOP text)
+    |         +---> search_web (Tavily, capped)
+    |         +---> record_finding (per requirement, survives truncation)
     |         |
     |         v
-    |    Structured JSON Findings
+    |    Findings accumulated incrementally
     |
-    +---> create_jira_ticket
-              |
-              v
-         Jira Cloud REST API → ticket on Kanban board
+    +---> create_jira_ticket / create_jira_tickets (batch)
+    |         |
+    |         v
+    |    Jira Cloud REST API → tickets on Kanban board
+    |
+    +---> search_web (outer agent, for ad-hoc questions)
+    +---> list_regulations / retrieve_regulation_text_tool
 ```
 
-**Models:** DeepSeek-V4-Pro, Nemotron Ultra, Kimi K2.6, GLM-5.1 on Nebius · GPT-5.5 on OpenAI
+**Models:** Nemotron-3-Ultra-550b (Production), DeepSeek-V4-Pro (Optimized), GPT-5.5 (Prototype/Grounded) on Nebius + OpenAI
 **Orchestration:** LangGraph ReAct agent with per-SOP sub-agents, optional deepagents upgrade
 **Retrieval:** Pinecone vector search (Qwen3-Embedding-8B, 4096 dims)
 **Grounding:** Tavily live regulation search
