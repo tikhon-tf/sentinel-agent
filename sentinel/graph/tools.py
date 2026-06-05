@@ -573,7 +573,7 @@ def audit_single_sop(sop_id: str) -> str:
     """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base (Pinecone) and web search (Tavily). Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
     result = _audit_single_sop_impl(sop_id, provider="nebius", use_tavily=True)
     for attempt in range(1, MAX_RETRIES + 1):
-        if not _is_retryable(result):
+        if not _is_transient(result):
             break
         delay = _retry_delay(attempt, result)
         logger.info("Retry attempt %d/%d for %s (waiting %.0fs)", attempt, MAX_RETRIES, sop_id, delay)
@@ -582,18 +582,10 @@ def audit_single_sop(sop_id: str) -> str:
     return result
 
 
-def _is_retryable(result: str) -> bool:
-    """Check if a single-SOP audit result indicates a retryable failure.
-
-    Truncation is NOT retryable — it will just truncate again.
-    """
-    if "response was truncated" in result:
-        return False
-    return (
-        "FAILED" in result
-        or "sub-agent did not produce structured findings" in result
-        or "failed to parse sub-agent findings" in result
-    )
+def _is_transient(result: str) -> bool:
+    """Only retry on truly transient failures (rate limits, network blips, timeouts)."""
+    lowered = result.lower()
+    return _is_rate_limited(result) or "connection" in lowered or "timeout" in lowered
 
 
 def _is_rate_limited(result: str) -> bool:
@@ -633,11 +625,11 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
             results_by_id[sid] = future.result()
 
     for attempt in range(1, MAX_RETRIES + 1):
-        to_retry = [sid for sid, r in results_by_id.items() if _is_retryable(r)]
+        to_retry = [sid for sid, r in results_by_id.items() if _is_transient(r)]
         if not to_retry:
             break
         any_rate_limited = any(_is_rate_limited(results_by_id[sid]) for sid in to_retry)
-        delay = _retry_delay(attempt, "429" if any_rate_limited else "FAILED")
+        delay = _retry_delay(attempt, "429" if any_rate_limited else "timeout")
         logger.info("Retry attempt %d/%d for %d SOPs (waiting %.0fs): %s", attempt, MAX_RETRIES, len(to_retry), delay, ", ".join(to_retry))
         time.sleep(delay)
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(workers, len(to_retry))) as executor:
@@ -645,12 +637,12 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
             for future in concurrent.futures.as_completed(futures):
                 sid = futures[future]
                 new_result = future.result()
-                if not _is_retryable(new_result):
+                if not _is_transient(new_result):
                     logger.info("Retry succeeded for %s", sid)
                 results_by_id[sid] = new_result
 
     results = list(results_by_id.values())
-    still_failed = sum(1 for r in results if _is_retryable(r))
+    still_failed = sum(1 for r in results if "FAILED" in r)
 
     findings = _audit_results["findings"]
     total = len(findings)
@@ -900,7 +892,7 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, model_name: s
         """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base. Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
         result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, model_name=model_name)
         for attempt in range(1, MAX_RETRIES + 1):
-            if not _is_retryable(result):
+            if not _is_transient(result):
                 break
             delay = _retry_delay(attempt, result)
             logger.info("Retry attempt %d/%d for %s (waiting %.0fs)", attempt, MAX_RETRIES, sop_id, delay)
@@ -933,7 +925,7 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, model_name: s
                 results_by_id[sid] = future.result()
 
         results = list(results_by_id.values())
-        still_failed = sum(1 for r in results if _is_retryable(r))
+        still_failed = sum(1 for r in results if "FAILED" in r)
 
         tok_in = _audit_results["total_input_tokens"]
         tok_out = _audit_results["total_output_tokens"]
