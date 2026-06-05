@@ -14,7 +14,6 @@ import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Optional
 
 MATRIX_PATH = Path("data/compliance_matrix.json")
 REVISED_MATRIX_PATH = Path("data/compliance_matrix_revised.json")
@@ -86,13 +85,23 @@ def fetch_run_data(run_id: str) -> dict:
         trace_id=run_id,
         run_type="llm",
     ))
+    trace_cache_read = 0
+    trace_cache_creation = 0
     for r in llm_runs:
         trace_input_tokens += r.prompt_tokens or 0
         trace_output_tokens += r.completion_tokens or 0
+        if r.extra:
+            usage = r.extra.get("usage", {})
+            if isinstance(usage, dict):
+                trace_cache_read += usage.get("cache_read_input_tokens", 0) or 0
+                trace_cache_creation += usage.get("cache_creation_input_tokens", 0) or 0
     if llm_runs:
         llm_meta = llm_runs[0].extra.get("metadata", {}) if llm_runs[0].extra else {}
         model = llm_meta.get("ls_model_name")
-    print(f"  Found {len(llm_runs)} LLM runs, {trace_input_tokens + trace_output_tokens:,} total tokens")
+    cache_note = ""
+    if trace_cache_read or trace_cache_creation:
+        cache_note = f" (cache read: {trace_cache_read:,}, cache creation: {trace_cache_creation:,})"
+    print(f"  Found {len(llm_runs)} LLM runs, {trace_input_tokens + trace_output_tokens:,} total tokens{cache_note}")
 
     # Determine label
     model_short = (model or "unknown").split("/")[-1]
@@ -158,6 +167,8 @@ def fetch_run_data(run_id: str) -> dict:
         "total_cost": root.total_cost,
         "trace_input_tokens": trace_input_tokens,
         "trace_output_tokens": trace_output_tokens,
+        "trace_cache_read": trace_cache_read,
+        "trace_cache_creation": trace_cache_creation,
     }
 
 
@@ -207,6 +218,8 @@ def parse_run_stats(content: str, run_data: dict) -> dict:
         "langsmith_cost": run_data.get("total_cost"),
         "outer_tokens": outer_in + outer_out,
         "sub_tokens": sub_in + sub_out,
+        "cache_read": run_data.get("trace_cache_read", 0),
+        "cache_creation": run_data.get("trace_cache_creation", 0),
     }
 
 
@@ -368,6 +381,10 @@ def print_stats(stats):
     sub = stats.get('sub_tokens', 0)
     if outer and sub:
         print(f"          (outer agent: {outer:,} + sub-agents: {sub:,})")
+    cache_read = stats.get("cache_read", 0)
+    cache_creation = stats.get("cache_creation", 0)
+    if cache_read or cache_creation:
+        print(f"          (cache read: {cache_read:,}, cache creation: {cache_creation:,})")
     print(f"  Cost:    ${stats['cost']:.2f}")
     if stats['latency']:
         print(f"  Latency: {stats['latency']:.0f}s ({stats['latency']/60:.1f}m)")
@@ -477,7 +494,6 @@ def validate_single(run_id, gt):
     predicted = {key: worst_level(levels) for key, levels in all_findings.items()}
 
     pred_sops = set(k[0] for k in predicted)
-    pred_regs = set(k[1] for k in predicted)
     pred_levels = Counter(predicted.values())
 
     print(f"\n  Aggregated: {len(predicted)} SOP-regulation pairs, {len(pred_sops)} SOPs")

@@ -16,6 +16,7 @@ import json
 import os
 import queue
 import re
+import secrets
 import threading
 import time
 from pathlib import Path
@@ -27,7 +28,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -58,6 +59,12 @@ EVAL_AGENTS = {
 DATASET_PATH = PROJECT_ROOT / "data" / "eval" / "qa_dataset.jsonl"
 SOPS_DIR = PROJECT_ROOT / "data" / "sops"
 REGULATIONS_DIR = PROJECT_ROOT / "data" / "regulations"
+
+# Shared-secret gate for the JSON+SSE API. When set, every /api/* request
+# (except /api/health for LB probes) must send a matching X-API-Key header.
+# Leave empty for local dev to disable the gate. TLS + rate limiting are
+# expected to be handled by the reverse proxy / load balancer in front.
+UI_API_KEY = os.environ.get("UI_API_KEY", "")
 
 LANGGRAPH_URL = os.environ.get("LANGGRAPH_URL", "http://localhost:2024")
 LANGSMITH_API_KEY = os.environ.get("LANGSMITH_API_KEY", "")
@@ -104,6 +111,43 @@ PARALLEL_AGENTS = [
 ]
 
 app = FastAPI(title="Sentinel UI", version="0.1.0")
+
+if not UI_API_KEY:
+    # Fail closed: the UI must never run without a key, even locally. Refusing to
+    # start (rather than warning) removes the "forgot to set it in prod" footgun.
+    import sys
+
+    print(
+        "[sentinel-ui] FATAL: UI_API_KEY is not set. The UI refuses to start "
+        "without it. Set UI_API_KEY in .env (e.g. `openssl rand -hex 32`). TLS + "
+        "rate limiting are expected at your reverse proxy / load balancer.",
+        file=sys.stderr,
+        flush=True,
+    )
+    raise SystemExit(1)
+
+
+@app.middleware("http")
+async def _require_api_key(request: Request, call_next):
+    """Gate every /api/* call behind the shared X-API-Key, except the LB health probe.
+
+    UI_API_KEY is guaranteed set (the process exits at import otherwise), so the
+    gate always enforces. The check runs before any route handler, so no agent
+    run / LangGraph thread is started for an unauthorized caller. Constant-time
+    comparison avoids a timing side-channel.
+    """
+    path = request.url.path
+    if path.startswith("/api/") and path != "/api/health":
+        provided = request.headers.get("x-api-key", "")
+        if not secrets.compare_digest(provided, UI_API_KEY):
+            return JSONResponse({"detail": "invalid or missing API key"}, status_code=401)
+    return await call_next(request)
+
+
+@app.get("/api/auth-check")
+def auth_check():
+    """Lightweight endpoint for the UI to validate an API key without triggering Pinecone."""
+    return {"ok": True}
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -253,7 +297,7 @@ def _compute_kb_stats() -> dict[str, Any]:
       between `reg::` and `::chunk-`, map to framework via REGULATION_MAP.
     """
     from sentinel.retrieval.regulations import _get_index
-    from sentinel.retrieval.ingest_regulations import REGULATION_MAP, _detect_regulation
+    from sentinel.retrieval.ingest_regulations import _detect_regulation
 
     index = _get_index()
     stats = index.describe_index_stats()
@@ -459,7 +503,15 @@ def _stream_one(
             "trace_url": _trace_url(rid),
         }))
 
+    outer_tokens = {"input": 0, "output": 0}
     sub_tokens = {"input": 0, "output": 0}
+
+    def _emit_usage():
+        out_q.put(json.dumps({
+            "type": "usage", "agent": prefix,
+            "input_tokens": outer_tokens["input"] + sub_tokens["input"],
+            "output_tokens": outer_tokens["output"] + sub_tokens["output"],
+        }))
 
     try:
         client = _langgraph_client()
@@ -472,25 +524,27 @@ def _stream_one(
         ):
             payload = _normalize_event(event, prefix)
             if payload is not None:
-                out_q.put(payload)
                 parsed = json.loads(payload)
-                if parsed.get("type") == "tool_result":
+                if parsed.get("type") == "usage":
+                    outer_tokens["input"] = parsed["input_tokens"]
+                    outer_tokens["output"] = parsed["output_tokens"]
+                    _emit_usage()
+                elif parsed.get("type") == "tool_result":
+                    out_q.put(payload)
                     text = parsed.get("text", "")
                     if isinstance(text, str):
-                        m = _TOTAL_TOKENS_RE.search(text)
-                        if not m:
-                            m = _SUB_TOKENS_RE.search(text)
-                        if m:
-                            sub_tokens["input"] = int(m.group(1).replace(",", ""))
-                            sub_tokens["output"] = int(m.group(2).replace(",", ""))
-                elif parsed.get("type") == "usage":
-                    if sub_tokens["input"] or sub_tokens["output"]:
-                        updated = json.dumps({
-                            "type": "usage", "agent": prefix,
-                            "input_tokens": parsed["input_tokens"] + sub_tokens["input"],
-                            "output_tokens": parsed["output_tokens"] + sub_tokens["output"],
-                        })
-                        out_q.put(updated)
+                        m_total = _TOTAL_TOKENS_RE.search(text)
+                        m_sub = _SUB_TOKENS_RE.search(text)
+                        if m_total:
+                            sub_tokens["input"] = int(m_total.group(1).replace(",", ""))
+                            sub_tokens["output"] = int(m_total.group(2).replace(",", ""))
+                            _emit_usage()
+                        elif m_sub:
+                            sub_tokens["input"] += int(m_sub.group(1).replace(",", ""))
+                            sub_tokens["output"] += int(m_sub.group(2).replace(",", ""))
+                            _emit_usage()
+                else:
+                    out_q.put(payload)
     except Exception as exc:
         out_q.put(json.dumps({"type": "error", "agent": prefix, "error": str(exc)}))
     finally:

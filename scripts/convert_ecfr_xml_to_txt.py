@@ -4,11 +4,9 @@ Convert eCFR XML files to clean, readable plain text.
 Preserves hierarchical structure: PART > SUBPART > SECTION > APPENDIX.
 """
 
-import xml.etree.ElementTree as ET
-import html
+import defusedxml.ElementTree as ET  # hardened drop-in for xml.etree (prevents XXE/entity-expansion)
 import os
 import re
-import textwrap
 
 DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "regulations")
 
@@ -84,7 +82,7 @@ def format_table(table_elem):
     lines = []
     sep = "+" + "+".join("-" * (w + 2) for w in col_widths) + "+"
     lines.append(sep)
-    for row_idx, row in enumerate(expanded):
+    for row in expanded:
         parts = []
         for i, cell in enumerate(row):
             parts.append(" " + cell.ljust(col_widths[i]) + " ")
