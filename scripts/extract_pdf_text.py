@@ -2,31 +2,27 @@
 """Extract text from regulation PDFs into .txt files for ingestion."""
 
 import os
-import pymupdf
+from pypdf import PdfReader
 
 REGULATIONS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "regulations")
 
 PDFS = [
-    "soc2_trust_services_criteria_2017_revised_2022.pdf",
-    "soc2_description_criteria_2018_revised_2022.pdf",
     "nist_ai_rmf_100_1.pdf",
     "nist_ai_600_1_genai_profile.pdf",
     "nist_ai_rmf_100_1_draft1_2022.pdf",
     "nist_ai_rmf_100_1_draft2_2022.pdf",
     "sr_11_7_occ_model_risk_management.pdf",
-    "sr_26_2_model_risk_management_2026.pdf",
     "eu_ai_act_2021_commission_proposal.pdf",
 ]
 
 
 def extract_pdf(pdf_path: str, txt_path: str) -> None:
-    doc = pymupdf.open(pdf_path)
+    reader = PdfReader(pdf_path)
     pages = []
-    for page in doc:
-        text = page.get_text("text")
+    for page in reader.pages:
+        text = page.extract_text() or ""
         if text.strip():
             pages.append(text)
-    doc.close()
 
     full_text = "\n\n".join(pages)
     with open(txt_path, "w", encoding="utf-8") as f:
