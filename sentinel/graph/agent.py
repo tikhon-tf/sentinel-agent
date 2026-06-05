@@ -4,6 +4,7 @@ from __future__ import annotations
 from langchain_openai import ChatOpenAI
 
 from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL, NEBIUS_TESTING_API_KEY, NEBIUS_TESTING_BASE_URL, NEBIUS_MODELS
+from sentinel.graph.middleware import empty_args_guard
 from sentinel.graph.tools import (
     build_tools,
     get_audit_results,
@@ -87,6 +88,7 @@ def _build_deep_agent(model, tools):
         model=model,
         tools=tools,
         system_prompt=SENTINEL_SYSTEM_PROMPT,
+        middleware=[empty_args_guard],
         name="sentinel",
     )
 
@@ -99,6 +101,7 @@ def _build_react_agent(model, tools):
         model=model,
         tools=tools,
         system_prompt=SENTINEL_SYSTEM_PROMPT,
+        middleware=[empty_args_guard],
         name="sentinel",
     )
 
