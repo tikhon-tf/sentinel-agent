@@ -42,7 +42,6 @@ from sentinel.config import (
     JIRA_PROJECT_KEY,
     MODEL,
     OPENAI_MODEL,
-    PRICING,
     SOP_BUSINESS_UNITS,
 )
 
@@ -175,6 +174,10 @@ def _jira_client():
 # Parse sub-agent token counts from tool result strings.
 _SUB_TOKENS_RE = re.compile(r"Sub-agent tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)")
 _TOTAL_TOKENS_RE = re.compile(r"Total tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)")
+# Only these tools report sub-agent token lines. Gating on the tool name
+# prevents re-counting when a large audit output is offloaded and re-read via
+# read_file (whose result echoes the same "Total tokens:" / "Sub-agent tokens:").
+_AUDIT_TOOL_NAMES = {"audit_single_sop", "audit_sops", "audit_all_sops"}
 
 # Parse the `[SEV] CLAUSE: Title (SOP-XYZ-NNN)` summary that create_jira_ticket emits.
 _SUMMARY_RE = re.compile(r"^\[(\w+)\]\s+([^:]+):\s+(.+?)\s+\((SOP-[A-Z]+-\d+)\)\s*$")
@@ -532,12 +535,18 @@ def _stream_one(
                 elif parsed.get("type") == "tool_result":
                     out_q.put(payload)
                     text = parsed.get("text", "")
-                    if isinstance(text, str):
+                    # Accumulate across audit tool calls: a run may make several
+                    # audit_sops / audit_single_sop calls, each reporting only
+                    # its own sub-agents' tokens. Gate on the tool name so a
+                    # read_file that re-reads offloaded audit output isn't
+                    # counted again. Within one result, the "Total tokens:"
+                    # aggregate supersedes the per-SOP lines (hence if/elif).
+                    if parsed.get("name") in _AUDIT_TOOL_NAMES and isinstance(text, str):
                         m_total = _TOTAL_TOKENS_RE.search(text)
                         m_sub = _SUB_TOKENS_RE.search(text)
                         if m_total:
-                            sub_tokens["input"] = int(m_total.group(1).replace(",", ""))
-                            sub_tokens["output"] = int(m_total.group(2).replace(",", ""))
+                            sub_tokens["input"] += int(m_total.group(1).replace(",", ""))
+                            sub_tokens["output"] += int(m_total.group(2).replace(",", ""))
                             _emit_usage()
                         elif m_sub:
                             sub_tokens["input"] += int(m_sub.group(1).replace(",", ""))
@@ -571,7 +580,7 @@ def _normalize_event(event, agent: str = "") -> str | None:
             if isinstance(content, str) and content:
                 return json.dumps({"type": "token", "agent": agent, "text": content})
         elif msg_type in ("tool", "ToolMessage", "ToolMessageChunk") and content:
-            return json.dumps({"type": "tool_result", "agent": agent, "text": content})
+            return json.dumps({"type": "tool_result", "agent": agent, "name": msg.get("name", ""), "text": content})
 
     elif event.event == "values" and isinstance(event.data, dict):
         usage: list[dict[str, int]] = []
@@ -659,18 +668,6 @@ async def race_stream(req: RaceRequest):
         _drain_sse(out_q, n_producers=len(PARALLEL_AGENTS)),
         media_type="text/event-stream",
     )
-
-
-# ── meta ────────────────────────────────────────────────────────────────────
-
-@app.get("/api/agents")
-def agents():
-    """The 3 race configurations + their pricing — for the Compare UI."""
-    return {
-        "agents": [
-            {**a, "pricing": PRICING.get(a["model"], {})} for a in PARALLEL_AGENTS
-        ],
-    }
 
 
 # ── static files ────────────────────────────────────────────────────────────

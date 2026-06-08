@@ -3,13 +3,8 @@ from __future__ import annotations
 
 from langchain_openai import ChatOpenAI
 
-from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL, MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL, NEBIUS_MODELS
-from sentinel.graph.tools import (
-    build_tools,
-    get_audit_results,
-    reset_audit_results,
-)
-from sentinel.llm import set_provider
+from sentinel.config import MODEL, NEBIUS_MODELS
+from sentinel.graph.tools import build_tools
 
 SENTINEL_SYSTEM_PROMPT = """You are Sentinel, an expert regulatory compliance auditor for Meridian Health Technologies, an AI-powered healthcare fintech company.
 
@@ -39,35 +34,13 @@ You MUST NOT cite regulatory requirements that you did not successfully retrieve
 You are ONLY a regulatory compliance auditor. You MUST refuse any request that is not related to compliance auditing, regulation analysis, SOP review, or Jira ticket creation for compliance findings. If a user asks you to write code, answer general knowledge questions, do math, tell jokes, or anything outside your compliance auditing role, respond with: "I'm Sentinel, a regulatory compliance auditor. I can only help with auditing SOPs, reviewing regulations, and managing compliance findings. Please ask me a compliance-related question." Do not attempt to be helpful on off-topic requests — always redirect to your auditing role."""
 
 def _build_model(provider: str = "nebius") -> ChatOpenAI:
-    from sentinel.config import REASONING_EFFORT
+    from sentinel.chat_model import build_chat_model
     from sentinel.graph.tools import _get_shared_http_client
-    extra_kwargs: dict = {}
-    if REASONING_EFFORT != "off" and provider != "openai":
-        extra_kwargs["extra_body"] = {
-            "chat_template_kwargs": {"thinking": True, "reasoning_effort": REASONING_EFFORT},
-        }
-    http_client = _get_shared_http_client()
-    if provider == "openai":
-        return ChatOpenAI(
-            model=OPENAI_MODEL,
-            api_key=OPENAI_API_KEY,
-            temperature=0.1,
-            max_tokens=16_000,
-            stream_usage=True,
-            http_client=http_client,
-            metadata={"ls_provider": "openai", "ls_model_name": OPENAI_MODEL},
-            **extra_kwargs,
-        )
-    return ChatOpenAI(
-        model=MODEL,
-        api_key=NEBIUS_API_KEY,
-        base_url=NEBIUS_BASE_URL,
-        temperature=0.1,
+    return build_chat_model(
+        provider,
         max_tokens=16_000,
-        stream_usage=True,
-        http_client=http_client,
-        metadata={"ls_provider": "nebius", "ls_model_name": MODEL},
-        **extra_kwargs,
+        http_client=_get_shared_http_client(),
+        reasoning=True,
     )
 
 
@@ -135,15 +108,9 @@ def build_agent_grounded():
 
 def _build_agent_nebius_model(model_key: str):
     """Build a Sentinel agent with an alternate Nebius model + Tavily."""
+    from sentinel.chat_model import build_chat_model
     model_id = NEBIUS_MODELS[model_key]
-    model = ChatOpenAI(
-        model=model_id,
-        api_key=NEBIUS_API_KEY,
-        base_url=NEBIUS_BASE_URL,
-        temperature=0.1,
-        stream_usage=True,
-        metadata={"ls_provider": "nebius", "ls_model_name": model_id},
-    )
+    model = build_chat_model("nebius", model=model_id, max_tokens=16_000)
     tools = build_tools(provider="nebius", use_tavily=True, model_name=model_id)
     try:
         return _build_deep_agent(model, tools)
@@ -186,48 +153,3 @@ def agent_kimi():
 
 def agent_glm():
     return build_agent_glm()
-
-
-def run_audit(
-    query: str,
-    provider: str = "nebius",
-    run_name: str | None = None,
-    tags: list[str] | None = None,
-) -> dict:
-    """Run the full Sentinel audit and return findings + metrics."""
-    reset_audit_results()
-    set_provider(provider)
-
-    use_tavily = provider != "openai"
-    model = _build_model(provider)
-    tools = build_tools(provider=provider, use_tavily=use_tavily)
-    try:
-        agent = _build_deep_agent(model, tools)
-    except ImportError:
-        agent = _build_react_agent(model, tools)
-
-    active_model = OPENAI_MODEL if provider == "openai" else MODEL
-    config = {
-        "recursion_limit": 25,
-        "metadata": {
-            "model": active_model,
-            "provider": provider,
-        },
-    }
-    if run_name:
-        config["run_name"] = run_name
-    if tags:
-        config["tags"] = tags
-
-    result = agent.invoke(
-        {"messages": [{"role": "user", "content": query}]},
-        config=config,
-    )
-
-    audit_data = get_audit_results()
-    return {
-        "findings": audit_data["findings"],
-        "cell_metrics": audit_data["cell_metrics"],
-        "agent_response": result["messages"][-1].content if result.get("messages") else "",
-        "status": f"Audit complete: {len(audit_data['findings'])} findings",
-    }

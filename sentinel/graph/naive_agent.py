@@ -14,7 +14,7 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
-from sentinel.config import MODEL, MODEL_MAX_TOKENS, NEBIUS_API_KEY, NEBIUS_BASE_URL
+from sentinel.config import MODEL_MAX_TOKENS
 
 NAIVE_TOP_K = 20
 NAIVE_CONTEXT_CHARS = 12_000
@@ -35,16 +35,12 @@ class _NaiveState(TypedDict):
 
 
 def _build_model():
-    from langchain_openai import ChatOpenAI
+    from sentinel.chat_model import build_chat_model
 
-    return ChatOpenAI(
-        model=MODEL,
-        api_key=NEBIUS_API_KEY,
-        base_url=NEBIUS_BASE_URL,
-        temperature=0.1,
+    return build_chat_model(
+        "nebius",
         max_tokens=MODEL_MAX_TOKENS,
-        stream_usage=True,
-        metadata={"ls_provider": "nebius", "ls_model_name": MODEL, "act": "act0_naive"},
+        extra_metadata={"act": "act0_naive"},
     )
 
 

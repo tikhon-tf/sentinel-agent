@@ -22,7 +22,7 @@ make deploy               # Deploy to LangGraph Cloud (remote Docker build)
 Regulation texts live in `data/regulations/` as `.txt` and `.md` files. Regulation texts are chunked, embedded (Qwen3-Embedding-8B on Nebius, 4096 dimensions), and stored in Pinecone namespace `regulations`. Sub-agents retrieve raw text chunks via semantic search with metadata filtering by regulation name. Multiple retrieval calls per regulation, per SOP.
 
 Key modules:
-- `sentinel/retrieval/regulations.py` — Pinecone regulation text retrieval: `retrieve_regulation_text()`, `retrieve_for_sop()`, `format_regulation_context()`
+- `sentinel/retrieval/regulations.py` — Pinecone regulation text retrieval: `retrieve_regulation_text()`, `format_regulation_context()`
 - `sentinel/retrieval/ingest_regulations.py` — chunks .txt/.md files, embeds, upserts into Pinecone
 - `scripts/extract_pdf_text.py` — extracts text from regulation PDFs (pypdf) for ingestion
 
@@ -35,7 +35,7 @@ Sub-agent tools (built per-invocation in `_build_subagent_tools()`):
 - `search_web` — Tavily advanced search for latest guidance/enforcement
 - `read_sop` — returns the full SOP text (closure over the loaded content)
 
-Finding extraction uses two phases: (1) tool-recorded findings from `record_finding` calls, (2) JSON parsing from the final message as a backwards-compatible fallback. Truncation is detected via `finish_reason=length` on the last AI message and surfaced explicitly. Cell metrics include `findings_source` ("tool"/"json"/"none") and `truncated` flag.
+Finding extraction uses two phases: (1) tool-recorded findings from `record_finding` calls, (2) JSON parsing from the final message as a backwards-compatible fallback. Truncation is detected via `finish_reason=length` on the last AI message and surfaced explicitly. Each `_audit_single_sop_impl` call returns a `SopAuditResult(summary, findings, input_tokens, output_tokens)` — results are aggregated by value, not stored in shared module state, so repeated/concurrent audits in one process can't contaminate each other's totals.
 
 Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Nebius 504 timeouts) return a `"FAILED: ..."` string so the retry loop in `_audit_single_sop` can re-attempt. If findings were already recorded via `record_finding` before the error, those findings are preserved.
 
@@ -46,11 +46,11 @@ Sub-agent invocations are wrapped in a try/except — transient errors (e.g. Neb
 - **Production** (`sentinel_nemotron`): Nemotron-3-Ultra-550b on Nebius + Tavily
 - **Additional**: Kimi-K2.6 (`sentinel_kimi`), GLM-5.1 (`sentinel_glm`) via `_build_agent_nebius_model()`
 - `model_name` is threaded through `build_tools()` → `_audit_single_sop_impl()` → `_build_subagent_model()` so sub-agents use the same model as the outer agent
-- Only DeepSeek models set `max_tokens` on sub-agents — other Nebius models reject `max_completion_tokens`
-- Provider switching is handled by `set_provider()` in `llm.py` and `_build_model()` in `agent.py`
+- All models set `max_tokens` (`MODEL_MAX_TOKENS` = 16000) on the outer agent and sub-agents. Every Nebius model accepts it directly; for OpenAI reasoning models `ChatOpenAI` remaps it to `max_completion_tokens` (the raw OpenAI API rejects `max_tokens`)
+- Provider switching is handled by `_build_model()` in `agent.py`
 
 ### Recursion limits
-- **Outer agent**: 25 graph nodes — set in `run_audit()` config and via `LANGGRAPH_DEFAULT_RECURSION_LIMIT` env var for cloud deployment. Typical runs use ~11 nodes.
+- **Outer agent**: 25 graph nodes — set via `LANGGRAPH_DEFAULT_RECURSION_LIMIT` env var for cloud deployment. Typical runs use ~11 nodes.
 - **Sub-agents**: 80 graph nodes — set in `_audit_single_sop_impl()` at `subagent.invoke()`. Typical sub-agents use 25–37 nodes (p95=37, max observed=65).
 
 ### deepagents optional dependency
@@ -66,13 +66,12 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 
 | Module | Purpose |
 |--------|---------|
-| `sentinel/graph/agent.py` | Agent builders (`agent_prototype`, `agent_grounded`, `agent_optimized`, `agent_nemotron`), `run_audit()` entry point |
+| `sentinel/graph/agent.py` | Agent builders (`agent_prototype`, `agent_grounded`, `agent_optimized`, `agent_nemotron`) |
 | `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_single_sop` (sub-agent), `audit_sops`, `audit_all_sops`, `list_sops`, `list_regulations`, `retrieve_regulation_text_tool`, `create_jira_ticket`, `create_jira_tickets`; sub-agent builder `_build_subagent_tools()` with `record_finding` tool |
-| `sentinel/llm.py` | OpenAI client provider switching (`set_provider()`, `get_client()`, `get_model()`) |
 | `sentinel/models.py` | Pydantic models (`AuditFinding`, `SOPChunk`, `AuditMetrics`), enums (`ComplianceLevel`, `Severity`) |
 | `sentinel/config.py` | API keys, model names, paths, pricing, business unit list |
 | `sentinel/retrieval/local.py` | SOP loading: `list_all_sops()`, `load_sop_by_id()`, `load_sop_chunks()` |
-| `sentinel/retrieval/regulations.py` | Pinecone regulation text retrieval: `retrieve_regulation_text()`, `retrieve_for_sop()`, `format_regulation_context()` |
+| `sentinel/retrieval/regulations.py` | Pinecone regulation text retrieval: `retrieve_regulation_text()`, `format_regulation_context()` |
 | `sentinel/retrieval/ingest_regulations.py` | Regulation text chunker + Pinecone ingestion (`REGULATION_MAP`, `EDITION_PATTERNS`, edition metadata) |
 | `sentinel/retrieval/ingest.py` | SOP markdown parser (`parse_sop()`), chunker, Pinecone ingestion |
 | `sentinel/actuation/jira_client.py` | Sync Jira Cloud REST client used by the `create_jira_ticket` tool |
@@ -134,15 +133,15 @@ Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Prototype/Grounded agent
 ## Patterns to follow
 
 - The outer agent (Sentinel) uses `langchain_openai.ChatOpenAI` via `_build_model()` in `agent.py`
-- Sub-agents (`audit_single_sop`) also use `ChatOpenAI` directly — they do NOT go through `llm.py`
+- Sub-agents (`audit_single_sop`) also use `ChatOpenAI` directly via `_build_subagent_model()`
 - Tools in `sentinel/graph/tools.py` are decorated with `@tool` from `langchain_core.tools`
-- Audit results are accumulated in the module-level `_audit_results` dict in `tools.py`
+- Audit results are returned by value as `SopAuditResult` and aggregated per top-level audit call (no shared module-level accumulator); the fan-out orchestrators sum each run's own findings and tokens
 - SOP lookup (`load_sop_by_id`) supports exact ID, exact title, and fuzzy substring matching
 - The sub-agent determines which regulations apply — there is no predefined SOP-to-regulation mapping
 - Regulation retrieval uses metadata filters (`regulation`, `edition`) on the Pinecone `regulations` namespace
 - JSON parsing from sub-agent responses scans messages in reverse, strips markdown code fences, repairs truncated arrays, and maps unexpected enum values (`_COMPLIANCE_LEVEL_MAP`, `_SEVERITY_MAP`)
 - All `ChatOpenAI` instances must set `stream_usage=True` — without it, custom `base_url` providers (Nebius, OpenAI) don't send `stream_options: {include_usage: true}` and `usage_metadata` is always `None` in thread state
 - Token pricing is centralized in `PRICING` dict in `config.py`; the UI also embeds per-agent pricing in `AUDIT_AGENTS` for live cost display
-- Sub-agent token usage is tracked in `_audit_results` and included in tool result strings as `Sub-agent tokens: X (X in / X out)` — the UI parses this regex from tool results to include sub-agent costs in the displayed totals
+- Sub-agent token usage is carried on `SopAuditResult` (accumulated across retry attempts) and included in tool result strings as `Sub-agent tokens: X (X in / X out)` — the UI parses this regex from tool results to include sub-agent costs in the displayed totals
 - Available Nebius models are in `NEBIUS_MODELS` dict in `config.py` — select via `NEBIUS_MODEL` env var (keys: `deepseek-v4-pro`, `nemotron`, `kimi-k2`, `glm-5`)
 - The LangGraph SDK (via `messages-tuple` stream mode) serializes messages with short-form types: `"ai"` / `"AIMessageChunk"` for AI messages, `"tool"` for ToolMessages, `"human"` for user messages. Do not use substring matching (e.g. `"ToolMessage" in msg_type`) — use explicit set membership (`msg_type in ("tool", "ToolMessage", "ToolMessageChunk")`)

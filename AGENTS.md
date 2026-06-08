@@ -53,10 +53,9 @@ Sub-agent tools:
 
 | Module | Purpose |
 |--------|---------|
-| `sentinel/graph/agent.py` | Agent builders, `run_audit()` entry point |
+| `sentinel/graph/agent.py` | Agent builders |
 | `sentinel/graph/tools.py` | All `@tool` definitions, sub-agent builder, prompts |
 | `sentinel/graph/naive_agent.py` | Naive RAG baseline graph |
-| `sentinel/llm.py` | OpenAI client provider switching |
 | `sentinel/models.py` | Pydantic models, enums |
 | `sentinel/config.py` | API keys, model names, pricing |
 | `sentinel/retrieval/local.py` | SOP loading and search |
@@ -85,5 +84,5 @@ Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY`, `PINECONE_API_KEY`, `TAV
 - Lazy imports for cloud compatibility: `tavily`, `pinecone`, `openai`, `httpx` inside functions
 - Token pricing centralized in `PRICING` dict in `config.py`
 - `model_name` threaded through `build_tools()` → sub-agents so alternate models work end-to-end
-- Only DeepSeek models set `max_tokens` on sub-agents — others reject `max_completion_tokens`
+- All models set `max_tokens` (`MODEL_MAX_TOKENS` = 16000); every Nebius model accepts it, while `ChatOpenAI` remaps it to `max_completion_tokens` for OpenAI reasoning models (the raw OpenAI API rejects `max_tokens`)
 - Judge always uses DeepSeek regardless of `NEBIUS_MODEL` env var

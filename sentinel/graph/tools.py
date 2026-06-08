@@ -6,6 +6,7 @@ import logging
 import re
 import threading
 import time
+from typing import NamedTuple
 
 from langchain_core.tools import tool
 
@@ -18,7 +19,15 @@ RATE_LIMIT_BACKOFF = 30
 from sentinel.config import PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
 
-_audit_results: dict = {"findings": [], "cell_metrics": [], "total_input_tokens": 0, "total_output_tokens": 0}
+class SopAuditResult(NamedTuple):
+    """Per-SOP audit outcome, returned by value rather than accumulated in a
+    module-level dict. Returning results means concurrent sub-agent workers and
+    repeated/parallel top-level audits in one process can't contaminate each
+    other's findings or token totals — each audit aggregates only its own."""
+    summary: str
+    findings: list  # list[AuditFinding]
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 _shared_http_client = None
 _http_client_lock = threading.Lock()
@@ -48,17 +57,6 @@ def _get_shared_http_client():
                 timeout=httpx.Timeout(600.0, connect=30.0),
             )
     return _shared_http_client
-
-
-def get_audit_results() -> dict:
-    return _audit_results
-
-
-def reset_audit_results() -> None:
-    _audit_results["findings"] = []
-    _audit_results["cell_metrics"] = []
-    _audit_results["total_input_tokens"] = 0
-    _audit_results["total_output_tokens"] = 0
 
 
 @tool
@@ -322,42 +320,15 @@ def _build_subagent_model(provider: str = "nebius", model_name: str | None = Non
     so that ThreadPoolExecutor workers reuse one connection pool instead of each
     creating their own (which caused DNS-exhaustion failures at 50 workers).
     """
-    from langchain_openai import ChatOpenAI
-    from sentinel.config import MODEL_MAX_TOKENS, REASONING_EFFORT
-    extra_kwargs: dict = {}
-    if REASONING_EFFORT != "off" and provider != "openai":
-        extra_kwargs["extra_body"] = {
-            "chat_template_kwargs": {"thinking": True, "reasoning_effort": REASONING_EFFORT},
-        }
-    http_client = _get_shared_http_client()
-    if provider == "openai":
-        from sentinel.config import OPENAI_API_KEY, OPENAI_MODEL
-        name = model_name or OPENAI_MODEL
-        return ChatOpenAI(
-            model=name,
-            api_key=OPENAI_API_KEY,
-            temperature=0.1,
-            max_tokens=MODEL_MAX_TOKENS,
-            stream_usage=True,
-            http_client=http_client,
-            metadata={"ls_provider": "openai", "ls_model_name": name},
-            **extra_kwargs,
-        )
-    from sentinel.config import MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL
-    name = model_name or MODEL
-    kwargs = dict(
-        model=name,
-        api_key=NEBIUS_API_KEY,
-        base_url=NEBIUS_BASE_URL,
-        temperature=0.1,
-        stream_usage=True,
-        http_client=http_client,
-        metadata={"ls_provider": "nebius", "ls_model_name": name},
-        **extra_kwargs,
+    from sentinel.chat_model import build_chat_model
+    from sentinel.config import MODEL_MAX_TOKENS
+    return build_chat_model(
+        provider,
+        model=model_name,
+        max_tokens=MODEL_MAX_TOKENS,
+        http_client=_get_shared_http_client(),
+        reasoning=True,
     )
-    if "DeepSeek" in name:
-        kwargs["max_tokens"] = MODEL_MAX_TOKENS
-    return ChatOpenAI(**kwargs)
 
 
 def _parse_findings_json(messages) -> str | None:
@@ -404,19 +375,19 @@ def _parse_findings_json(messages) -> str | None:
     return None
 
 
-def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True, model_name: str | None = None) -> str:
+def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bool = True, model_name: str | None = None) -> SopAuditResult:
     """Core implementation for auditing a single SOP."""
     from langchain.agents import create_agent
     from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
 
     sop = load_sop_by_id(sop_id)
     if sop is None:
-        return f"SOP not found: {sop_id}"
+        return SopAuditResult(f"SOP not found: {sop_id}", [])
 
     fm = sop["frontmatter"]
     chunks = load_sop_chunks(sop)
     if not chunks:
-        return f"SOP {sop_id} has no content"
+        return SopAuditResult(f"SOP {sop_id} has no content", [])
 
     actual_id = fm.get("sop_id", sop_id)
     title = fm.get("title", "")
@@ -435,6 +406,7 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
 
     start = time.time()
     result = None
+    truncated = False
     try:
         result = subagent.invoke(
             {
@@ -449,21 +421,27 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
         elapsed = time.time() - start
         logger.error("Sub-agent for %s failed after %.1fs: %s", actual_id, elapsed, e)
         if not recorded_findings:
-            return f"FAILED: {actual_id} — sub-agent error: {e}"
+            return SopAuditResult(f"FAILED: {actual_id} — sub-agent error: {e}", [])
         logger.info("%s: sub-agent errored but %d findings were recorded via tool — surfacing partial results", actual_id, len(recorded_findings))
         truncated = True
     else:
         elapsed = time.time() - start
 
     messages = result.get("messages", []) if result else []
-    for msg in messages:
-        usage = getattr(msg, "usage_metadata", None)
-        if usage:
-            _audit_results["total_input_tokens"] += usage.get("input_tokens", 0)
-            _audit_results["total_output_tokens"] += usage.get("output_tokens", 0)
+    sub_in = sum(
+        usage.get("input_tokens", 0)
+        for msg in messages
+        if (usage := getattr(msg, "usage_metadata", None))
+    )
+    sub_out = sum(
+        usage.get("output_tokens", 0)
+        for msg in messages
+        if (usage := getattr(msg, "usage_metadata", None))
+    )
 
-    # Detect truncation from the last AI message
-    truncated = False
+    # Detect truncation from the last AI message. Don't reset `truncated` here:
+    # an exception with partial recorded findings already set it True above
+    # (and `messages` is empty on that path, so the loop won't re-detect it).
     for msg in reversed(messages):
         if getattr(msg, "type", "") == "ai":
             rm = getattr(msg, "response_metadata", None) or {}
@@ -501,7 +479,7 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
 
     if not items:
         suffix = " (response was truncated)" if truncated else ""
-        return f"SOP {actual_id}: sub-agent did not produce structured findings{suffix}"
+        return SopAuditResult(f"SOP {actual_id}: sub-agent did not produce structured findings{suffix}", [], sub_in, sub_out)
 
     _COMPLIANCE_LEVEL_MAP = {
         "compliant": "compliant", "partial": "partial", "gap": "gap",
@@ -536,35 +514,16 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
         except (ValueError, KeyError):
             continue
 
-    for f in findings:
-        _audit_results["findings"].append(f)
-    _audit_results["cell_metrics"].append({
-        "sop_id": actual_id,
-        "findings": len(findings),
-        "latency": elapsed,
-        "findings_source": findings_source,
-        "truncated": truncated,
-    })
-
     compliant = sum(1 for f in findings if f.compliance_level == ComplianceLevel.COMPLIANT)
     partial = sum(1 for f in findings if f.compliance_level == ComplianceLevel.PARTIAL)
     gap = sum(1 for f in findings if f.compliance_level == ComplianceLevel.GAP)
-
-    sub_in = sum(
-        getattr(m, "usage_metadata", {}).get("input_tokens", 0)
-        for m in messages if getattr(m, "usage_metadata", None)
-    )
-    sub_out = sum(
-        getattr(m, "usage_metadata", {}).get("output_tokens", 0)
-        for m in messages if getattr(m, "usage_metadata", None)
-    )
 
     partial_tag = " [PARTIAL — sub-agent hit limit]" if (truncated and findings_source == "tool") else (" [truncated]" if truncated else "")
     lines = [f"{actual_id} ({title}): {len(findings)} findings — {compliant}C/{partial}P/{gap}G{partial_tag}"]
     for f in findings:
         lines.append(f"  {f.clause_id}: {f.compliance_level.value} ({f.severity.value}) — {f.gap_description or 'Compliant'}")
     lines.append(f"Sub-agent tokens: {sub_in + sub_out:,} ({sub_in:,} in / {sub_out:,} out)")
-    return "\n".join(lines)
+    return SopAuditResult("\n".join(lines), findings, sub_in, sub_out)
 
 
 def _is_retryable(result: str) -> bool:
@@ -593,8 +552,36 @@ def _retry_delay(attempt: int, result: str) -> float:
     return delay + random.uniform(0, delay * 0.5)
 
 
-def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str:
-    """Core implementation for auditing all SOPs."""
+def _audit_single_sop_with_retry(
+    sop_id: str,
+    provider: str = "nebius",
+    use_tavily: bool = True,
+    model_name: str | None = None,
+) -> SopAuditResult:
+    """Audit one SOP, retrying transient failures. Tokens accumulate across every
+    attempt (failed attempts are still billed); the returned findings are the
+    final attempt's."""
+    result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, model_name=model_name)
+    tok_in, tok_out = result.input_tokens, result.output_tokens
+    for attempt in range(1, MAX_RETRIES + 1):
+        if not _is_retryable(result.summary):
+            break
+        delay = _retry_delay(attempt, result.summary)
+        logger.info("Retry attempt %d/%d for %s (waiting %.0fs)", attempt, MAX_RETRIES, sop_id, delay)
+        time.sleep(delay)
+        result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, model_name=model_name)
+        tok_in += result.input_tokens
+        tok_out += result.output_tokens
+    return result._replace(input_tokens=tok_in, output_tokens=tok_out)
+
+
+def _audit_all_sops_impl(run_one, max_workers: int | None = None) -> str:
+    """Core implementation for auditing all SOPs.
+
+    ``run_one`` is a callable ``(sop_id) -> SopAuditResult``. Results are
+    aggregated from the returned values (no shared module state), so a process
+    can run repeated or concurrent audits without contaminating totals.
+    """
     import concurrent.futures
     from sentinel.config import MAX_AUDIT_WORKERS
     from sentinel.retrieval.local import list_all_sops
@@ -603,25 +590,27 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
     all_sops = list_all_sops()
     sop_by_id = {s["sop_id"]: s for s in all_sops}
 
-    def _audit_one(sop_meta: dict) -> str:
+    def _audit_one(sop_meta: dict) -> SopAuditResult:
         sid = sop_meta["sop_id"]
         try:
-            return single_sop_tool.invoke(sid)
+            return run_one(sid)
         except Exception as e:
-            return f"{sid}: FAILED — {e}"
+            return SopAuditResult(f"{sid}: FAILED — {e}", [])
 
-    results_by_id: dict[str, str] = {}
+    results_by_id: dict[str, SopAuditResult] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {executor.submit(_audit_one, s): s["sop_id"] for s in all_sops}
         for future in concurrent.futures.as_completed(futures):
             sid = futures[future]
             results_by_id[sid] = future.result()
 
+    # Tokens burned on attempts we discard during batch retries are still billed.
+    carry_in = carry_out = 0
     for attempt in range(1, MAX_RETRIES + 1):
-        to_retry = [sid for sid, r in results_by_id.items() if _is_retryable(r)]
+        to_retry = [sid for sid, r in results_by_id.items() if _is_retryable(r.summary)]
         if not to_retry:
             break
-        any_rate_limited = any(_is_rate_limited(results_by_id[sid]) for sid in to_retry)
+        any_rate_limited = any(_is_rate_limited(results_by_id[sid].summary) for sid in to_retry)
         delay = _retry_delay(attempt, "429" if any_rate_limited else "FAILED")
         logger.info("Retry attempt %d/%d for %d SOPs (waiting %.0fs): %s", attempt, MAX_RETRIES, len(to_retry), delay, ", ".join(to_retry))
         time.sleep(delay)
@@ -630,21 +619,23 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
             for future in concurrent.futures.as_completed(futures):
                 sid = futures[future]
                 new_result = future.result()
-                if not _is_retryable(new_result):
+                if not _is_retryable(new_result.summary):
                     logger.info("Retry succeeded for %s", sid)
+                carry_in += results_by_id[sid].input_tokens
+                carry_out += results_by_id[sid].output_tokens
                 results_by_id[sid] = new_result
 
     results = list(results_by_id.values())
-    still_failed = sum(1 for r in results if _is_retryable(r))
+    still_failed = sum(1 for r in results if _is_retryable(r.summary))
 
-    findings = _audit_results["findings"]
+    findings = [f for r in results for f in r.findings]
     total = len(findings)
     compliant = sum(1 for f in findings if f.compliance_level == ComplianceLevel.COMPLIANT)
     partial = sum(1 for f in findings if f.compliance_level == ComplianceLevel.PARTIAL)
     gap = sum(1 for f in findings if f.compliance_level == ComplianceLevel.GAP)
 
-    tok_in = _audit_results["total_input_tokens"]
-    tok_out = _audit_results["total_output_tokens"]
+    tok_in = sum(r.input_tokens for r in results) + carry_in
+    tok_out = sum(r.output_tokens for r in results) + carry_out
 
     summary = (
         f"Audit complete: {total} findings across {len(all_sops)} SOPs\n"
@@ -653,7 +644,7 @@ def _audit_all_sops_impl(single_sop_tool, max_workers: int | None = None) -> str
         f"  Gap:       {gap} ({100*gap//max(total,1)}%)\n"
         f"  Total tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n"
         f"  Failed after retries: {still_failed}\n\n"
-        "Per-SOP breakdown:\n" + "\n".join(sorted(results))
+        "Per-SOP breakdown:\n" + "\n".join(sorted(r.summary for r in results))
     )
     return summary
 
@@ -692,6 +683,79 @@ def _render_ticket_description(
     return "\n\n".join(parts)
 
 
+def _jira_config() -> tuple[dict, list[str]]:
+    """Return (Jira config kwargs, list of missing required env-var names)."""
+    from sentinel.config import (
+        JIRA_API_TOKEN,
+        JIRA_BASE_URL,
+        JIRA_DEFAULT_ISSUE_TYPE,
+        JIRA_EMAIL,
+        JIRA_PROJECT_KEY,
+    )
+    cfg = {
+        "base_url": JIRA_BASE_URL,
+        "email": JIRA_EMAIL,
+        "api_token": JIRA_API_TOKEN,
+        "project_key": JIRA_PROJECT_KEY,
+        "issue_type": JIRA_DEFAULT_ISSUE_TYPE,
+    }
+    required = ["JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_PROJECT_KEY"]
+    keys = ["base_url", "email", "api_token", "project_key"]
+    missing = [name for name, key in zip(required, keys) if not cfg[key]]
+    return cfg, missing
+
+
+def _make_jira_client(cfg: dict):
+    from sentinel.actuation.jira_client import JiraClient
+    return JiraClient(
+        base_url=cfg["base_url"],
+        email=cfg["email"],
+        api_token=cfg["api_token"],
+        project_key=cfg["project_key"],
+        issue_type=cfg["issue_type"],
+    )
+
+
+def _build_jira_issue_fields(
+    *,
+    sop_id: str,
+    clause_id: str,
+    clause_title: str,
+    regulation: str,
+    severity: str,
+    gap_description: str,
+    remediation: str = "",
+    evidence_quote: str = "",
+    reasoning: str = "",
+) -> tuple[str, list[str], str, str]:
+    """Build the (summary, labels, description, priority) for one finding's ticket."""
+    from sentinel.actuation.jira_client import SEVERITY_TO_PRIORITY
+    sev = (severity or "").strip().lower()
+    if sev not in SEVERITY_TO_PRIORITY:
+        sev = "medium"
+
+    summary = f"[{sev.upper()}] {clause_id}: {clause_title} ({sop_id})"
+    labels = sorted({
+        "sentinel",
+        "compliance-finding",
+        f"sev-{sev}",
+        _slug(regulation) or "regulation",
+        _slug(sop_id) or "sop",
+    })
+    description = _render_ticket_description(
+        sop_id=sop_id,
+        clause_id=clause_id,
+        clause_title=clause_title,
+        regulation=regulation,
+        severity=sev,
+        gap_description=gap_description,
+        remediation=remediation,
+        evidence_quote=evidence_quote,
+        reasoning=reasoning,
+    )
+    return summary, labels, description, SEVERITY_TO_PRIORITY[sev]
+
+
 @tool
 def create_jira_ticket(
     sop_id: str,
@@ -720,44 +784,16 @@ def create_jira_ticket(
         evidence_quote: exact quote from the SOP (optional)
         reasoning: 2-3 sentence rationale citing the regulation (optional)
     """
-    from sentinel.actuation.jira_client import JiraClient, SEVERITY_TO_PRIORITY
-    from sentinel.config import (
-        JIRA_API_TOKEN,
-        JIRA_BASE_URL,
-        JIRA_DEFAULT_ISSUE_TYPE,
-        JIRA_EMAIL,
-        JIRA_PROJECT_KEY,
-    )
-
-    missing = [
-        name for name, val in [
-            ("JIRA_BASE_URL", JIRA_BASE_URL),
-            ("JIRA_EMAIL", JIRA_EMAIL),
-            ("JIRA_API_TOKEN", JIRA_API_TOKEN),
-            ("JIRA_PROJECT_KEY", JIRA_PROJECT_KEY),
-        ] if not val
-    ]
+    cfg, missing = _jira_config()
     if missing:
         return f"Jira not configured — set {', '.join(missing)} in the environment"
 
-    sev = (severity or "").strip().lower()
-    if sev not in SEVERITY_TO_PRIORITY:
-        sev = "medium"
-
-    summary = f"[{sev.upper()}] {clause_id}: {clause_title} ({sop_id})"
-    labels = sorted({
-        "sentinel",
-        "compliance-finding",
-        f"sev-{sev}",
-        _slug(regulation) or "regulation",
-        _slug(sop_id) or "sop",
-    })
-    description = _render_ticket_description(
+    summary, labels, description, priority = _build_jira_issue_fields(
         sop_id=sop_id,
         clause_id=clause_id,
         clause_title=clause_title,
         regulation=regulation,
-        severity=sev,
+        severity=severity,
         gap_description=gap_description,
         remediation=remediation,
         evidence_quote=evidence_quote,
@@ -765,19 +801,13 @@ def create_jira_ticket(
     )
 
     try:
-        client = JiraClient(
-            base_url=JIRA_BASE_URL,
-            email=JIRA_EMAIL,
-            api_token=JIRA_API_TOKEN,
-            project_key=JIRA_PROJECT_KEY,
-            issue_type=JIRA_DEFAULT_ISSUE_TYPE,
-        )
+        client = _make_jira_client(cfg)
         try:
             issue = client.create_issue(
                 summary=summary,
                 description=description,
                 labels=labels,
-                priority=SEVERITY_TO_PRIORITY[sev],
+                priority=priority,
             )
         finally:
             client.close()
@@ -806,47 +836,25 @@ def create_jira_tickets(findings_json: str) -> str:
     if not isinstance(findings, list):
         return "Expected a JSON array of findings."
 
-    from sentinel.actuation.jira_client import JiraClient, SEVERITY_TO_PRIORITY
-    from sentinel.config import (
-        JIRA_API_TOKEN, JIRA_BASE_URL, JIRA_DEFAULT_ISSUE_TYPE,
-        JIRA_EMAIL, JIRA_PROJECT_KEY,
-    )
-
-    missing = [
-        name for name, val in [
-            ("JIRA_BASE_URL", JIRA_BASE_URL), ("JIRA_EMAIL", JIRA_EMAIL),
-            ("JIRA_API_TOKEN", JIRA_API_TOKEN), ("JIRA_PROJECT_KEY", JIRA_PROJECT_KEY),
-        ] if not val
-    ]
+    cfg, missing = _jira_config()
     if missing:
         return f"Jira not configured — set {', '.join(missing)} in the environment"
     if not findings:
         return "No findings provided."
 
-    client = JiraClient(
-        base_url=JIRA_BASE_URL, email=JIRA_EMAIL, api_token=JIRA_API_TOKEN,
-        project_key=JIRA_PROJECT_KEY, issue_type=JIRA_DEFAULT_ISSUE_TYPE,
-    )
+    client = _make_jira_client(cfg)
     created = []
     failed = []
     try:
         for f in findings:
             sop_id = f.get("sop_id", "")
             clause_id = f.get("clause_id", f.get("requirement_id", ""))
-            clause_title = f.get("clause_title", f.get("requirement_title", ""))
-            regulation = f.get("regulation", "")
-            sev = (f.get("severity", "medium") or "medium").strip().lower()
-            if sev not in SEVERITY_TO_PRIORITY:
-                sev = "medium"
-
-            summary = f"[{sev.upper()}] {clause_id}: {clause_title} ({sop_id})"
-            labels = sorted({
-                "sentinel", "compliance-finding",
-                f"sev-{sev}", _slug(regulation) or "regulation", _slug(sop_id) or "sop",
-            })
-            description = _render_ticket_description(
-                sop_id=sop_id, clause_id=clause_id, clause_title=clause_title,
-                regulation=regulation, severity=sev,
+            summary, labels, description, priority = _build_jira_issue_fields(
+                sop_id=sop_id,
+                clause_id=clause_id,
+                clause_title=f.get("clause_title", f.get("requirement_title", "")),
+                regulation=f.get("regulation", ""),
+                severity=f.get("severity", "medium"),
                 gap_description=f.get("gap_description", ""),
                 remediation=f.get("remediation", ""),
                 evidence_quote=f.get("evidence_quote", ""),
@@ -855,7 +863,7 @@ def create_jira_tickets(findings_json: str) -> str:
             try:
                 issue = client.create_issue(
                     summary=summary, description=description,
-                    labels=labels, priority=SEVERITY_TO_PRIORITY[sev],
+                    labels=labels, priority=priority,
                 )
                 created.append(f"{issue['key']} — {clause_id} ({sop_id})")
             except Exception as e:
@@ -874,18 +882,13 @@ def create_jira_tickets(findings_json: str) -> str:
 def build_tools(provider: str = "nebius", use_tavily: bool = True, model_name: str | None = None) -> list:
     """Build the complete tool list for the agent, parameterized by provider, Tavily, and optional model_name override."""
 
+    def _run_one(sop_id: str) -> SopAuditResult:
+        return _audit_single_sop_with_retry(sop_id, provider=provider, use_tavily=use_tavily, model_name=model_name)
+
     @tool
     def _audit_single_sop(sop_id: str) -> str:
         """Audit one SOP against all relevant regulations using a sub-agent with access to the regulation knowledge base. Accepts an SOP ID (e.g. 'SOP-AIML-009') or title (e.g. 'Algorithmic Bias Detection'). The sub-agent determines which regulations apply and iteratively retrieves regulatory text."""
-        result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, model_name=model_name)
-        for attempt in range(1, MAX_RETRIES + 1):
-            if not _is_retryable(result):
-                break
-            delay = _retry_delay(attempt, result)
-            logger.info("Retry attempt %d/%d for %s (waiting %.0fs)", attempt, MAX_RETRIES, sop_id, delay)
-            time.sleep(delay)
-            result = _audit_single_sop_impl(sop_id, provider=provider, use_tavily=use_tavily, model_name=model_name)
-        return result
+        return _run_one(sop_id).summary
 
     @tool
     def _audit_sops(sop_ids: list[str]) -> str:
@@ -897,13 +900,13 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, model_name: s
             return "No SOP IDs provided."
 
         workers = min(len(sop_ids), MAX_AUDIT_WORKERS)
-        results_by_id: dict[str, str] = {}
+        results_by_id: dict[str, SopAuditResult] = {}
 
-        def _audit_one(sid: str) -> str:
+        def _audit_one(sid: str) -> SopAuditResult:
             try:
-                return _audit_single_sop.invoke(sid)
+                return _run_one(sid)
             except Exception as e:
-                return f"{sid}: FAILED — {e}"
+                return SopAuditResult(f"{sid}: FAILED — {e}", [])
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {executor.submit(_audit_one, sid): sid for sid in sop_ids}
@@ -912,23 +915,23 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, model_name: s
                 results_by_id[sid] = future.result()
 
         results = list(results_by_id.values())
-        still_failed = sum(1 for r in results if _is_retryable(r))
+        still_failed = sum(1 for r in results if _is_retryable(r.summary))
 
-        tok_in = _audit_results["total_input_tokens"]
-        tok_out = _audit_results["total_output_tokens"]
+        tok_in = sum(r.input_tokens for r in results)
+        tok_out = sum(r.output_tokens for r in results)
 
         summary = (
             f"Audit complete: {len(sop_ids)} SOPs\n"
             f"  Failed: {still_failed}\n"
             f"  Total tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n\n"
-            "Per-SOP breakdown:\n" + "\n".join(sorted(results))
+            "Per-SOP breakdown:\n" + "\n".join(sorted(r.summary for r in results))
         )
         return summary
 
     @tool
     def _audit_all_sops() -> str:
         """Run the full audit across ALL 200 SOPs using sub-agents. Each SOP gets its own auditor sub-agent with access to the regulation knowledge base. Fans out with configurable parallelism (MAX_AUDIT_WORKERS)."""
-        return _audit_all_sops_impl(_audit_single_sop)
+        return _audit_all_sops_impl(_run_one)
 
     _audit_single_sop.name = "audit_single_sop"
     _audit_sops.name = "audit_sops"

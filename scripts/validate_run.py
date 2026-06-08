@@ -19,10 +19,8 @@ MATRIX_PATH = Path("data/compliance_matrix.json")
 REVISED_MATRIX_PATH = Path("data/compliance_matrix_revised.json")
 
 PRICING = {
-    "gpt-5.4-mini": {"input": 0.40, "output": 1.60},
     "gpt-5.5": {"input": 5.00, "output": 30.00},
     "deepseek-ai/DeepSeek-V4-Pro": {"input": 1.75, "output": 3.50},
-    "nvidia/nemotron-3-super-120b-a12b": {"input": 0.30, "output": 0.90},
     "nvidia/Nemotron-3-Ultra-550b-a55b": {"input": 1.00, "output": 3.00},
     "moonshotai/Kimi-K2.6": {"input": 0.95, "output": 4.00},
     "zai-org/GLM-5.1": {"input": 1.40, "output": 4.40},
@@ -107,27 +105,34 @@ def fetch_run_data(run_id: str) -> dict:
     model_short = (model or "unknown").split("/")[-1]
     label = f"{model_short} ({request_id[:8]})"
 
-    # Find audit content — try audit_all_sops tool run first
-    content = None
+    # Collect every audit tool output in the trace. A run may make several
+    # audit calls (audit_single_sop / audit_sops / audit_all_sops); each carries
+    # its own token lines, so all must be gathered (not just the first).
+    AUDIT_TOOLS = {"audit_single_sop", "audit_sops", "audit_all_sops"}
+    audit_outputs: list[str] = []
     tool_runs = list(client.list_runs(
         project_name="sentinel-agent",
         trace_id=run_id,
         run_type="tool",
-        filter='eq(name, "audit_all_sops")',
     ))
     for tr in tool_runs:
-        if tr.outputs:
-            content = _find_audit_text(tr.outputs)
-            if not content:
-                out_str = str(tr.outputs.get("output", ""))
-                if "Audit complete" in out_str:
-                    content = out_str
-            if content:
-                break
+        if tr.name not in AUDIT_TOOLS or not tr.outputs:
+            continue
+        text = _find_audit_text(tr.outputs)
+        if not text:
+            out_str = str(tr.outputs.get("output", ""))
+            if "Audit complete" in out_str or "Sub-agent tokens" in out_str:
+                text = out_str
+        if text:
+            audit_outputs.append(text)
+
+    content = "\n\n".join(audit_outputs) if audit_outputs else None
 
     # Fallback: search root run outputs
     if not content and root.outputs:
         content = _find_audit_text(root.outputs)
+        if content:
+            audit_outputs = [content]
 
     # Fallback: search Prompt chain runs (for pending root runs)
     if not content:
@@ -141,6 +146,7 @@ def fetch_run_data(run_id: str) -> dict:
             if cr.outputs:
                 content = _find_audit_text(cr.outputs)
                 if content:
+                    audit_outputs = [content]
                     break
 
     # Determine wall-clock latency: root start to last completed child end
@@ -159,6 +165,7 @@ def fetch_run_data(run_id: str) -> dict:
         "label": label,
         "model": model,
         "content": content,
+        "audit_outputs": audit_outputs,
         "start_time": start_time,
         "end_time": end_time,
         "total_tokens": root.total_tokens or 0,
@@ -172,27 +179,48 @@ def fetch_run_data(run_id: str) -> dict:
     }
 
 
+TOTAL_TOKENS_RE = re.compile(r"Total tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)")
+SUB_AGENT_TOKENS_RE = re.compile(r"Sub-agent tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)")
+
+
+def _sub_agent_tokens(audit_outputs: list[str]) -> tuple[int, int]:
+    """Sum sub-agent tokens across every audit tool output in the trace.
+
+    A run can make several audit calls (e.g. multiple `audit_sops`), each
+    reporting only its own sub-agents. For each output: an `audit_sops` /
+    `audit_all_sops` result carries one aggregate `Total tokens:` line (which
+    already covers its per-SOP sub-agents) plus per-SOP `Sub-agent tokens:`
+    lines — count the aggregate when present, otherwise (an individual
+    `audit_single_sop` result) count the per-SOP line. This avoids both
+    double-counting within an output and dropping additional audit calls.
+    """
+    sub_in = sub_out = 0
+    for text in audit_outputs:
+        rows = TOTAL_TOKENS_RE.findall(text or "")
+        if not rows:
+            rows = SUB_AGENT_TOKENS_RE.findall(text or "")
+        for tin, tout in rows:
+            sub_in += int(tin.replace(",", ""))
+            sub_out += int(tout.replace(",", ""))
+    return sub_in, sub_out
+
+
 def parse_run_stats(content: str, run_data: dict) -> dict:
     """Compute cost from outer agent trace tokens + sub-agent tokens from audit output.
 
     The LangSmith trace only captures the outer Sentinel agent's LLM calls
     (sub-agents run in ThreadPoolExecutor and don't propagate trace context).
-    Sub-agent tokens are parsed from the "Total tokens:" summary line in the audit output.
+    Sub-agent tokens are summed across every audit tool output in the trace.
     Total cost = outer agent + sub-agent, both at the same model pricing.
     """
     # Outer agent tokens from LangSmith trace LLM runs
     outer_in = run_data.get("trace_input_tokens", 0)
     outer_out = run_data.get("trace_output_tokens", 0)
 
-    # Sub-agent tokens from audit output summary line (old: "Sub-agent tokens:", new: "Total tokens:")
-    sub_in = sub_out = 0
-    match = re.search(
-        r"(?:Total tokens|Sub-agent tokens):\s*([\d,]+)\s*\(([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)",
-        content or "",
-    )
-    if match:
-        sub_in = int(match.group(2).replace(",", ""))
-        sub_out = int(match.group(3).replace(",", ""))
+    # Sub-agent tokens summed across all audit tool outputs (falls back to the
+    # combined content string when per-output texts weren't captured).
+    audit_outputs = run_data.get("audit_outputs") or ([content] if content else [])
+    sub_in, sub_out = _sub_agent_tokens(audit_outputs)
 
     input_tokens = outer_in + sub_in
     output_tokens = outer_out + sub_out

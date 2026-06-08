@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 
-from sentinel.config import MODEL, MODEL_MAX_TOKENS, NEBIUS_API_KEY, NEBIUS_BASE_URL
+from sentinel.config import MODEL, MODEL_MAX_TOKENS
 from sentinel.retrieval.local import load_sop_by_id, load_sop_chunks
 from sentinel.retrieval.regulations import (
     format_regulation_context,
@@ -29,16 +29,12 @@ Answer:"""
 
 
 def _build_naive_model():
-    from langchain_openai import ChatOpenAI
+    from sentinel.chat_model import build_chat_model
 
-    return ChatOpenAI(
-        model=MODEL,
-        api_key=NEBIUS_API_KEY,
-        base_url=NEBIUS_BASE_URL,
-        temperature=0.1,
+    return build_chat_model(
+        "nebius",
         max_tokens=MODEL_MAX_TOKENS,
-        stream_usage=True,
-        metadata={"ls_provider": "nebius", "ls_model_name": MODEL, "eval_mode": "naive"},
+        extra_metadata={"eval_mode": "naive"},
     )
 
 
