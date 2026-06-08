@@ -30,7 +30,9 @@ User Query (via UI or LangGraph API)
     |         +---> record_finding (per requirement, survives truncation)
     |         |
     |         v
-    |    Findings accumulated incrementally
+    |    Returns SopAuditResult(findings, tokens) — aggregated by value per
+    |    audit call (no shared global; concurrency-safe). Emits a token line
+    |    parsed by the UI + validate_run via sentinel/token_accounting.py
     |
     +---> create_jira_ticket / create_jira_tickets (batch)
     |         |
@@ -41,11 +43,11 @@ User Query (via UI or LangGraph API)
     +---> list_regulations / retrieve_regulation_text_tool
 ```
 
-**Models:** Nemotron-3-Ultra-550b (Production), DeepSeek-V4-Pro (Optimized), GPT-5.5 (Prototype/Grounded) on Nebius + OpenAI
+**Models:** Nemotron-3-Ultra-550b (Production), DeepSeek-V4-Pro (Optimized), GPT-5.5 (Prototype/Grounded) on Nebius + OpenAI, all built via `build_chat_model` (`chat_model.py`)
 **Orchestration:** LangGraph ReAct agent with per-SOP sub-agents, optional deepagents upgrade
 **Retrieval:** Pinecone vector search (Qwen3-Embedding-8B, 4096 dims)
 **Grounding:** Tavily live regulation search
-**Observability:** LangSmith tracing with cost tracking
+**Observability:** LangSmith tracing with cost tracking; token-line emit/parse centralized in `sentinel/token_accounting.py` (summed per audit call by UI + `validate_run.py`)
 **Actuation:** Jira Cloud REST API for filing compliance gap tickets
 **Deployment:** LangGraph Cloud + UI (FastAPI + React)
 
@@ -143,6 +145,8 @@ sentinel_agent/
 ├── sentinel/                  # Core agent package
 │   ├── config.py              # API keys, model config, pricing, paths
 │   ├── models.py              # Pydantic models (AuditFinding, SOPChunk, AuditMetrics)
+│   ├── chat_model.py          # build_chat_model() — single ChatOpenAI factory
+│   ├── token_accounting.py    # Token-line emit format + parser (shared by tools/UI/eval)
 │   ├── graph/
 │   │   ├── agent.py           # ReAct agent (deepagents fallback to LangGraph)
 │   │   └── tools.py           # LangChain tools: sub-agent auditing + retrieval

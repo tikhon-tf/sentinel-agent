@@ -68,6 +68,8 @@ When an audit finding is a gap or partial at medium+ severity, the `create_jira_
 |--------|---------|
 | `sentinel/graph/agent.py` | Agent builders (`agent_prototype`, `agent_grounded`, `agent_optimized`, `agent_nemotron`) |
 | `sentinel/graph/tools.py` | LangChain `@tool` definitions: `audit_single_sop` (sub-agent), `audit_sops`, `audit_all_sops`, `list_sops`, `list_regulations`, `retrieve_regulation_text_tool`, `create_jira_ticket`, `create_jira_tickets`; sub-agent builder `_build_subagent_tools()` with `record_finding` tool |
+| `sentinel/chat_model.py` | `build_chat_model()` — single `ChatOpenAI` factory (provider/model/temperature/max_tokens/reasoning) used by the outer agent, sub-agents, and eval modules |
+| `sentinel/token_accounting.py` | Single source of truth for the token-line emit format, parse regexes, and audit tool-name set; `tools.py` emits via `format_*`, `ui/server.py` + `scripts/validate_run.py` parse via `parse_tokens_from_result` / `sum_sub_agent_tokens` |
 | `sentinel/models.py` | Pydantic models (`AuditFinding`, `SOPChunk`, `AuditMetrics`), enums (`ComplianceLevel`, `Severity`) |
 | `sentinel/config.py` | API keys, model names, paths, pricing, business unit list |
 | `sentinel/retrieval/local.py` | SOP loading: `list_all_sops()`, `load_sop_by_id()`, `load_sop_chunks()` |
@@ -142,6 +144,6 @@ Required: `NEBIUS_API_KEY`. Optional: `OPENAI_API_KEY` (Prototype/Grounded agent
 - JSON parsing from sub-agent responses scans messages in reverse, strips markdown code fences, repairs truncated arrays, and maps unexpected enum values (`_COMPLIANCE_LEVEL_MAP`, `_SEVERITY_MAP`)
 - All `ChatOpenAI` instances must set `stream_usage=True` — without it, custom `base_url` providers (Nebius, OpenAI) don't send `stream_options: {include_usage: true}` and `usage_metadata` is always `None` in thread state
 - Token pricing is centralized in `PRICING` dict in `config.py`; the UI also embeds per-agent pricing in `AUDIT_AGENTS` for live cost display
-- Sub-agent token usage is carried on `SopAuditResult` (accumulated across retry attempts) and included in tool result strings as `Sub-agent tokens: X (X in / X out)` — the UI parses this regex from tool results to include sub-agent costs in the displayed totals
+- Sub-agent token usage is carried on `SopAuditResult` (accumulated across retry attempts) and included in tool result strings as `Sub-agent tokens: X (X in / X out)`. The emit format and the parser live together in `sentinel/token_accounting.py` — `tools.py` emits via `format_total_tokens`/`format_sub_agent_tokens`, and both consumers (`ui/server.py`, `scripts/validate_run.py`) parse via it, gated on `AUDIT_TOOL_NAMES` so a `read_file` re-read of offloaded audit output isn't double-counted. Consumers must sum across multiple audit calls in a run (each reports only its own sub-agents)
 - Available Nebius models are in `NEBIUS_MODELS` dict in `config.py` — select via `NEBIUS_MODEL` env var (keys: `deepseek-v4-pro`, `nemotron`, `kimi-k2`, `glm-5`)
 - The LangGraph SDK (via `messages-tuple` stream mode) serializes messages with short-form types: `"ai"` / `"AIMessageChunk"` for AI messages, `"tool"` for ToolMessages, `"human"` for user messages. Do not use substring matching (e.g. `"ToolMessage" in msg_type`) — use explicit set membership (`msg_type in ("tool", "ToolMessage", "ToolMessageChunk")`)

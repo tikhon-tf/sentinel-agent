@@ -18,6 +18,7 @@ RATE_LIMIT_BACKOFF = 30
 
 from sentinel.config import PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
+from sentinel.token_accounting import format_sub_agent_tokens, format_total_tokens
 
 class SopAuditResult(NamedTuple):
     """Per-SOP audit outcome, returned by value rather than accumulated in a
@@ -522,7 +523,7 @@ def _audit_single_sop_impl(sop_id: str, provider: str = "nebius", use_tavily: bo
     lines = [f"{actual_id} ({title}): {len(findings)} findings — {compliant}C/{partial}P/{gap}G{partial_tag}"]
     for f in findings:
         lines.append(f"  {f.clause_id}: {f.compliance_level.value} ({f.severity.value}) — {f.gap_description or 'Compliant'}")
-    lines.append(f"Sub-agent tokens: {sub_in + sub_out:,} ({sub_in:,} in / {sub_out:,} out)")
+    lines.append(format_sub_agent_tokens(sub_in, sub_out))
     return SopAuditResult("\n".join(lines), findings, sub_in, sub_out)
 
 
@@ -642,7 +643,7 @@ def _audit_all_sops_impl(run_one, max_workers: int | None = None) -> str:
         f"  Compliant: {compliant} ({100*compliant//max(total,1)}%)\n"
         f"  Partial:   {partial} ({100*partial//max(total,1)}%)\n"
         f"  Gap:       {gap} ({100*gap//max(total,1)}%)\n"
-        f"  Total tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n"
+        f"  {format_total_tokens(tok_in, tok_out)}\n"
         f"  Failed after retries: {still_failed}\n\n"
         "Per-SOP breakdown:\n" + "\n".join(sorted(r.summary for r in results))
     )
@@ -923,7 +924,7 @@ def build_tools(provider: str = "nebius", use_tavily: bool = True, model_name: s
         summary = (
             f"Audit complete: {len(sop_ids)} SOPs\n"
             f"  Failed: {still_failed}\n"
-            f"  Total tokens: {tok_in + tok_out:,} ({tok_in:,} in / {tok_out:,} out)\n\n"
+            f"  {format_total_tokens(tok_in, tok_out)}\n\n"
             "Per-SOP breakdown:\n" + "\n".join(sorted(r.summary for r in results))
         )
         return summary

@@ -44,6 +44,7 @@ from sentinel.config import (
     OPENAI_MODEL,
     SOP_BUSINESS_UNITS,
 )
+from sentinel.token_accounting import AUDIT_TOOL_NAMES, parse_tokens_from_result
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 EVAL_RESULTS_DIR = PROJECT_ROOT / "data" / "eval" / "results"
@@ -170,14 +171,6 @@ def _jira_client():
         issue_type=JIRA_DEFAULT_ISSUE_TYPE,
     )
 
-
-# Parse sub-agent token counts from tool result strings.
-_SUB_TOKENS_RE = re.compile(r"Sub-agent tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)")
-_TOTAL_TOKENS_RE = re.compile(r"Total tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)")
-# Only these tools report sub-agent token lines. Gating on the tool name
-# prevents re-counting when a large audit output is offloaded and re-read via
-# read_file (whose result echoes the same "Total tokens:" / "Sub-agent tokens:").
-_AUDIT_TOOL_NAMES = {"audit_single_sop", "audit_sops", "audit_all_sops"}
 
 # Parse the `[SEV] CLAUSE: Title (SOP-XYZ-NNN)` summary that create_jira_ticket emits.
 _SUMMARY_RE = re.compile(r"^\[(\w+)\]\s+([^:]+):\s+(.+?)\s+\((SOP-[A-Z]+-\d+)\)\s*$")
@@ -536,21 +529,14 @@ def _stream_one(
                     out_q.put(payload)
                     text = parsed.get("text", "")
                     # Accumulate across audit tool calls: a run may make several
-                    # audit_sops / audit_single_sop calls, each reporting only
-                    # its own sub-agents' tokens. Gate on the tool name so a
-                    # read_file that re-reads offloaded audit output isn't
-                    # counted again. Within one result, the "Total tokens:"
-                    # aggregate supersedes the per-SOP lines (hence if/elif).
-                    if parsed.get("name") in _AUDIT_TOOL_NAMES and isinstance(text, str):
-                        m_total = _TOTAL_TOKENS_RE.search(text)
-                        m_sub = _SUB_TOKENS_RE.search(text)
-                        if m_total:
-                            sub_tokens["input"] += int(m_total.group(1).replace(",", ""))
-                            sub_tokens["output"] += int(m_total.group(2).replace(",", ""))
-                            _emit_usage()
-                        elif m_sub:
-                            sub_tokens["input"] += int(m_sub.group(1).replace(",", ""))
-                            sub_tokens["output"] += int(m_sub.group(2).replace(",", ""))
+                    # audit_sops / audit_single_sop calls, each reporting only its
+                    # own sub-agents' tokens. Gate on the tool name so a read_file
+                    # that re-reads offloaded audit output isn't counted again.
+                    if parsed.get("name") in AUDIT_TOOL_NAMES and isinstance(text, str):
+                        toks = parse_tokens_from_result(text)
+                        if toks:
+                            sub_tokens["input"] += toks[0]
+                            sub_tokens["output"] += toks[1]
                             _emit_usage()
                 else:
                     out_q.put(payload)

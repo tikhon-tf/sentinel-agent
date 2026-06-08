@@ -15,6 +15,8 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from sentinel.token_accounting import AUDIT_TOOL_NAMES, sum_sub_agent_tokens
+
 MATRIX_PATH = Path("data/compliance_matrix.json")
 REVISED_MATRIX_PATH = Path("data/compliance_matrix_revised.json")
 
@@ -108,7 +110,6 @@ def fetch_run_data(run_id: str) -> dict:
     # Collect every audit tool output in the trace. A run may make several
     # audit calls (audit_single_sop / audit_sops / audit_all_sops); each carries
     # its own token lines, so all must be gathered (not just the first).
-    AUDIT_TOOLS = {"audit_single_sop", "audit_sops", "audit_all_sops"}
     audit_outputs: list[str] = []
     tool_runs = list(client.list_runs(
         project_name="sentinel-agent",
@@ -116,7 +117,7 @@ def fetch_run_data(run_id: str) -> dict:
         run_type="tool",
     ))
     for tr in tool_runs:
-        if tr.name not in AUDIT_TOOLS or not tr.outputs:
+        if tr.name not in AUDIT_TOOL_NAMES or not tr.outputs:
             continue
         text = _find_audit_text(tr.outputs)
         if not text:
@@ -179,32 +180,6 @@ def fetch_run_data(run_id: str) -> dict:
     }
 
 
-TOTAL_TOKENS_RE = re.compile(r"Total tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)")
-SUB_AGENT_TOKENS_RE = re.compile(r"Sub-agent tokens:\s*[\d,]+\s*\(\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\)")
-
-
-def _sub_agent_tokens(audit_outputs: list[str]) -> tuple[int, int]:
-    """Sum sub-agent tokens across every audit tool output in the trace.
-
-    A run can make several audit calls (e.g. multiple `audit_sops`), each
-    reporting only its own sub-agents. For each output: an `audit_sops` /
-    `audit_all_sops` result carries one aggregate `Total tokens:` line (which
-    already covers its per-SOP sub-agents) plus per-SOP `Sub-agent tokens:`
-    lines — count the aggregate when present, otherwise (an individual
-    `audit_single_sop` result) count the per-SOP line. This avoids both
-    double-counting within an output and dropping additional audit calls.
-    """
-    sub_in = sub_out = 0
-    for text in audit_outputs:
-        rows = TOTAL_TOKENS_RE.findall(text or "")
-        if not rows:
-            rows = SUB_AGENT_TOKENS_RE.findall(text or "")
-        for tin, tout in rows:
-            sub_in += int(tin.replace(",", ""))
-            sub_out += int(tout.replace(",", ""))
-    return sub_in, sub_out
-
-
 def parse_run_stats(content: str, run_data: dict) -> dict:
     """Compute cost from outer agent trace tokens + sub-agent tokens from audit output.
 
@@ -220,7 +195,7 @@ def parse_run_stats(content: str, run_data: dict) -> dict:
     # Sub-agent tokens summed across all audit tool outputs (falls back to the
     # combined content string when per-output texts weren't captured).
     audit_outputs = run_data.get("audit_outputs") or ([content] if content else [])
-    sub_in, sub_out = _sub_agent_tokens(audit_outputs)
+    sub_in, sub_out = sum_sub_agent_tokens(audit_outputs)
 
     input_tokens = outer_in + sub_in
     output_tokens = outer_out + sub_out
