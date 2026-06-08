@@ -176,11 +176,9 @@ def search_web(query: str = "") -> str:
             query=query,
             search_depth="advanced",
             max_results=3,
-            include_answer=True,
+            include_answer=False,
         )
         parts = []
-        if response.get("answer"):
-            parts.append(f"Summary: {response['answer']}")
         for result in response.get("results", [])[:3]:
             parts.append(f"Source: {result.get('title', '')}\nURL: {result.get('url', '')}\n{result.get('content', '')[:500]}")
         return "\n\n".join(parts) if parts else "No results found."

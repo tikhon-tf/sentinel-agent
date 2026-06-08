@@ -23,6 +23,7 @@ Rules:
 - Every tool call MUST include a non-empty `query` (or appropriate arguments). Never call a tool with empty arguments.
 - Issue MULTIPLE retrievals when the question spans multiple regulations or editions — one call per framework. Naive single-shot retrieval is insufficient.
 - Cite the regulation and section for every factual claim.
+- When citing a specific regulatory document (bulletin number, signed bill ID, dated speech, official audit), the citation MUST include a URL that came from a `search_web` `Source:` line. Do not cite document numbers or specific dates that only appear in a search_web summary without a corresponding URL.
 - If the question asks whether a specific SOP complies, end your final answer with a line in this exact form:
 
   Compliance level: <compliant|partial|gap>
