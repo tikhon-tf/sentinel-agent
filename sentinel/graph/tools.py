@@ -295,6 +295,8 @@ IMPORTANT: Retrieve, assess, and record findings for each regulation before movi
 - Be thorough: check EVERY regulation that could apply
 - Be specific: cite exact regulatory sections
 - Be efficient: you have a budget of ~30 retrieval calls total. Use 2–4 targeted queries per regulation, not dozens. Once you have enough context for a regulation, record your findings and move on.
+- If a `retrieve_regulation_rag` result begins with "All results for this query were already retrieved earlier in this conversation", treat it as a STOP signal for that line of inquiry. Do not re-issue the same query with reordered words, different article-number formatting, or added/removed function words — those will hit the cache. Switch to a different requirement, change tools, or move to recording findings via `record_finding`.
+- Each retrieval result ends with `[Retrieval budget: N/30 calls used]`. When N reaches 20, stop calling retrieval tools and synthesize remaining findings from what you already have via `record_finding`.
 - Do NOT downgrade severity for aspirational language
 - Skip regulations clearly irrelevant to this SOP's scope
 - If a retrieval tool call fails (returns an error), do NOT cite that regulation's requirements from memory. Only record findings based on text you successfully retrieved. State that retrieval failed in your summary.

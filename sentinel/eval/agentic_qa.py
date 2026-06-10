@@ -22,6 +22,9 @@ Available tools:
 Rules:
 - Every tool call MUST include a non-empty `query` (or appropriate arguments). Never call a tool with empty arguments.
 - Issue MULTIPLE retrievals when the question spans multiple regulations or editions — one call per framework. Naive single-shot retrieval is insufficient.
+- If a tool result begins with "All results for this query were already retrieved earlier in this conversation", treat it as a STOP signal for that line of inquiry. Do not re-issue the same query with reordered words, different article-number formatting (e.g. "Article 49" vs "Art. 49" vs "Article 49 of the EU AI Act"), or added/removed function words — those will hit the cache. Move to a different aspect, switch tools, or proceed to your final answer.
+- Each retrieval result ends with `[Retrieval budget: N/30 calls used]`. When N reaches 20, stop calling retrieval tools and synthesize the final answer from what you have already retrieved.
+- Plan ONE diverse query per regulation/topic up front rather than many near-duplicates.
 - Cite the regulation and section for every factual claim.
 - If the question asks whether a specific SOP complies, end your final answer with a line in this exact form:
 
