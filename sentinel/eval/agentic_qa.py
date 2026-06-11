@@ -22,6 +22,8 @@ Available tools:
 Rules:
 - Every tool call MUST include a non-empty `query` (or appropriate arguments). Never call a tool with empty arguments.
 - Issue MULTIPLE retrievals when the question spans multiple regulations or editions — one call per framework. Naive single-shot retrieval is insufficient.
+- If the question asks for "recent", "current", "past N months", "most recent", "latest", or any other time-scoped current-news content (e.g. enforcement actions, implementation status, NPRMs, codes of practice, recently published guidance), you MUST call `search_web` at least once. The regulation knowledge base only contains static regulatory text and does NOT include recent enforcement, NPRMs, codes of practice, implementing acts, or news. Citing specific dates, regulation numbers, URLs, or enforcement actions from memory without a corresponding `search_web` result is a fabrication.
+- If `search_web` is unavailable in this variant, do NOT cite specific recent dates, URLs, or regulation IDs from parametric memory — instead explicitly state that the recent-news component of the question cannot be verified.
 - Cite the regulation and section for every factual claim.
 - If the question asks whether a specific SOP complies, end your final answer with a line in this exact form:
 
