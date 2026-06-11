@@ -246,7 +246,14 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
             regs = [regulation] if regulation else None
             chunks = retrieve_regulation_text(query, regulations=regs, top_k=15)
             if not chunks:
-                return f"No regulation text found for: {query}"
+                return (
+                    f"NO_RESULTS: The regulation knowledge base contains no chunk matching query '{query}'"
+                    + (f" with regulation filter '{regulation}'" if regulation else "")
+                    + ". This is the authoritative answer — do NOT cite regulations, CFR sections, or source URLs you did not retrieve. "
+                    + "Either (a) re-query with different wording or drop the regulation filter, "
+                    + "(b) call search_web for a primary source, or "
+                    + "(c) tell the user the knowledge base does not contain this material."
+                )
             context = format_regulation_context(chunks)
             return f"Retrieved {len(chunks)} sections:\n{context}"
         except Exception as e:
