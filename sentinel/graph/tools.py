@@ -20,6 +20,46 @@ from sentinel.config import PINECONE_API_KEY, TAVILY_API_KEY
 from sentinel.models import AuditFinding, ComplianceLevel, Severity
 from sentinel.token_accounting import format_sub_agent_tokens, format_total_tokens
 
+
+_REGULATION_KEYWORDS = (
+    "SR 26-2",
+    "SR 11-7",
+    "HIPAA",
+    "SOC 2",
+    "GDPR",
+    "NIST AI RMF",
+    "EU AI Act",
+    "FDA 21 CFR",
+    "California AB 853",
+)
+
+
+def _infer_requested_regulation(regulation: str, query: str) -> str | None:
+    """Return the regulation the caller asked about, from the filter arg or query text."""
+    if isinstance(regulation, str) and regulation.strip():
+        return regulation.strip()
+    if not isinstance(query, str):
+        return None
+    q = query.lower()
+    for kw in _REGULATION_KEYWORDS:
+        if kw.lower() in q:
+            return kw
+    return None
+
+
+_ARTICLE_SECTION_RE = re.compile(
+    r"(?:\b(?:Article|Articles|Art\.|Section|Sections|Sec\.)|§)\s*([0-9]+(?:\.[0-9]+)*[A-Za-z]?)",
+    re.IGNORECASE,
+)
+
+
+def _extract_article_section(query: str) -> str | None:
+    """Return the first article/section identifier mentioned in the query, if any."""
+    if not isinstance(query, str):
+        return None
+    m = _ARTICLE_SECTION_RE.search(query)
+    return m.group(0) if m else None
+
 class SopAuditResult(NamedTuple):
     """Per-SOP audit outcome, returned by value rather than accumulated in a
     module-level dict. Returning results means concurrent sub-agent workers and
@@ -248,7 +288,40 @@ def _build_subagent_tools(sop_text: str, sop_id: str, sop_title: str, use_tavily
             if not chunks:
                 return f"No regulation text found for: {query}"
             context = format_regulation_context(chunks)
-            return f"Retrieved {len(chunks)} sections:\n{context}"
+            requested = _infer_requested_regulation(regulation, query)
+            chunk_regs = [(c.get("regulation") if isinstance(c, dict) else getattr(c, "regulation", "")) or "" for c in chunks]
+            counts: dict[str, int] = {}
+            for r in chunk_regs:
+                counts[r] = counts.get(r, 0) + 1
+            warnings: list[str] = []
+            if requested:
+                matched = sum(1 for r in chunk_regs if requested.lower() in r.lower())
+                if matched == 0:
+                    summary = ", ".join(f"{r} ({n})" for r, n in counts.items() if r) or "unlabeled chunks"
+                    warnings.append(
+                        f"WARNING: query targeted '{requested}' but 0 of {len(chunks)} "
+                        f"retrieved sections are from {requested}. Retrieved sections "
+                        f"are from: {summary}. Treat these as adjacent context only — "
+                        f"do NOT cite section numbers, footnotes, attachments, or quoted "
+                        f"text from these chunks as if they were {requested}."
+                    )
+            requested_section = _extract_article_section(query)
+            if requested_section:
+                sec_token = requested_section.lower()
+                chunk_sections = [(c.get("section") if isinstance(c, dict) else getattr(c, "section", "")) or "" for c in chunks]
+                chunk_texts = [(c.get("text") if isinstance(c, dict) else getattr(c, "text", "")) or "" for c in chunks]
+                section_hit = any(sec_token in s.lower() for s in chunk_sections) or any(
+                    sec_token in t.lower() for t in chunk_texts
+                )
+                if not section_hit:
+                    warnings.append(
+                        f"WARNING: query referenced '{requested_section}' but no retrieved "
+                        f"section heading or chunk text contains that identifier. Do NOT "
+                        f"cite '{requested_section}' (or paragraphs/footnotes within it) as "
+                        f"if its text were retrieved."
+                    )
+            warning_block = ("\n\n".join(warnings) + "\n\n") if warnings else ""
+            return f"{warning_block}Retrieved {len(chunks)} sections:\n{context}"
         except Exception as e:
             return f"RAG retrieval failed: {e}"
 
