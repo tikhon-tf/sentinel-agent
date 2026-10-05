@@ -31,6 +31,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from langgraph_sdk import get_sync_client
 
@@ -65,6 +66,16 @@ REGULATIONS_DIR = PROJECT_ROOT / "data" / "regulations"
 # Leave empty for local dev to disable the gate. TLS + rate limiting are
 # expected to be handled by the reverse proxy / load balancer in front.
 UI_API_KEY = os.environ.get("UI_API_KEY", "")
+
+# Hostnames the UI answers to (comma-separated, matched against the Host header
+# without port; "*.example.com" wildcards allowed). Requests with any other Host
+# are rejected with 400 before reaching the app. Add your public hostname when
+# exposing the UI.
+UI_ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.environ.get("UI_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h.strip()
+]
 
 LANGGRAPH_URL = os.environ.get("LANGGRAPH_URL", "http://localhost:2024")
 LANGSMITH_API_KEY = os.environ.get("LANGSMITH_API_KEY", "")
@@ -127,6 +138,24 @@ if not UI_API_KEY:
     raise SystemExit(1)
 
 
+def _route_path(scope: dict[str, Any]) -> str:
+    """The path the router dispatches on: scope["path"] minus root_path.
+
+    Mirrors Starlette's routing. Never use request.url.path for access control —
+    it is rebuilt from the client-supplied Host header, so a Host containing
+    "?", "#" or "/" makes it disagree with the path the router matches.
+    """
+    path = scope["path"]
+    root_path = scope.get("root_path", "")
+    if root_path and path.startswith(root_path) and path[len(root_path):len(root_path) + 1] in ("", "/"):
+        return path[len(root_path):]
+    return path
+
+
+def _is_protected(path: str) -> bool:
+    return (path == "/api" or path.startswith("/api/")) and path != "/api/health"
+
+
 @app.middleware("http")
 async def _require_api_key(request: Request, call_next):
     """Gate every /api/* call behind the shared X-API-Key, except the LB health probe.
@@ -135,13 +164,22 @@ async def _require_api_key(request: Request, call_next):
     gate always enforces. The check runs before any route handler, so no agent
     run / LangGraph thread is started for an unauthorized caller. Constant-time
     comparison avoids a timing side-channel.
+
+    The decision is taken on the ASGI path (both raw and root_path-stripped, so
+    it fails closed whichever one the router matches on), never on a value
+    derived from request headers.
     """
-    path = request.url.path
-    if path.startswith("/api/") and path != "/api/health":
+    scope_path = request.scope["path"]
+    if _is_protected(scope_path) or _is_protected(_route_path(request.scope)):
         provided = request.headers.get("x-api-key", "")
         if not secrets.compare_digest(provided, UI_API_KEY):
             return JSONResponse({"detail": "invalid or missing API key"}, status_code=401)
     return await call_next(request)
+
+
+# Added last so it is the outermost middleware: an unexpected Host header is
+# rejected before the API-key gate or any route sees the request.
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=UI_ALLOWED_HOSTS)
 
 
 @app.get("/api/auth-check")

@@ -114,7 +114,8 @@ make deploy       # Deploy to LangGraph Cloud
 
 **Exposing the UI publicly:** `make ui` binds `0.0.0.0:8080`. Before putting it on
 a public address, set a strong `UI_API_KEY` (e.g. `openssl rand -hex 32`) to gate
-the API, and front the server with a reverse proxy / load balancer that
+the API, add the public hostname to `UI_ALLOWED_HOSTS` (other Host headers are
+rejected with 400), and front the server with a reverse proxy / load balancer that
 terminates **TLS** and applies **rate limiting** — those are intentionally left to
 the proxy layer rather than the app.
 
@@ -285,6 +286,7 @@ Compliance level distribution: 170 compliant (40%), 161 partial (38%), 89 gap (2
 | `JIRA_PROJECT_KEY` | For Jira | Target Jira project key (e.g. `SENT`) |
 | `LANGGRAPH_URL` | Optional | Override UI backend URL |
 | `UI_API_KEY` | Yes (UI) | Shared secret that gates the UI's `/api/*` endpoints. The UI **refuses to start** without it (even locally); every API call must supply a matching `X-API-Key`. Generate with `openssl rand -hex 32`. |
+| `UI_ALLOWED_HOSTS` | Optional (UI) | Comma-separated hostnames the UI accepts in the `Host` header (default `localhost,127.0.0.1`; `*.example.com` wildcards allowed). Requests for any other host get 400. Add your public hostname when exposing the UI. |
 
 ## Cost
 
