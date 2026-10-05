@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -121,7 +121,20 @@ PARALLEL_AGENTS = [
      "graph_id": "sentinel_nemotron", "model": "nvidia/Nemotron-3-Ultra-550b-a55b"},
 ]
 
-app = FastAPI(title="Sentinel UI", version="0.1.0")
+def _api_key_dependency(request: Request) -> None:
+    """Routing-bound copy of the X-API-Key gate, run for every API route.
+
+    Unlike the middleware below it does not re-derive the path: it runs only
+    after the router matched a route, and exempts the health probe by matched
+    endpoint, so it cannot disagree with dispatch on any Starlette version.
+    """
+    if request.scope.get("endpoint") is health:
+        return
+    if not secrets.compare_digest(request.headers.get("x-api-key", ""), UI_API_KEY):
+        raise HTTPException(status_code=401, detail="invalid or missing API key")
+
+
+app = FastAPI(title="Sentinel UI", version="0.1.0", dependencies=[Depends(_api_key_dependency)])
 
 if not UI_API_KEY:
     # Fail closed: the UI must never run without a key, even locally. Refusing to
